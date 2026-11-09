@@ -268,7 +268,7 @@
       <td><select data-chg="role:${p.id}" ${L.auto || c.vac > 0 ? 'disabled' : ''}>${['xi', 'bench', 'out'].map((r) => `<option value="${r}" ${role(p) === r ? 'selected' : ''}>${t('role_' + r)}</option>`).join('')}</select></td>
       <td>${starTag(p)}${esc(p.n)}${p.listed ? ` <span class="chip">${t('listed')}</span>` : ''}${p.loan ? ` <span class="chip loan">${t('loan_from', { club: cname(p.loan.owner) })}</span>` : ''}</td><td>${posTag(p.pos)}</td><td>${p.age}</td><td>${ovTag(p.ovr)}</td><td class="mut">${p.age < 28 ? p.pot : '-'}</td>
       <td class="r">${money(p.wage)}</td><td>${t('yr_n', { n: p.ct })}</td><td class="r">${mc(E.value(p))}</td><td>${p.g}/${p.ap}</td><td>${statusOf(p)}</td>
-      <td class="act">${p.loan ? '' : `<button class="btn sm" data-act="${p.listed ? 'unlist' : 'list'}:${p.id}">${p.listed ? t('unlist') : t('list_sale')}</button> <button class="btn sm" data-act="renew:${p.id}">${t('renew')}</button> <button class="btn sm" data-act="reneg:${p.id}">${t('renegotiate')}</button> <button class="btn sm" data-act="loanout:${p.id}">${t('loan_out_btn')}</button> <button class="btn sm" data-act="sellnow:${p.id}">${t('sell_now')}</button> <button class="btn sm dng" data-act="release:${p.id}">${t('release')}</button>`}</td></tr>`);
+      <td class="act">${p.loan ? '' : `<select class="actsel" data-chg="act:${p.id}"><option value="">${t('actions')}</option><option value="${p.listed ? 'unlist' : 'list'}">${p.listed ? t('unlist') : t('list_sale')}</option><option value="renew">${t('renew')}</option><option value="reneg">${t('renegotiate')}</option><option value="loanout">${t('loan_out_btn')}</option><option value="sellnow">${t('sell_now')}</option><option value="release">${t('release')}</option></select>`}</td></tr>`);
     return `<div class="card"><div class="row"><label>${t('formation')} <select data-chg="form">${Object.keys(Game.FORMS).map((f) => `<option ${L.form === f ? 'selected' : ''}>${f}</option>`).join('')}</select></label>
       <label>${t('tactic')} <select data-chg="tactic">${['def', 'bal', 'att'].map((k) => `<option value="${k}" ${L.tactic === k ? 'selected' : ''}>${t('tac_' + k)}</option>`).join('')}</select></label>
       <label><input type="checkbox" data-chg="auto" ${L.auto || c.vac > 0 ? 'checked' : ''} ${c.vac > 0 ? 'disabled' : ''}> ${t('auto_pick')}</label>
@@ -691,6 +691,11 @@
     }
     if (k === 'lgdiv') { UI.lgDiv = +el.value; return render(); }
     if (k.startsWith('f:')) { UI.f[k.slice(2)] = el.type === 'checkbox' ? el.checked : el.value; return render(); }
+    if (k.startsWith('act:')) {
+      const v = el.value; el.value = '';
+      if (v) onClick({ target: { closest: () => ({ dataset: { act: v + ':' + k.slice(4) } }) } });
+      return;
+    }
     if (k === 'theme') { localStorage.setItem(THEMEK, el.value); return render(); }
     if (k === 'live-tac') { const L = UI.live; L.mt.setTactic(L.side, el.value); return; }
     const c = co();

@@ -357,6 +357,7 @@
     n_resigned: [`You resigned from {club}.`, `Tu as démissionné de {club}.`, `Você pediu demissão do {club}.`, `Du bist bei {club} zurückgetreten.`],
     n_hired: [`You are the new coach of {club}.`, `Tu es le nouvel entraîneur de {club}.`, `Você é o novo treinador do {club}.`, `Du bist der neue Trainer von {club}.`],
     n_board_warn: [`The board is losing patience with you.`, `Le conseil perd patience.`, `A diretoria está perdendo a paciência.`, `Der Vorstand verliert die Geduld.`],
+    actions: [`Actions`, `Actions`, `Ações`, `Aktionen`],
     // ---- v0.2: european cup
     tab_europe: [`Europe`, `Europe`, `Europa`, `Europa`],
     eu_title: [`European Champions Cup`, `Coupe des champions d'Europe`, `Liga dos Campeões`, `Europäischer Meisterpokal`],

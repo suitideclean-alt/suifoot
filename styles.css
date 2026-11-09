@@ -124,3 +124,5 @@ select:focus,input:focus{outline:2px solid var(--acc);outline-offset:-1px}
 .tag{display:inline-block;font-size:.72rem;padding:1px 7px;border-radius:6px;background:var(--bg3);color:var(--mut)}
 .perk{display:flex;gap:8px;align-items:flex-start;margin:4px 0;font-size:.88rem}
 @media(max-width:600px){.grid{grid-template-columns:1fr}.form .line{grid-template-columns:1fr}.score{font-size:1.7rem}.mm .line{grid-template-columns:80px 1fr 70px}}
+
+.tbl td.act{min-width:0;white-space:nowrap}.actsel{padding:3px 6px;font-size:.8rem;max-width:120px}
