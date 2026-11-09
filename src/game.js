@@ -18,6 +18,7 @@
   Game.players = (G, club) => club.squad.map((id) => G.players[id]);
   Game.income = function (G, cid, amt, kind, memo) {
     const c = G.clubs[cid];
+    if (c.foreign) return 0;
     const a = B.credit(G, cid, amt, kind, memo);
     c.rev += a;
     return a;
@@ -26,11 +27,23 @@
   Game.level = (xp) => Math.floor(Math.sqrt(Math.max(0, xp) / 60)) + 1;
   Game.freePoints = (c) => Game.level(c.xp) - 1 - (c.sk.train + c.sk.tact + c.sk.neg + c.sk.youth);
   Game.repStrength = (rep) => 46 + rep * 0.3;
+  Game.repTier = (rep) => (rep < 20 ? 0 : rep < 40 ? 1 : rep < 60 ? 2 : rep < 80 ? 3 : 4);
+  Game.repSponsor = (rep) => util.clamp(1 + 0.0015 * (rep - 20), 0.97, 1.12); // sponsors like famous coaches
+  Game.addRep = function (G, co, d, k, x) {
+    d = Math.round(d * 100) / 100;
+    if (!d) return;
+    co.rep = util.clamp(co.rep + d, 0, 100);
+    co.replog = co.replog || [];
+    const e = co.replog.find((r) => r.s === G.season && r.k === k && (!x || r.x === x));
+    if (e) e.d = Math.round((e.d + d) * 100) / 100;
+    else co.replog.push({ s: G.season, k, d, x: x || '' });
+    if (co.replog.length > 60) co.replog.splice(0, co.replog.length - 60);
+  };
 
   function makeCoach(G, name, id) {
     return {
       id, name, club: null, rep: 20, xp: 0, board: 60, jobWeeks: 0, unemp: 0, sk: { train: 0, tact: 0, neg: 0, youth: 0 },
-      lineup: { auto: true, form: '4-4-2', tactic: 'bal', xi: [], bench: [] }, offers: [], hist: [], trophies: [], sacked: 0, nextOffer: 1,
+      lineup: { auto: true, form: '4-4-2', tactic: 'bal', xi: [], bench: [] }, offers: [], hist: [], trophies: [], sacked: 0, nextOffer: 1, vac: 0, vacReport: null, replog: [],
     };
   }
 
@@ -65,6 +78,18 @@
   Game.deserialize = function (s) {
     const G = JSON.parse(s);
     SF.setG(G);
+    Game.migrate(G);
+    return G;
+  };
+  // saves from v0.1 get the foreign clubs; the European cup is played from the next season on
+  Game.migrate = function (G) {
+    if (!G.euIds) {
+      G.euIds = [];
+      let idx = 200;
+      for (let i = 0; i < CFG.EU_FOREIGN; i++) G.euIds.push(W.makeForeign(G, idx++, i % CFG.euNat.length).id);
+      delete G._usedNames;
+    }
+    if (!G.eu) { G.eu = null; if (G.divs) setupEuro(G, true); G.eu.idle = 1; }
     return G;
   };
 
@@ -96,7 +121,7 @@
       G.table[id] = { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 };
       c.rev = 0; c.form = []; c.cupRound = 0; c.nextDiv = c.div;
     }
-    for (const pid in G.players) { const p = G.players[pid]; p.g = 0; p.ap = 0; }
+    for (const pid in G.players) { const p = G.players[pid]; p.g = 0; p.gl = 0; p.ap = 0; }
     const rr = G.divs.map((ids) => roundRobin(ids));
     G.sched = [];
     let md = 0, cup = 0;
@@ -105,6 +130,8 @@
       rr.forEach((rounds, d) => { fx[d] = rounds[m - 1]; });
       G.sched.push({ t: 'L', md: m, fx });
       if (CFG.CUP_AFTER.includes(m)) G.sched.push({ t: 'C', r: cup++ });
+      const ei = CFG.EU_AFTER.indexOf(m);
+      if (ei >= 0) G.sched.push({ t: 'E', s: ei });
     }
     G.cup = { alive: G.clubIds.slice(), round: 0, drawn: -1, matches: [], byes: [], winner: null, finalist: null, hist: [] };
     for (let d = 0; d < CFG.DIVS; d++) {
@@ -112,8 +139,82 @@
       sorted.forEach((id, i) => { G.clubs[id].target = i + 1; });
     }
     G.week = 1; G.phase = 'play'; G.wk = null; G.summary = null;
+    setupEuro(G);
     for (const c of G.coaches) { c.startRep = c.rep; }
   };
+
+  // ---------- european cup: 4 domestic qualifiers + 12 foreign clubs, 4 groups of 4, then QF / SF / final ----------
+  function setupEuro(G, silent) {
+    let q = (G.euroQ || []).filter((id) => G.clubs[id]);
+    if (q.length < CFG.EU_SLOTS) q = G.divs[0].slice().sort((a, b) => E.strength(G, G.clubs[b]) - E.strength(G, G.clubs[a])).slice(0, CFG.EU_SLOTS);
+    const teams = R.shuffle(q.concat(G.euIds));
+    const groups = [];
+    for (let g = 0; g < 4; g++) groups.push(teams.slice(g * 4, g * 4 + 4));
+    const rr = groups.map((ids) => roundRobin(ids));
+    const fix = [];
+    for (let md = 0; md < 6; md++) fix.push([].concat(...rr.map((r) => r[md])));
+    const tab = {};
+    for (const id of teams) tab[id] = { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 };
+    G.eu = { q, groups, fix, tab, ko: { ms: [], alive: [] }, hist: [], winner: null, finalist: null, paid: {}, reach: {} };
+    for (const id of teams) G.eu.reach[id] = 0;
+    if (!silent) for (const id of q) payEu(G, id, CFG.euPartic);
+  }
+  function payEu(G, id, amt) {
+    const c = G.clubs[id];
+    if (!c || c.foreign) return;
+    Game.income(G, id, amt, 'prize');
+    G.eu.paid[id] = (G.eu.paid[id] || 0) + Math.round(amt);
+  }
+  Game.euStandings = function (G, gi) {
+    const t = G.eu.tab;
+    return G.eu.groups[gi].slice().sort((a, b) => t[b].pts - t[a].pts || (t[b].gf - t[b].ga) - (t[a].gf - t[a].ga) || t[b].gf - t[a].gf || (a < b ? -1 : 1));
+  };
+  function euFixtures(G, s) {
+    const eu = G.eu;
+    if (s < 6) return eu.fix[s];
+    const idx = s - 6;
+    if (!eu.ko.ms[idx]) {
+      if (idx === 0) {
+        const st = [0, 1, 2, 3].map((g) => Game.euStandings(G, g));
+        eu.ko.ms[0] = [[st[0][0], st[1][1]], [st[1][0], st[0][1]], [st[2][0], st[3][1]], [st[3][0], st[2][1]]];
+      } else {
+        const al = eu.ko.alive, ms = [];
+        for (let i = 0; i + 1 < al.length; i += 2) ms.push([al[i], al[i + 1]]);
+        eu.ko.ms[idx] = ms;
+      }
+    }
+    return eu.ko.ms[idx];
+  }
+  Game.euFixtures = euFixtures;
+  function advanceEuro(G, wk) {
+    const eu = G.eu, s = wk.es;
+    const winners = [];
+    for (const m of wk.matches) {
+      const r = m.res;
+      if (s < 6) {
+        const th = eu.tab[m.h], ta = eu.tab[m.a];
+        th.p++; ta.p++; th.gf += r.hg; th.ga += r.ag; ta.gf += r.ag; ta.ga += r.hg;
+        if (r.hg > r.ag) { th.w++; ta.l++; th.pts += 3; payEu(G, m.h, CFG.euWin); }
+        else if (r.hg < r.ag) { ta.w++; th.l++; ta.pts += 3; payEu(G, m.a, CFG.euWin); }
+        else { th.d++; ta.d++; th.pts++; ta.pts++; payEu(G, m.h, CFG.euDraw); payEu(G, m.a, CFG.euDraw); }
+      } else {
+        const hw = r.hg > r.ag || (r.hg === r.ag && r.p && r.p[0] > r.p[1]);
+        const w = hw ? m.h : m.a, l = hw ? m.a : m.h;
+        winners.push(w);
+        eu.reach[w] = s - 6 + 2; // won QF -> reached SF (2), won SF -> final (3), won final -> champion (4)
+        eu.reach[l] = Math.max(eu.reach[l], s - 6 + 1);
+        payEu(G, w, [CFG.euSF, CFG.euFinal, CFG.euWinner][s - 6]);
+        if (s === 8) { eu.winner = w; eu.finalist = l; payEu(G, l, CFG.euFinal * 0.5); }
+      }
+    }
+    if (s < 6) {
+      eu.hist.push({ s, ms: wk.matches.map((m) => ({ h: m.h, a: m.a, hg: m.res.hg, ag: m.res.ag })) });
+      if (s === 5) for (let g = 0; g < 4; g++) for (const id of Game.euStandings(G, g).slice(0, 2)) { eu.reach[id] = 1; payEu(G, id, CFG.euQF); }
+    } else {
+      eu.hist.push({ s, ms: wk.matches.map((m) => ({ h: m.h, a: m.a, hg: m.res.hg, ag: m.res.ag, p: m.res.p })) });
+      eu.ko.alive = winners;
+    }
+  }
 
   // ---------- lineups ----------
   function avail(G, club) { return club.squad.map((id) => G.players[id]).filter((p) => p.inj <= 0 && p.sus <= 0); }
@@ -122,9 +223,12 @@
     const f = FORMS[form] || FORMS['4-4-2'];
     const av = avail(G, club).sort((a, b) => b.ovr - a.ovr);
     const xi = [];
-    const take = (pos, n) => { for (const p of av) { if (n <= 0) break; if (p.pos === pos && !xi.includes(p)) { xi.push(p); n--; } } };
+    const isS = (p) => p.ovr >= CFG.starOvr;
+    const stars = () => xi.filter(isS).length;
+    // the auto-picker never fields more stars than the dressing room can handle
+    const take = (pos, n) => { for (const p of av) { if (n <= 0) break; if (p.pos === pos && !xi.includes(p) && !(isS(p) && stars() >= CFG.starFree)) { xi.push(p); n--; } } };
     take('GK', 1); take('DF', f[0]); take('MF', f[1]); take('FW', f[2]);
-    for (const p of av) { if (xi.length >= 11) break; if (!xi.includes(p) && p.pos !== 'GK') xi.push(p); }
+    for (const p of av) { if (xi.length >= 11) break; if (!xi.includes(p) && p.pos !== 'GK' && !(isS(p) && stars() >= CFG.starFree)) xi.push(p); }
     for (const p of av) { if (xi.length >= 11) break; if (!xi.includes(p)) xi.push(p); }
     const rest = av.filter((p) => !xi.includes(p));
     const bench = [];
@@ -158,7 +262,7 @@
       const L = coach.lineup;
       tactic = L.tactic; tb = coach.sk.tact;
       const auto = pickXI(G, club, L.form);
-      if (L.auto) { xi = auto.xi; bench = auto.bench; }
+      if (L.auto || coach.vac > 0) { xi = auto.xi; bench = auto.bench; }
       else {
         const ok = (id) => { const p = G.players[id]; return p && p.club === clubId && p.inj <= 0 && p.sus <= 0; };
         xi = [...new Set(L.xi.filter(ok))].slice(0, 11);
@@ -206,19 +310,21 @@
     const sw = G.sched[G.week - 1];
     const matches = [];
     let id = 0;
-    for (const cid of G.clubIds) ensureSquad(G, G.clubs[cid]);
-    if (sw.t === 'L') {
+    for (const cid of G.clubIds.concat(G.euIds)) ensureSquad(G, G.clubs[cid]);
+    if (sw.t === 'E') {
+      for (const [h, a] of euFixtures(G, sw.s)) matches.push({ id: id++, k: 'E', s: sw.s, h, a, res: null });
+    } else if (sw.t === 'L') {
       for (const d in sw.fx) for (const [h, a] of sw.fx[d]) matches.push({ id: id++, k: 'L', div: +d, h, a, res: null });
     } else {
       drawCup(G);
       for (const cm of G.cup.matches) matches.push({ id: id++, k: 'C', r: G.cup.round, h: cm.h, a: cm.a, res: null });
     }
-    G.wk = { w: G.week, s: G.season, t: sw.t, md: sw.md || 0, r: sw.r != null ? sw.r : -1, matches };
+    G.wk = { w: G.week, s: G.season, t: sw.t, md: sw.md || 0, r: sw.r != null ? sw.r : -1, es: sw.t === 'E' ? sw.s : -1, matches };
     return G.wk;
   };
 
   Game.buildMatch = function (G, m) {
-    return new SF.Match(G, Game.specFor(G, m.h), Game.specFor(G, m.a), { knockout: m.k === 'C', neutral: m.k === 'C' && m.r === 5 });
+    return new SF.Match(G, Game.specFor(G, m.h), Game.specFor(G, m.a), { knockout: m.k === 'C' || (m.k === 'E' && m.s >= 6), neutral: (m.k === 'C' && m.r === 5) || (m.k === 'E' && m.s === 8) });
   };
 
   Game.simMatch = function (G, m, mt) {
@@ -245,7 +351,7 @@
     for (const e of s.events) {
       const p = G.players[e.pid];
       if (!p) continue;
-      if (e.t === 'goal') { p.g++; p.gt++; ev.push([e.min, 'g', e.side, p.n, e.pid2 ? nm(e.pid2) : '']); }
+      if (e.t === 'goal') { p.g++; p.gt++; if (m.k === 'L') p.gl = (p.gl || 0) + 1; ev.push([e.min, 'g', e.side, p.n, e.pid2 ? nm(e.pid2) : '']); }
       else if (e.t === 'yellow') {
         p.yc++;
         if (p.yc >= 5) { p.yc = 0; p.sus = Math.max(p.sus, 1); p._f = 1; if (G.clubs[p.club] && G.clubs[p.club].human) Game.news(G, 'n_suspended', { name: p.n }, G.clubs[p.club].human); }
@@ -266,10 +372,14 @@
     const att = attendance(hc);
     m.res = { hg: s.hg, ag: s.ag, p: s.pens ? [s.pens.h, s.pens.a] : null, et: s.et ? 1 : 0, ev, hs: s.hs, as: s.as, hp: s.hp, att };
     // gate
-    if (m.k === 'C' && m.r === 5) {
+    if ((m.k === 'C' && m.r === 5) || (m.k === 'E' && m.s === 8)) {
       const gate = Math.round(45000 * 4 * 0.5);
       Game.income(G, m.h, gate, 'gate'); Game.income(G, m.a, gate, 'gate');
       m.res.att = 45000;
+    } else if (m.k === 'E') {
+      // european nights fill the stadium
+      m.res.att = hc.cap;
+      Game.income(G, m.h, hc.cap * hc.price * CFG.euGate, 'gate');
     } else {
       Game.income(G, m.h, att * hc.price, 'gate');
     }
@@ -298,6 +408,8 @@
     if (m.k === 'L') {
       const exp = util.clamp(1.35 + (own - opp) * 0.06 + (home ? 0.15 : -0.15), 0.2, 2.6);
       coach.board = util.clamp(coach.board + (pts - exp) * 1.6, 0, 100);
+      if (pts === 3 && own < opp - 4) Game.addRep(G, coach, 0.25, 'upset');
+      else if (pts === 0 && own > opp + 4) Game.addRep(G, coach, -0.25, 'flop');
     } else {
       coach.board = util.clamp(coach.board + (pts === 3 ? 1.5 : -1), 0, 100);
     }
@@ -309,7 +421,8 @@
     const wages = util.sum(club.squad.map((id) => G.players[id].wage));
     B.debit(G, club.id, wages, 'wages');
     Game.income(G, club.id, CFG.tvWeekly[club.div], 'tv');
-    Game.income(G, club.id, CFG.sponsorWeekly[club.div] * Math.sqrt(club.fans / CFG.fans[club.div]), 'sponsor');
+    const co = Game.humanOf(G, club.id);
+    Game.income(G, club.id, CFG.sponsorWeekly[club.div] * Math.sqrt(club.fans / CFG.fans[club.div]) * (co ? Game.repSponsor(co.rep) : 1), 'sponsor');
     B.debit(G, club.id, club.cap * CFG.upkeepPerSeat, 'upkeep');
     B.payLoans(G, club.id);
     if (club.build) {
@@ -331,26 +444,31 @@
     const wk = G.wk;
     if (!wk) return;
     if (wk.t === 'C') advanceCup(G, wk);
-    for (const cid of G.clubIds) weeklyEconomy(G, G.clubs[cid]);
+    if (wk.t === 'E') advanceEuro(G, wk);
+    const eu = wk.t === 'E'; // european weeks: no wages / income tick, no market
+    if (!eu) for (const cid of G.clubIds) weeklyEconomy(G, G.clubs[cid]);
     for (const pid in G.players) {
       const p = G.players[pid];
       if (p._f) { delete p._f; continue; }
       if (p.inj > 0) p.inj--;
       if (p.sus > 0) p.sus--;
     }
-    SF.Actions.weeklyMarket(G);
-    SF.Actions.weeklyCareer(G);
-    for (const cid of G.clubIds) {
-      const club = G.clubs[cid];
-      if (!club.human) aiWeekly(G, club);
-      else if (B.bal(G, cid) < 0) {
-        const c = Game.humanOf(G, cid);
-        c.board = util.clamp(c.board - 1, 0, 100);
-        if (G.week % 4 === 0) Game.news(G, 'n_debt', { bal: Math.round(B.bal(G, cid)) }, c.id);
+    for (const co of G.coaches) if (co.vac > 0) co.vac--;
+    if (!eu) {
+      SF.Actions.weeklyMarket(G);
+      SF.Actions.weeklyCareer(G);
+      for (const cid of G.clubIds) {
+        const club = G.clubs[cid];
+        if (!club.human) aiWeekly(G, club);
+        else if (B.bal(G, cid) < 0) {
+          const c = Game.humanOf(G, cid);
+          c.board = util.clamp(c.board - 1, 0, 100);
+          if (G.week % 4 === 0) Game.news(G, 'n_debt', { bal: Math.round(B.bal(G, cid)) }, c.id);
+        }
       }
     }
     G.week++;
-    if (G.week > CFG.TOTAL_WEEKS) endSeason(G);
+    if (G.week > G.sched.length) endSeason(G);
     else if (G.sched[G.week - 1].t === 'C') drawCup(G);
   };
 
@@ -379,7 +497,7 @@
       if (!pool.length) { W.newFreeAgent(G, 36, 58, need || undefined); pool = [G.players[G.free[G.free.length - 1]]]; }
       const p = pool.sort((a, b) => b.ovr - a.ovr)[Math.min(pool.length - 1, R.int(0, 3))];
       G.free.splice(G.free.indexOf(p.id), 1);
-      p.club = club.id; p.ct = R.int(1, 3); p.wage = E.wageFor(p.ovr);
+      p.club = club.id; p.ct = R.int(1, 3); p.wage = E.wage(p);
       club.squad.push(p.id);
       B.debit(G, club.id, p.wage * 3, 'signing');
     }
@@ -388,8 +506,9 @@
   function aiSeasonStart(G, club) {
     // trim
     while (club.squad.length > 24) {
-      const sq = Game.players(G, club).sort((a, b) => a.ovr + (a.age < 22 ? a.pot * 0.3 : 0) - (b.ovr + (b.age < 22 ? b.pot * 0.3 : 0)));
+      const sq = Game.players(G, club).filter((q) => !q.loan).sort((a, b) => a.ovr + (a.age < 22 ? a.pot * 0.3 : 0) - (b.ovr + (b.age < 22 ? b.pot * 0.3 : 0)));
       const p = sq[0];
+      if (!p) break;
       releasePlayer(G, club, p, true);
     }
     // positional needs
@@ -405,9 +524,9 @@
       const sorted = Game.players(G, club).sort((a, b) => b.ovr - a.ovr);
       const bar = sorted[Math.min(12, sorted.length - 1)].ovr;
       const fa = G.free.map((id) => G.players[id]).filter((p) => p && p.ovr > bar + 2).sort((a, b) => b.ovr - a.ovr)[0];
-      if (fa && E.wageFor(fa.ovr) * 28 < B.bal(G, club.id) * 0.25) {
+      if (fa && E.wage(fa) * 28 < B.bal(G, club.id) * 0.25) {
         G.free.splice(G.free.indexOf(fa.id), 1);
-        fa.club = club.id; fa.ct = R.int(2, 3); fa.wage = E.wageFor(fa.ovr);
+        fa.club = club.id; fa.ct = R.int(2, 3); fa.wage = E.wage(fa);
         club.squad.push(fa.id);
         B.debit(G, club.id, fa.wage * 3, 'signing');
       }
@@ -422,7 +541,7 @@
         const oc = G.clubs[R.pick(G.clubIds)];
         if (oc === club || oc.human || oc.squad.length <= 19) continue;
         const p = G.players[R.pick(oc.squad)];
-        if (p.ovr <= bar + 1 || p.ovr > bar + 12) continue;
+        if (p.loan || p.ovr <= bar + 1 || p.ovr > bar + 12) continue;
         const fee = Math.round(E.value(p) * p.ask);
         if (fee > B.bal(G, club.id) * 0.5) continue;
         if (!best || p.ovr > best[0].ovr) best = [p, oc, fee];
@@ -435,7 +554,7 @@
     from.squad.splice(from.squad.indexOf(p.id), 1);
     to.squad.push(p.id);
     p.club = to.id; p.listed = 0;
-    p.wage = Math.max(E.wageFor(p.ovr), 40); p.ct = Math.max(p.ct, 2);
+    p.wage = Math.max(E.wage(p), 40); p.ct = Math.max(p.ct, 2);
     if (fee > 0) B.transfer(G, to.id, from.id, fee, 'transfer');
     from.rev += 0;
   }
@@ -495,8 +614,8 @@
   Game.topScorers = function (G, div, n) {
     const ids = new Set(G.divs[div]);
     const out = [];
-    for (const cid of ids) for (const pid of G.clubs[cid].squad) { const p = G.players[pid]; if (p.g > 0) out.push(p); }
-    return out.sort((a, b) => b.g - a.g || a.ap - b.ap).slice(0, n || 10);
+    for (const cid of ids) for (const pid of G.clubs[cid].squad) { const p = G.players[pid]; if (p.gl > 0) out.push(p); }
+    return out.sort((a, b) => b.gl - a.gl || a.ap - b.ap).slice(0, n || 10);
   };
 
   function endSeason(G) {
@@ -511,10 +630,11 @@
       Game.income(G, champ, CFG.prizeLeague[d], 'prize'); addPrize(summary, champ, CFG.prizeLeague[d], 'league', { d });
       const ts = Game.topScorers(G, d, 1)[0];
       if (ts) {
-        Game.income(G, ts.club, CFG.prizeScorer[d], 'prize'); addPrize(summary, ts.club, CFG.prizeScorer[d], 'scorer', { d, name: ts.n, g: ts.g });
-        hall.scorer.push({ name: ts.n, club: ts.club, g: ts.g }); summary.scorers.push({ d, name: ts.n, club: ts.club, g: ts.g });
-        if (G.clubs[ts.club].human) Game.news(G, 'n_scorer', { name: ts.n, g: ts.g }, G.clubs[ts.club].human);
+        Game.income(G, ts.club, CFG.prizeScorer[d], 'prize'); addPrize(summary, ts.club, CFG.prizeScorer[d], 'scorer', { d, name: ts.n, g: ts.gl });
+        hall.scorer.push({ name: ts.n, club: ts.club, g: ts.gl }); summary.scorers.push({ d, name: ts.n, club: ts.club, g: ts.gl });
+        if (G.clubs[ts.club].human) Game.news(G, 'n_scorer', { name: ts.n, g: ts.gl }, G.clubs[ts.club].human);
       } else { hall.scorer.push(null); summary.scorers.push(null); }
+      if (d === 0) { G.euroQ = st.slice(0, CFG.EU_SLOTS); summary.euQ = G.euroQ.slice(); }
       if (d > 0) {
         for (const id of st.slice(0, 2)) { G.clubs[id].nextDiv = d - 1; summary.promoted.push(id); Game.income(G, id, CFG.promoBonus[d], 'prize'); addPrize(summary, id, CFG.promoBonus[d], 'promo', { d }); }
       }
@@ -524,6 +644,13 @@
       G.clubs[G.cup.winner].cups++;
       Game.income(G, G.cup.winner, CFG.prizeCup, 'prize'); addPrize(summary, G.cup.winner, CFG.prizeCup, 'cup', {});
       Game.income(G, G.cup.finalist, CFG.prizeCup * 0.4, 'prize'); addPrize(summary, G.cup.finalist, CFG.prizeCup * 0.4, 'cupfinal', {});
+    }
+    summary.euro = { winner: G.eu.winner, finalist: G.eu.finalist, q: G.eu.q.slice(), reach: G.eu.reach };
+    hall.euro = G.eu.winner;
+    for (const id in G.eu.paid) {
+      const win = G.eu.winner === id ? CFG.euWinner : 0;
+      if (win) addPrize(summary, id, win, 'euwin', {});
+      if (G.eu.paid[id] - win > 0) addPrize(summary, id, G.eu.paid[id] - win, 'eu', { reach: G.eu.reach[id] });
     }
     for (const id of G.clubIds) {
       const c = G.clubs[id];
@@ -543,10 +670,19 @@
       if (club.nextDiv > club.div) delta -= 12;
       delta += club.cupRound * 1.5;
       co.board = util.clamp(co.board + delta, 0, 100);
-      let rep = (diff >= 0 ? 1 + diff * 0.8 : diff * 0.8) + (club.pos === 1 ? 5 : 0) + club.cupRound * 0.6;
-      if (club.nextDiv < club.div) rep += 3;
-      if (club.nextDiv > club.div) rep -= 4;
-      co.rep = util.clamp(Math.round(co.rep + rep), 0, 100);
+      Game.addRep(G, co, diff >= 0 ? 1 + diff * 0.8 : diff * 0.8, 'pos');
+      if (club.pos === 1) Game.addRep(G, co, 5, 'title');
+      if (club.nextDiv < club.div) Game.addRep(G, co, 3, 'promo');
+      if (club.nextDiv > club.div) Game.addRep(G, co, -4, 'rel');
+      if (club.cupRound > 0) Game.addRep(G, co, club.cupRound * 0.6, 'cup');
+      if (G.cup.winner === club.id) Game.addRep(G, co, 3, 'cupwin');
+      const er = G.eu.reach[club.id];
+      if (G.eu.q.includes(club.id) && !G.eu.idle) Game.addRep(G, co, [0.5, 1.5, 3, 5, 9][er], 'euro');
+      const bal = B.bal(G, club.id), debt = B.debtOf(G, club.id);
+      if (bal > 0 && debt === 0) Game.addRep(G, co, 0.5, 'fin');
+      else if (bal < 0 || debt > club.rev * 0.8) Game.addRep(G, co, -1.5, 'fin');
+      co.rep = util.clamp(Math.round(co.rep), 0, 100);
+      if (G.eu.winner === club.id) { co.xp += 250; co.trophies.push({ s: G.season, k: 'euro', club: club.id }); Game.news(G, 'n_eurowin', { club: club.name }, co.id); }
       if (club.pos === 1) { co.xp += 150; co.trophies.push({ s: G.season, k: 'league', d: club.div, club: club.id }); Game.news(G, 'n_champion', { club: club.name }, co.id); }
       if (G.cup.winner === club.id) { co.xp += 100; co.trophies.push({ s: G.season, k: 'cup', club: club.id }); Game.news(G, 'n_cupwin', { club: club.name }, co.id); }
       co.hist.push({ s: G.season, club: club.id, d: club.div, pos: club.pos, target: club.target, cup: club.cupRound });
@@ -563,8 +699,45 @@
     (sm.awards = sm.awards || []).push(Object.assign({ k: kind, club: id, amt: Math.round(amt) }, x));
   }
 
+  // loaned players go back to their owners when the loan runs out
+  function returnLoans(G) {
+    for (const pid in G.players) {
+      const p = G.players[pid];
+      if (!p.loan) continue;
+      if (--p.loan.left > 0) continue;
+      const from = G.clubs[p.club], to = G.clubs[p.loan.owner];
+      delete p.loan;
+      if (from) from.squad.splice(from.squad.indexOf(p.id), 1);
+      if (to) {
+        to.squad.push(p.id); p.club = to.id;
+        if (from && from.human) Game.news(G, 'n_loan_end', { name: p.n, club: to.name }, from.human);
+        if (to.human) Game.news(G, 'n_loan_back', { name: p.n, club: from ? from.name : '' }, to.human);
+      } else { p.club = null; G.free.push(p.id); }
+    }
+  }
+
+  // while the coach is on holiday the staff renews the contracts that matter and lets the rest go
+  function autoRenew(G, club, coach) {
+    const rep = { renewed: 0, released: 0, cost: 0 };
+    let staying = club.squad.filter((id) => G.players[id].ct > 1).length;
+    const expiring = Game.players(G, club).filter((p) => p.ct <= 1 && !(p.loan && p.loan.owner !== club.id)).sort((x, y) => y.ovr - x.ovr);
+    for (const p of expiring) {
+      const rank = Game.players(G, club).filter((q) => q.ovr > p.ovr).length;
+      const wage = Math.round((E.wage(p) * 1.04) / 10) * 10;
+      const wanted = (rank < 18 && p.age < 34) || staying < CFG.SQUAD_MIN;
+      if (wanted && B.bal(G, club.id) > wage * 2) {
+        B.debit(G, club.id, wage * 2, 'signing');
+        p.wage = wage; p.ct += 2; staying++; rep.renewed++; rep.cost += wage * 2;
+      } else rep.released++;
+    }
+    coach.vacReport = rep;
+  }
+
   Game.newSeason = function (G) {
     if (G.phase !== 'seasonEnd') return;
+    returnLoans(G);
+    for (const co of G.coaches) if (co.vac > 0 && co.club) autoRenew(G, G.clubs[co.club], co);
+    W.refreshForeign(G);
     for (const id of G.clubIds) {
       const c = G.clubs[id];
       const was = c.div;
@@ -600,7 +773,7 @@
           if (coach) { Game.news(G, 'n_expired', { name: p.n }, coach.id); releasePlayer(G, club, p, true); }
           else {
             const rank = Game.players(G, club).filter((q) => q.ovr > p.ovr).length;
-            if (rank < 17 && p.age < 34) { p.ct = R.int(1, 3); p.wage = Math.round((E.wageFor(p.ovr) * R.range(0.9, 1.1)) / 10) * 10; }
+            if (rank < 17 && p.age < 34) { p.ct = R.int(1, 3); p.wage = Math.round((E.wage(p) * R.range(0.9, 1.1)) / 10) * 10; }
             else releasePlayer(G, club, p, true);
           }
         }
@@ -624,6 +797,7 @@
     G.season++;
     Game.startSeason(G);
     for (const co of G.coaches) { if (co.club) { co.board = Math.max(co.board, 45); co.jobWeeks = Math.max(co.jobWeeks, 0); } }
+    for (const co of G.coaches) co.vac = 0;
     SF.Actions.newSeasonCareer(G);
   };
 

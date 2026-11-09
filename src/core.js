@@ -11,7 +11,14 @@
     PER_DIV: 12,
     LEAGUE_WEEKS: 22,
     CUP_AFTER: [3, 7, 11, 15, 19, 22], // a cup round is played after these league matchdays
-    TOTAL_WEEKS: 28,
+    TOTAL_WEEKS: 28, // economy weeks per season (european weeks carry no wages/income ticks)
+    EU_AFTER: [2, 6, 9, 13, 16, 18, 20, 21, 22], // european matchdays (6 group + QF + SF + final) are played after these league matchdays
+    EU_TEAMS: 16, EU_FOREIGN: 12, EU_SLOTS: 4,
+    euNat: ['Aurelia', 'Norvik', 'Solmar'],
+    euPartic: 40000, euWin: 30000, euDraw: 10000, euQF: 80000, euSF: 120000, euFinal: 180000, euWinner: 700000, // winner = 2x the division-1 champion prize
+    euGate: 1.5, // european gate multiplier (full stadium, premium ticket)
+    starOvr: 80, starValue: 1.5, starWage: 1.35, starFlair: 0.5, starFree: 3, starPenalty: 0.03, // max 3 stars in XI (~27%)
+    loanFee: 0.07, loanOutFee: 0.05, loanMaxIn: 3,
     SQUAD_MIN: 16,
     SQUAD_MAX: 26,
     divOvr: [71, 62, 54, 47], // mean player rating per division at world creation

@@ -20,7 +20,9 @@
     if (!club) return no('no_club');
     if (!p || !p.club || p.club === club.id) return no('bad');
     const seller = G.clubs[p.club];
-    if (seller.human) return no('human_club');
+    if (coach.vac > 0) return no('vacation');
+    if (seller.human || seller.foreign) return no('human_club');
+    if (p.loan) return no('on_loan');
     if (club.squad.length >= CFG.SQUAD_MAX) return no('squad_full');
     if (seller.squad.length <= CFG.SQUAD_MIN + 1) return no('seller_min');
     fee = Math.round(fee);
@@ -37,8 +39,9 @@
   A.signFree = function (G, coach, pid) {
     const club = myClub(G, coach), p = G.players[pid];
     if (!club || !p || p.club) return no('bad');
+    if (coach.vac > 0) return no('vacation');
     if (club.squad.length >= CFG.SQUAD_MAX) return no('squad_full');
-    const wage = E.wageFor(p.ovr);
+    const wage = E.wage(p);
     const bonus = wage * 3;
     if (B.bal(G, club.id) < bonus) return no('no_funds', { cost: bonus });
     G.free.splice(G.free.indexOf(pid), 1);
@@ -51,7 +54,7 @@
 
   A.listPlayer = function (G, coach, pid, price) {
     const p = G.players[pid];
-    if (!p || p.club !== coach.club) return no('bad');
+    if (!p || p.club !== coach.club || p.loan) return no('bad');
     p.listed = Math.max(0, Math.round(price));
     return ok();
   };
@@ -60,6 +63,7 @@
     const club = myClub(G, coach), p = G.players[pid];
     if (!club || !p || p.club !== club.id) return no('bad');
     if (club.squad.length <= CFG.SQUAD_MIN) return no('squad_min');
+    if (p.loan) return no('on_loan');
     const price = Math.round((E.value(p) * 0.65 * (1 + 0.015 * coach.sk.neg)) / 100) * 100;
     B.credit(G, club.id, price, 'sale_fee');
     Game.releasePlayer(G, club, p, true);
@@ -72,7 +76,7 @@
     if (i < 0) return no('gone');
     const o = G.offers[i];
     const club = myClub(G, coach), p = G.players[o.pid], buyer = G.clubs[o.club];
-    if (!club || !p || p.club !== club.id) { G.offers.splice(i, 1); return no('gone'); }
+    if (!club || !p || p.club !== club.id || p.loan) { G.offers.splice(i, 1); return no('gone'); }
     if (club.squad.length <= CFG.SQUAD_MIN) return no('squad_min');
     if (buyer.squad.length >= CFG.SQUAD_MAX || B.bal(G, buyer.id) < o.fee) { G.offers.splice(i, 1); return no('buyer_cant'); }
     Game.moveClub(G, p, club, buyer, o.fee);
@@ -87,7 +91,7 @@
     if (!club || !p || p.club !== club.id) return no('bad');
     years = util.clamp(years | 0, 1, 4);
     if (p.ct >= 6) return no('max_contract');
-    const wage = Math.round((E.wageFor(p.ovr) * (1 + 0.02 * years)) / 10) * 10;
+    const wage = Math.round((E.wage(p) * (1 + 0.02 * years)) / 10) * 10;
     const bonus = wage * 2;
     if (B.bal(G, club.id) < bonus) return no('no_funds', { cost: bonus });
     B.debit(G, club.id, bonus, 'signing');
@@ -99,6 +103,7 @@
   A.release = function (G, coach, pid) {
     const club = myClub(G, coach), p = G.players[pid];
     if (!club || !p || p.club !== club.id) return no('bad');
+    if (p.loan) return no('on_loan');
     if (club.squad.length <= CFG.SQUAD_MIN) return no('squad_min');
     const cost = A.releaseCost(p);
     if (B.bal(G, club.id) < cost) return no('no_funds', { cost });
@@ -110,18 +115,77 @@
   A.search = function (G, coach, f) {
     f = f || {};
     const out = [];
-    const source = f.free ? G.free.map((id) => G.players[id]) : Object.values(G.players).filter((p) => p.club && p.club !== coach.club);
+    const source = f.free ? G.free.map((id) => G.players[id]) : Object.values(G.players).filter((p) => p.club && p.club !== coach.club && !G.clubs[p.club].foreign && !(f.loanable && p.loan));
     for (const p of source) {
       if (!p) continue;
       if (f.pos && p.pos !== f.pos) continue;
       if (f.minOvr && p.ovr < f.minOvr) continue;
       if (f.maxAge && p.age > f.maxAge) continue;
       if (f.maxPrice && A.askPrice(G, coach, p) > f.maxPrice) continue;
+      if (f.stars && !E.isStar(p)) continue;
       if (f.div != null && f.div !== '' && p.club && G.clubs[p.club].div !== +f.div) continue;
       out.push(p);
     }
     out.sort((a, b) => (f.sort === 'pot' ? b.pot - a.pot : b.ovr - a.ovr));
     return out.slice(0, f.limit || 60);
+  };
+
+  // ---------- loans (1 or 2 seasons) ----------
+  A.loanInFee = (G, coach, p, seasons) => Math.round((E.value(p) * CFG.loanFee * seasons * (1 - 0.015 * coach.sk.neg)) / 100) * 100;
+  A.loanOutFee = (G, coach, p, seasons) => Math.round((E.value(p) * CFG.loanOutFee * seasons * (1 + 0.015 * coach.sk.neg)) / 100) * 100;
+  A.loanedIn = (G, club) => Game.players(G, club).filter((p) => p.loan && p.loan.owner !== club.id);
+  A.loanedOut = (G, club) => Object.values(G.players).filter((p) => p.loan && p.loan.owner === club.id);
+
+  A.loanIn = function (G, coach, pid, seasons) {
+    const club = myClub(G, coach), p = G.players[pid];
+    seasons = util.clamp(seasons | 0, 1, 2);
+    if (!club) return no('no_club');
+    if (coach.vac > 0) return no('vacation');
+    if (!p || !p.club || p.club === club.id) return no('bad');
+    const owner = G.clubs[p.club];
+    if (owner.human || owner.foreign || p.loan) return no('human_club');
+    if (club.squad.length >= CFG.SQUAD_MAX) return no('squad_full');
+    if (owner.squad.length <= CFG.SQUAD_MIN + 1) return no('seller_min');
+    if (A.loanedIn(G, club).length >= CFG.loanMaxIn) return no('loan_max');
+    const fee = A.loanInFee(G, coach, p, seasons);
+    if (B.bal(G, club.id) < fee) return no('no_funds', { cost: fee });
+    B.transfer(G, club.id, owner.id, fee, 'loan_fee');
+    owner.squad.splice(owner.squad.indexOf(p.id), 1);
+    club.squad.push(p.id);
+    p.club = club.id; p.listed = 0; p.ct = Math.max(p.ct, seasons + 1);
+    p.loan = { owner: owner.id, left: seasons };
+    Game.news(G, 'n_loan_in', { name: p.n, club: owner.name, n: seasons }, coach.id);
+    return ok({ fee });
+  };
+
+  A.loanOut = function (G, coach, pid, seasons) {
+    const club = myClub(G, coach), p = G.players[pid];
+    seasons = util.clamp(seasons | 0, 1, 2);
+    if (!club || !p || p.club !== club.id || p.loan) return no('bad');
+    if (club.squad.length <= CFG.SQUAD_MIN) return no('squad_min');
+    const fee = A.loanOutFee(G, coach, p, seasons);
+    const cands = G.clubIds.filter((id) => { const c = G.clubs[id]; return !c.human && c.squad.length < CFG.SQUAD_MAX - 1 && B.bal(G, id) > fee + p.wage * 10 && c.div >= Math.max(0, club.div - 1); });
+    if (!cands.length) return no('buyer_cant');
+    const to = G.clubs[R.pick(cands)];
+    B.transfer(G, to.id, club.id, fee, 'loan_fee');
+    club.squad.splice(club.squad.indexOf(p.id), 1);
+    to.squad.push(p.id);
+    p.club = to.id; p.listed = 0; p.ct = Math.max(p.ct, seasons + 1);
+    p.loan = { owner: club.id, left: seasons };
+    G.offers = G.offers.filter((o) => o.pid !== p.id);
+    Game.news(G, 'n_loan_out', { name: p.n, club: to.name, fee, n: seasons }, coach.id);
+    return ok({ fee, club: to.id });
+  };
+
+  // ---------- holiday: the game runs by itself, staff renews contracts, no signings or sales ----------
+  A.setVacation = function (G, coach, weeks) {
+    if (!coach.club) return no('no_club');
+    weeks = weeks | 0;
+    if (weeks <= 0) { coach.vac = 0; return ok(); }
+    const left = G.sched.length - G.week + 1;
+    coach.vac = weeks >= 99 ? left + 1 : Math.min(weeks, left);
+    G.offers = G.offers.filter((o) => o.coach !== coach.id);
+    return ok({ weeks: coach.vac });
   };
 
   // ---------- squad / lineup ----------
@@ -130,6 +194,7 @@
     if (l.form && Game.FORMS[l.form]) L.form = l.form;
     if (l.tactic) L.tactic = l.tactic;
     if (l.auto != null) L.auto = !!l.auto;
+    if (coach.vac > 0) L.auto = true;
     if (l.xi) { L.xi = l.xi.slice(0, 11); L.bench = (l.bench || []).slice(0, 7); }
     return ok();
   };
@@ -171,6 +236,76 @@
     return ok({ cost });
   };
 
+  // ask a player to take a pay cut: the better the coach negotiates, the better the odds (one try per player per season)
+  A.renegotiate = function (G, coach, pid) {
+    const club = myClub(G, coach), p = G.players[pid];
+    if (!club || !p || p.club !== club.id) return no('bad');
+    if (p.loan) return no('on_loan');
+    if (p.rn === G.season) return no('already_tried');
+    p.rn = G.season;
+    const chance = util.clamp(0.4 + 0.08 * coach.sk.neg + (p.wage > E.wage(p) * 1.15 ? 0.2 : -0.1) + (p.ct <= 1 ? 0.1 : 0), 0.15, 0.9);
+    if (!R.chance(chance)) return no('refused');
+    const cut = Math.max(40, Math.round((p.wage * 0.85) / 10) * 10);
+    const saved = p.wage - cut;
+    p.wage = cut;
+    return ok({ wage: cut, saved });
+  };
+
+  /** what price fills the most money into the till (current mood and fans)? */
+  A.bestPrice = function (G, club) {
+    const ref = CFG.refPrice[club.div];
+    let best = club.price, bv = -1;
+    for (let pr = ref * 0.4; pr <= ref * 3 + 1e-9; pr += 0.1) {
+      const v = Game.attendance(Object.assign({}, club, { price: pr })) * pr;
+      if (v > bv) { bv = v; best = Math.round(pr * 10) / 10; }
+    }
+    return best;
+  };
+
+  /** finance picture of the human club: where the money comes from and goes, plus concrete advice */
+  A.financeReport = function (G, coach) {
+    const club = myClub(G, coach);
+    if (!club) return null;
+    const sf = G.bank.sf[club.id] || {};
+    const g = (k) => sf[k] || 0;
+    const inc = { gate: g('gate') + g('gate_in'), tv: g('tv'), sponsor: g('sponsor'), prize: g('prize'), sales: g('transfer_in') + g('sale_fee') + g('loan_fee_in') };
+    const out = { wages: -g('wages'), upkeep: -g('upkeep'), buys: -g('transfer_out') - g('signing') - g('loan_fee_out') - g('compensation'), invest: -g('stadium') - g('facility'), debt: -g('repay') - g('fine') };
+    const totIn = util.sum(Object.values(inc)), totOut = util.sum(Object.values(out));
+    const weeksDone = Math.max(1, G.sched.slice(0, G.week - 1).filter((x) => x.t !== 'E').length);
+    const wk = (x) => x / weeksDone;
+    const wageW = util.sum(club.squad.map((id) => G.players[id].wage));
+    const baseRev = CFG.tvWeekly[club.div] + CFG.sponsorWeekly[club.div] * Math.sqrt(club.fans / CFG.fans[club.div]) * Game.repSponsor(coach.rep);
+    const att = Game.attendance(club);
+    const home = att * club.price;
+    const weeklyIncome = baseRev + home * 0.5; // about half the league matches are at home
+    const tips = [];
+    const bal = B.bal(G, club.id), debt = B.debtOf(G, club.id);
+    const ratio = wageW / Math.max(1, weeklyIncome);
+    if (ratio > 0.62) {
+      const cands = Game.players(G, club).filter((p) => !p.loan).sort((a, b) => b.wage / Math.max(1, b.ovr - 30) - a.wage / Math.max(1, a.ovr - 30)).slice(0, 3).map((p) => p.id);
+      tips.push({ k: 'wages_high', sev: ratio > 0.8 ? 3 : 2, x: { pct: Math.round(ratio * 100) }, act: 'players', pids: cands });
+    }
+    if (att < club.cap * 0.72 && club.price > CFG.refPrice[club.div] * 0.6) {
+      const bp = A.bestPrice(G, club);
+      if (Math.abs(bp - club.price) >= 0.1) tips.push({ k: 'gate_low', sev: 2, x: { pct: Math.round((att / club.cap) * 100), price: club.price, best: bp }, act: 'price', price: bp });
+    }
+    if (att >= club.cap * 0.97) {
+      const bp = A.bestPrice(G, club);
+      tips.push(bp > club.price + 0.09
+        ? { k: 'gate_full_price', sev: 1, x: { price: club.price, best: bp }, act: 'price', price: bp }
+        : { k: 'gate_full', sev: 1, x: { cap: club.cap }, act: 'stadium' });
+    }
+    const idle = Game.players(G, club).filter((p) => !p.loan && p.ap <= 2 && G.week > 8 && p.wage > 150 && p.age > 22).sort((a, b) => b.wage - a.wage).slice(0, 3);
+    if (idle.length) tips.push({ k: 'idle_wages', sev: 1, x: { n: idle.length, w: util.sum(idle.map((p) => p.wage)) }, act: 'players', pids: idle.map((p) => p.id) });
+    if (bal < 0) tips.push({ k: 'overdraft', sev: 3, x: { bal: Math.round(bal) }, act: 'loan' });
+    else if (debt > 0 && bal > debt * 1.4) tips.push({ k: 'repay_debt', sev: 1, x: { debt: Math.round(debt) }, act: 'loan' });
+    if (bal > (wageW * 28) * 0.9 && club.facility.youth < 5) tips.push({ k: 'invest_cash', sev: 0, x: { bal: Math.round(bal) }, act: 'facility' });
+    if (g('transfer_out') + g('signing') > totIn * 0.6 && bal < wageW * 8) tips.push({ k: 'overspent', sev: 2, x: {}, act: 'market' });
+    if (!tips.length) tips.push({ k: 'finance_ok', sev: 0, x: {}, act: null });
+    tips.sort((a, b) => b.sev - a.sev);
+    return { inc, out, totIn, totOut, wageW, ratio, att, weeklyIncome, tips, bal, debt };
+  };
+
   A.takeLoan = function (G, coach, amount, seasons) { return coach.club ? B.takeLoan(G, coach.club, amount, seasons) : no('no_club'); };
   A.repayLoan = function (G, coach, id) { return coach.club ? B.repayLoan(G, coach.club, id) : no('no_club'); };
 
@@ -190,8 +325,9 @@
       const club = G.clubs[co.club];
       const squad = Game.players(G, club);
       const best11 = squad.slice().sort((a, b) => b.ovr - a.ovr).slice(0, 11);
+      if (co.vac > 0) continue; // on holiday: nobody bothers the coach with offers
       for (const p of squad) {
-        if (G.offers.some((o) => o.pid === p.id)) continue;
+        if (p.loan || G.offers.some((o) => o.pid === p.id)) continue;
         let chance = 0, mult = 1;
         if (p.listed > 0) { chance = 0.35; mult = R.range(0.8, 1.3); }
         else if (best11.includes(p) || p.pot > p.ovr + 8) { chance = 0.012; mult = R.range(1.1, 1.6); }

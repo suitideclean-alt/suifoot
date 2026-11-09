@@ -33,8 +33,14 @@
     let Mp = (mf + 0.25 * (fw + df)) / 5.5;
     if (s.tactic === 'att') { Ap *= 1.08; Dp *= 0.94; }
     else if (s.tactic === 'def') { Ap *= 0.92; Dp *= 1.07; }
-    const tb = 1 + 0.015 * s.tbonus;
-    s.pw = { gk, Ap: Ap * tb, Dp: Dp * tb, Mp: Mp * tb };
+    // star players: up to CFG.starFree of them add flair; beyond that the dressing room breaks down
+    const ns = xi.filter((p) => p.ovr >= CFG.starOvr).length;
+    const k = Math.min(ns, CFG.starFree);
+    Ap += CFG.starFlair * k; Mp += CFG.starFlair * 0.7 * k; Dp += CFG.starFlair * 0.35 * k;
+    const over = Math.max(0, ns - CFG.starFree);
+    const tb = (1 + 0.015 * s.tbonus) * (1 - CFG.starPenalty * over);
+    s.stars = ns;
+    s.pw = { gk: gk * (1 - CFG.starPenalty * over), Ap: Ap * tb, Dp: Dp * tb, Mp: Mp * tb };
     return s.pw;
   }
 

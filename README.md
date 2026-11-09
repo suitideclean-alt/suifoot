@@ -27,7 +27,15 @@ To publish on GitHub Pages: push to `main`, then in the repository go to
 - Finances: gate receipts, TV, sponsors, wages, ticket price, **stadium expansion**, youth academy and training ground, **bank loans** with interest, overdraft fees.
 - Player evolution: young players grow towards a hidden potential, veterans decline and retire, youth intake every season.
 - Local multiplayer (hot-seat, 1-4 coaches on the same device). Single-player against the machine.
-- Save/load in the browser, export/import save files.
+- **European Champions Cup**: the top 4 of Division 1 join 12 clubs from other countries (4 groups, quarter-finals, semi-finals, final). Full stadiums and big prizes: the winner earns twice the Division 1 champion.
+- **Star players** (rating 80+): more expensive, more flair, but a team can only carry about 27% of them (3 in the XI). With more, the dressing room breaks and the whole team declines.
+- **Loans**: borrow players or loan yours out for 1 or 2 seasons.
+- **Holiday mode**: the game runs by itself, your staff renews contracts, no signings or sales happen while you are away.
+- **Finance advisor**: a money map (where you earn and lose) plus concrete advice with one-click actions (ticket price, stadium, wage cuts, loans, selling).
+- **Reputation** with an itemised log (what raised or lowered it) and perks (sponsors, job offers).
+- Season-end celebration with your club badge: titles, cup, promotion, top scorer, European run, prize money.
+- Clean light theme (dark optional) whose colours follow the club you coach.
+- Save/load in the browser, export/import save files (saves from 0.1 are upgraded automatically).
 
 ## Project layout
 
@@ -47,10 +55,10 @@ tests/                      node tests, balance and economy simulations, browser
 ## Tests
 
 ```bash
-npm test                    # 14 engine tests + translation completeness check
+npm test                    # 23 engine tests + translation completeness check
 npm run balance             # match-engine statistics over 100 simulated seasons
 npm run sim                 # 30 seasons: talent and money supply stay stable
-python3 tests/browser.py    # end-to-end with Playwright (needs `python3 -m http.server 8765` running)
+python3 tests/browser6.py   # new v0.2 features (also browser.py ... browser7.py); end-to-end with Playwright (needs `python3 -m http.server 8765` running)
 ```
 
 Measured with the current numbers: about 2.6 goals per game, 43% home wins, 25% draws, the strongest

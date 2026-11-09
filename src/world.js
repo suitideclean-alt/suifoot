@@ -22,9 +22,13 @@
       const a = p.age;
       const af = a <= 21 ? 1.25 : a <= 25 ? 1.1 : a <= 29 ? 1 : a === 30 ? 0.8 : a === 31 ? 0.65 : a === 32 ? 0.5 : a === 33 ? 0.35 : 0.2;
       v *= af;
+      if (E.isStar(p)) v *= CFG.starValue;
       if (a <= 24) v *= 1 + Math.max(0, p.pot - p.ovr) * 0.012;
       return Math.max(500, Math.round(v / 100) * 100);
     },
+    isStar(p) { return p.ovr >= CFG.starOvr; },
+    wage(p) { return Math.max(40, Math.round((E.wageFor(p.ovr) * (p.ovr >= CFG.starOvr ? CFG.starWage : 1)) / 10) * 10); },
+    starCount(list) { return list.filter((p) => p.ovr >= CFG.starOvr).length; },
     wageFor(ovr) { return Math.max(40, Math.round((120 * Math.exp(0.065 * (ovr - 30))) / 10) * 10); },
     strength(G, club) {
       const sq = club.squad.map((id) => G.players[id]).sort((a, b) => b.ovr - a.ovr);
@@ -47,7 +51,7 @@
         wage: 0, ct: o.ct || R.int(1, 4), club: o.club || null,
         inj: 0, sus: 0, yc: 0, g: 0, ap: 0, gt: 0, apt: 0, ask: Math.round(R.range(0.95, 1.3) * 100) / 100, listed: 0,
       };
-      p.wage = E.wageFor(p.ovr);
+      p.wage = E.wage(p);
       G.players[p.id] = p;
       return p;
     },
@@ -73,6 +77,27 @@
       }
       return 'Club ' + used.size;
     },
+    makeForeign(G, idx, nat) {
+      const used = (G._usedNames = G._usedNames || new Set());
+      const hue = Math.round((idx * 137.508) % 360);
+      const id = 'e' + idx;
+      const club = {
+        id, name: SF.World.clubName(used), div: 0, foreign: 1, nat,
+        c1: `hsl(${hue} 62% 42%)`, c2: R.chance(0.5) ? '#ffffff' : '#111827',
+        squad: [], fans: 30000, cap: 40000, price: 3, facility: { youth: 3, train: 3 }, build: null, lastRevenue: 0, hist: [], title: 0, cups: 0, human: 0, form: [], rev: 0,
+      };
+      G.clubs[id] = club;
+      SF.World.makeSquad(G, club, CFG.divOvr[0] + R.gauss(0, 2.2));
+      return club;
+    },
+    refreshForeign(G) {
+      for (const id of G.euIds) {
+        const c = G.clubs[id];
+        for (const pid of c.squad) delete G.players[pid];
+        c.squad = [];
+        SF.World.makeSquad(G, c, CFG.divOvr[0] + R.gauss(0, 2.2));
+      }
+    },
     makeClub(G, idx, div) {
       const used = (G._usedNames = G._usedNames || new Set());
       const hue = Math.round((idx * 137.508) % 360);
@@ -97,6 +122,8 @@
       let idx = 0;
       for (let d = 0; d < CFG.DIVS; d++) for (let i = 0; i < CFG.PER_DIV; i++) SF.World.makeClub(G, idx++, d);
       G.clubIds = Object.keys(G.clubs);
+      G.euIds = [];
+      for (let i = 0; i < CFG.EU_FOREIGN; i++) G.euIds.push(SF.World.makeForeign(G, idx++, i % CFG.euNat.length).id);
       for (let i = 0; i < 40; i++) SF.World.newFreeAgent(G, 35, 62);
       delete G._usedNames;
     },
