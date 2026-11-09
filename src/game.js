@@ -508,22 +508,22 @@
       const champ = st[0];
       hall.champ.push(champ); summary.champions.push(champ);
       G.clubs[champ].title++;
-      Game.income(G, champ, CFG.prizeLeague[d], 'prize'); addPrize(summary, champ, CFG.prizeLeague[d]);
+      Game.income(G, champ, CFG.prizeLeague[d], 'prize'); addPrize(summary, champ, CFG.prizeLeague[d], 'league', { d });
       const ts = Game.topScorers(G, d, 1)[0];
       if (ts) {
-        Game.income(G, ts.club, CFG.prizeScorer[d], 'prize'); addPrize(summary, ts.club, CFG.prizeScorer[d]);
+        Game.income(G, ts.club, CFG.prizeScorer[d], 'prize'); addPrize(summary, ts.club, CFG.prizeScorer[d], 'scorer', { d, name: ts.n, g: ts.g });
         hall.scorer.push({ name: ts.n, club: ts.club, g: ts.g }); summary.scorers.push({ d, name: ts.n, club: ts.club, g: ts.g });
         if (G.clubs[ts.club].human) Game.news(G, 'n_scorer', { name: ts.n, g: ts.g }, G.clubs[ts.club].human);
       } else { hall.scorer.push(null); summary.scorers.push(null); }
       if (d > 0) {
-        for (const id of st.slice(0, 2)) { G.clubs[id].nextDiv = d - 1; summary.promoted.push(id); Game.income(G, id, CFG.promoBonus[d], 'prize'); addPrize(summary, id, CFG.promoBonus[d]); }
+        for (const id of st.slice(0, 2)) { G.clubs[id].nextDiv = d - 1; summary.promoted.push(id); Game.income(G, id, CFG.promoBonus[d], 'prize'); addPrize(summary, id, CFG.promoBonus[d], 'promo', { d }); }
       }
       if (d < CFG.DIVS - 1) for (const id of st.slice(-2)) { G.clubs[id].nextDiv = d + 1; summary.relegated.push(id); }
     }
     if (G.cup.winner) {
       G.clubs[G.cup.winner].cups++;
-      Game.income(G, G.cup.winner, CFG.prizeCup, 'prize'); addPrize(summary, G.cup.winner, CFG.prizeCup);
-      Game.income(G, G.cup.finalist, CFG.prizeCup * 0.4, 'prize'); addPrize(summary, G.cup.finalist, CFG.prizeCup * 0.4);
+      Game.income(G, G.cup.winner, CFG.prizeCup, 'prize'); addPrize(summary, G.cup.winner, CFG.prizeCup, 'cup', {});
+      Game.income(G, G.cup.finalist, CFG.prizeCup * 0.4, 'prize'); addPrize(summary, G.cup.finalist, CFG.prizeCup * 0.4, 'cupfinal', {});
     }
     for (const id of G.clubIds) {
       const c = G.clubs[id];
@@ -558,7 +558,10 @@
     G.phase = 'seasonEnd';
     SF.Actions.seasonEndCareer(G);
   }
-  function addPrize(sm, id, amt) { sm.prizes[id] = (sm.prizes[id] || 0) + Math.round(amt); }
+  function addPrize(sm, id, amt, kind, x) {
+    sm.prizes[id] = (sm.prizes[id] || 0) + Math.round(amt);
+    (sm.awards = sm.awards || []).push(Object.assign({ k: kind, club: id, amt: Math.round(amt) }, x));
+  }
 
   Game.newSeason = function (G) {
     if (G.phase !== 'seasonEnd') return;

@@ -78,6 +78,7 @@
     document.documentElement.lang = SF.I18N.get() === 'pt' ? 'pt-BR' : SF.I18N.get();
     $('#app').innerHTML = UI.G ? gameView() : setupView();
     if (UI.live && UI.G) liveTickRender();
+    maybeJobPopup();
   }
 
   // ---------- setup ----------
@@ -211,7 +212,12 @@
   // ---------- season end ----------
   function seasonEndView() {
     const G = UI.G, S = G.summary, c = co(), club = myClub();
-    const champs = S.champions.map((id, d) => `<tr><td>${divName(d)}</td><td>${ctag(id, 18)}</td><td>${S.scorers[d] ? esc(S.scorers[d].name) + ' (' + S.scorers[d].g + ')' : '-'}</td></tr>`);
+    const aw = S.awards || [];
+    const awLabel = (a) => t('pr_' + a.k) + (a.d != null ? ' · ' + divName(a.d) : '');
+    const awWho = (a) => (a.k === 'scorer' ? esc(a.name) + ' (' + t('goals_n', { g: a.g }) + ') · ' : '') + ctag(a.club, 16);
+    const order = { league: 0, scorer: 1, promo: 2, cup: 3, cupfinal: 4 };
+    const awRows = aw.slice().sort((x, y) => (x.d != null ? x.d : 9) - (y.d != null ? y.d : 9) || order[x.k] - order[y.k]).map((a) => `<tr class="${club && a.club === club.id ? 'me' : ''}"><td>${awLabel(a)}</td><td>${awWho(a)}</td><td class="r good">+${money(a.amt)}</td></tr>`);
+    const champs = [];
     const prize = club ? S.prizes[club.id] || 0 : 0;
     let contracts = '';
     if (club) {
@@ -220,7 +226,7 @@
     }
     return `<div class="grid"><div class="card wide"><h2>${t('se_title', { s: G.season })}</h2>
       <p>🏆 ${t('cup_winner')}: <b>${ctag(S.cup, 20)}</b> ${S.finalist ? '· ' + ctag(S.finalist, 16) : ''}</p>
-      ${tbl([t('league'), t('champion'), t('top_scorer')], champs)}
+      <h3 class="sm mut" style="margin-top:12px">${t('prizes_title')}</h3>${tbl(['', '', '>SFOOT'], awRows)}
       ${club ? `<p>${t('se_prizes', { amt: prize })} SFOOT</p>` : ''}
       <p class="sm">${t('se_promoted')}: ${S.promoted.map((id) => ctag(id, 14)).join(' · ')}</p>
       <p class="sm">${t('se_relegated')}: ${S.relegated.map((id) => ctag(id, 14)).join(' · ')}</p></div>
@@ -301,7 +307,10 @@
     const subBar = `<div class="sub">${sub.map((k) => `<button class="${UI.tr === k ? 'on' : ''}" data-act="tr:${k}">${t(k === 'market' ? 'tr_market' : k === 'free' ? 'tr_free' : 'tr_offers')}</button>`).join('')}</div>`;
     if (UI.tr === 'offers') {
       const mine = G.offers.filter((o) => o.coach === c.id);
-      return subBar + `<div class="card">${mine.length ? tbl(['', '', '', ''], mine.map((o) => { const p = G.players[o.pid]; return `<tr><td>${esc(p.n)} ${posTag(p.pos)} ${ovTag(p.ovr)}</td><td>${ctag(o.club, 16)}</td><td class="r"><b>${money(o.fee)}</b></td><td><button class="btn sm grn" data-act="oacc:${o.id}">${t('accept')}</button> <button class="btn sm" data-act="odec:${o.id}">${t('decline')}</button></td></tr>`; })) : `<span class="mut">${t('no_offers')}</span>`}</div>`;
+      return subBar + `<div class="card">${mine.length ? tbl([t('sq_name'), t('sq_pos'), t('age'), t('sq_ovr'), t('sq_pot'), t('market_value'), t('club'), '>' + t('offer_label'), '', ''], mine.map((o) => {
+        const p = G.players[o.pid], val = E.value(p), pct = Math.round((o.fee / val - 1) * 100);
+        return `<tr><td>${esc(p.n)}</td><td>${posTag(p.pos)}</td><td>${p.age}</td><td>${ovTag(p.ovr)}</td><td class="mut">${p.age < 28 ? p.pot : '-'}</td><td class="r">${money(val)}</td><td>${ctag(o.club, 16)}</td><td class="r"><b>${money(o.fee)}</b></td><td class="${pct >= 0 ? 'good' : 'bad'}">${pct >= 0 ? '+' : ''}${pct}% ${t('vs_value')}</td><td><button class="btn sm grn" data-act="oacc:${o.id}">${t('accept')}</button> <button class="btn sm" data-act="odec:${o.id}">${t('decline')}</button></td></tr>`;
+      })) : `<span class="mut">${t('no_offers')}</span>`}</div>`;
     }
     const F = UI.f, free = UI.tr === 'free';
     const list = A.search(G, c, { free, pos: F.pos, minOvr: +F.minOvr || 0, maxAge: +F.maxAge || 0, maxPrice: +F.maxPrice || 0, div: F.div, sort: F.sort, limit: 60 });
@@ -354,7 +363,32 @@
 
   // ---------- coach ----------
   function offersBlock(c) {
-    return `<h2>${t('job_offers')}</h2>` + (c.offers.length ? tbl(['', t('strength'), ''], c.offers.map((o) => { const cl = UI.G.clubs[o.club]; return `<tr><td>${ctag(o.club, 20)}<div class="mut sm">${divName(cl.div)}</div></td><td>${Math.round(Game.strength(UI.G, cl) * 10) / 10}</td><td><button class="btn sm pri" data-act="job:${o.id}">${t('take_job')}</button></td></tr>`; })) : `<p class="mut">${t('no_job_offers')}</p>`);
+    return `<h2>${t('job_offers')}</h2>` + (c.offers.length ? tbl(['', t('strength'), ''], c.offers.map((o) => { const cl = UI.G.clubs[o.club]; return `<tr><td>${ctag(o.club, 20)}<div class="mut sm">${divName(cl.div)}</div></td><td>${Math.round(Game.strength(UI.G, cl) * 10) / 10}</td><td><button class="btn sm" data-act="jobview:${o.id}">${t('view_club')}</button> <button class="btn sm pri" data-act="job:${o.id}">${t('take_job')}</button> <button class="btn sm" data-act="jobdec:${o.id}">${t('decline')}</button></td></tr>`; })) : `<p class="mut">${t('no_job_offers')}</p>`);
+  }
+  function clubInfo(id) {
+    const G = UI.G, cl = G.clubs[id];
+    const st = Game.standings(G, cl.div), pos = st.indexOf(id) + 1, tb = G.table[id];
+    const best = Game.players(G, cl).sort((a, b) => b.ovr - a.ovr).slice(0, 5);
+    const last = cl.hist.length ? cl.hist[cl.hist.length - 1] : null;
+    return `<div class="sm"><p>${divName(cl.div)} · ${t('standing')}: <b>${pos}</b>/12 · ${t('pts')} ${tb.pts} (${tb.w}-${tb.d}-${tb.l})</p>
+      <p>${t('club_balance')}: <b>${money(B.bal(G, id))}</b> SFOOT · ${t('strength')}: ${Math.round(Game.strength(G, cl) * 10) / 10}</p>
+      <p>${t('capacity')}: ${money(cl.cap)} · ${t('club_fans')}: ${money(cl.fans)} · ${t('club_titles')}: ${cl.title} / ${cl.cups}</p>
+      ${last ? `<p>${t('club_last')}: ${divName(last.d)}, #${last.pos}</p>` : ''}
+      <p>${t('objective')}: ${t('obj_text', { n: cl.target })}</p>
+      <div class="mut">${t('club_best')}</div>${best.map((p) => `<div>${posTag(p.pos)} ${esc(p.n)} ${ovTag(p.ovr)} <span class="mut">${p.age}</span></div>`).join('')}</div>`;
+  }
+  function jobDialog(o, expanded) {
+    const cl = UI.G.clubs[o.club];
+    $('#modal').innerHTML = `<div class="ovl"><div class="dlg"><h3>${badge(cl, 30)} ${esc(t('job_invite', { club: cl.name }))}</h3>
+      <p class="mut sm">${divName(cl.div)} · ${t('strength')} ${Math.round(Game.strength(UI.G, cl) * 10) / 10}</p>${expanded ? clubInfo(o.club) : ''}
+      <div class="row end">${expanded ? '' : `<button class="btn" data-act="jobview:${o.id}">${t('view_club')}</button>`}<button class="btn" data-act="m-cancel">${t('later')}</button><button class="btn" data-act="jobdec:${o.id}">${t('decline')}</button><button class="btn pri" data-act="job:${o.id}">${t('take_job')}</button></div></div></div>`;
+  }
+  function maybeJobPopup() {
+    if (!UI.G || UI.live || $('#modal').innerHTML) return;
+    const o = co().offers.find((x) => !x.seen);
+    if (!o) return;
+    o.seen = 1; save();
+    jobDialog(o, false);
   }
   function coachView() {
     const G = UI.G, c = co(), club = myClub();
@@ -540,7 +574,9 @@
       case 'export': { const b = new Blob([Game.serialize(G)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `suifoot-s${G.season}-w${G.week}.json`; a.click(); return; }
       case 'newgame': return modal(`<p>${t('set_newgame')}</p>`, () => { localStorage.removeItem(SAVE); UI.G = null; UI.setup = null; render(); });
       case 'skill': return res(A.spendSkill(G, c, arg));
-      case 'job': return res(A.acceptJob(G, c, +arg));
+      case 'job': closeModal(); return res(A.acceptJob(G, c, +arg));
+      case 'jobdec': closeModal(); return res(A.declineJob(G, c, +arg));
+      case 'jobview': { const o = c.offers.find((x) => x.id === +arg); if (o) jobDialog(o, true); return; }
       case 'resign': return modal(`<p>${t('resign_confirm')}</p>`, () => { res(A.resign(G, c)); });
       case 'oacc': { const r = A.acceptOffer(G, c, +arg); return res(r, r.ok ? t('ok_sold', { fee: r.fee }) : ''); }
       case 'odec': return res(A.declineOffer(G, c, +arg));

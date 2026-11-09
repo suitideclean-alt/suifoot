@@ -226,7 +226,7 @@
     for (let i = 0; i < n && cands.length; i++) {
       const id = R.weighted(cands, (x) => Math.exp(-(cap - Game.strength(G, G.clubs[x])) / 6));
       cands.splice(cands.indexOf(id), 1);
-      coach.offers.push({ id: coach.nextOffer++, club: id, ttl: 6 });
+      coach.offers.push({ id: coach.nextOffer++, club: id, ttl: 6, seen: 0 });
       Game.news(G, 'n_job_offer', { club: G.clubs[id].name }, coach.id);
     }
   };
@@ -260,6 +260,8 @@
     Game.news(G, 'n_hired', { club: club.name }, coach.id);
     return ok();
   };
+
+  A.declineJob = function (G, coach, oid) { coach.offers = coach.offers.filter((o) => o.id !== oid); return ok(); };
 
   A.weeklyCareer = function (G) {
     for (const co of G.coaches) {
