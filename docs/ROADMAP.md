@@ -64,3 +64,16 @@ Conluio (treinador vende a amigos abaixo do valor), dono ausente (piloto automá
 
 ## 5. Outras notas
 - Usar o kit de marca (`assets/brand/`) para X e outras redes: avatar 400, cabeçalho 1500x500, imagem de partilha 1200x630.
+
+## Next session: path to a public testnet test
+
+Goal: a playable test on Sui **testnet** (play-money only), then invite testers.
+
+1. Decisions (10 min): one currency or two; 3-club limit; SFOOT cash-out = NO for the test; coach share % on sales.
+2. One-page Move spec: objects (Club, Player, OwnerCap, CoachCap), SFOOT coin, market rules, academy randomness.
+3. Move package on testnet + unit tests (`sui move test`); read PAS and dynamic-field docs first (see docs/SUI-RESEARCH.md).
+4. Game client: zkLogin (Google) + sponsored transactions so testers need no wallet or SUI.
+5. Server: runs matches and the shared calendar, posts results on-chain.
+6. Closed test with a few people, fix, then open invitations.
+
+Needs from the owner: a Sui wallet (testnet), an Enoki account for sponsored gas, and a place to host the small server.
