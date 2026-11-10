@@ -273,3 +273,35 @@ html[data-theme=dark] .sub button.on{background:var(--navy2)}
 @media(max-width:720px){.hero h1{font-size:2.4rem}.logo{font-size:1.15rem}.gline::before,.gline::after{width:50px}}
 .card.hl{border-image:none;border-top:3px solid var(--gold);border-radius:var(--r)}
 .form .line input,.form .line select{min-width:0;width:100%}
+
+/* ===== v0.3.2: gamer / esports typography and palette (follows the new logo) ===== */
+:root{--disp:"Orbitron","Rajdhani","Segoe UI",system-ui,sans-serif;--tech:"Rajdhani","Segoe UI",system-ui,sans-serif;--navy:#070b24;--navy2:#0f1a52;--neon:#38bdf8;--serif:var(--tech)}
+header.top{background:linear-gradient(180deg,#101c5a,#070b24);border-bottom:3px solid;border-image:linear-gradient(90deg,#38bdf8,#4DA2FF 45%,#d9a521) 1}
+.logo{font-family:var(--disp);font-weight:900;font-size:1.25rem;letter-spacing:.08em;text-transform:uppercase;color:#fff}
+.logo span{display:inline-block;transform:skewX(-8deg);text-shadow:0 0 14px rgba(56,189,248,.45)}
+.logo b{background:var(--goldg);-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:900}
+.logo svg.mark{filter:drop-shadow(0 0 8px rgba(56,189,248,.55))}
+.pill{border-color:rgba(56,189,248,.45);background:rgba(56,189,248,.08);font-family:var(--tech);font-weight:600;font-size:.9rem;letter-spacing:.02em}
+nav.tabs button{font-family:var(--tech);font-weight:600;font-size:1rem;letter-spacing:.06em;text-transform:uppercase}
+nav.tabs button.on{color:#fff;border-bottom-color:var(--neon);background:linear-gradient(180deg,rgba(56,189,248,.0),rgba(56,189,248,.22))}
+nav.tabs button:hover{color:var(--neon)}
+h2{font-family:var(--tech);font-weight:700;font-size:1rem;letter-spacing:.1em;text-transform:uppercase;color:var(--tx)}
+h2::after{background:linear-gradient(90deg,var(--neon),var(--gold));width:46px;height:3px}
+.tbl th{font-family:var(--tech);font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-size:.78rem}
+.score{font-family:var(--disp);font-weight:900}
+.big{font-family:var(--disp)}
+.btn{font-family:var(--tech);font-weight:700;letter-spacing:.04em;font-size:.98rem}
+.btn.pri{text-transform:uppercase;letter-spacing:.07em;clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%);border-radius:0;padding:9px 22px;box-shadow:none}
+.btn.pri.sm{padding:4px 14px;clip-path:polygon(5px 0,100% 0,calc(100% - 5px) 100%,0 100%)}
+.sub button.on{border-color:var(--neon);color:#fff;background:var(--navy2)}
+.hero{padding:30px 0 18px;background:radial-gradient(circle at 50% 35%,rgba(56,189,248,.22),transparent 55%),radial-gradient(circle at 50% 60%,rgba(217,165,33,.14),transparent 65%)}
+.hero svg.mark{filter:drop-shadow(0 0 22px rgba(56,189,248,.55)) drop-shadow(0 8px 14px rgba(7,11,36,.4))}
+.hero h1{font-family:var(--disp);font-weight:900;font-size:3.3rem;letter-spacing:.1em;text-transform:uppercase;transform:skewX(-8deg);margin:12px 0 4px}
+.hero h1 b{background:var(--goldg);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero .tagline{font-family:var(--tech);font-style:normal;font-weight:600;letter-spacing:.22em;text-transform:uppercase;font-size:.9rem;color:var(--mut)}
+.gline{color:var(--neon)}.gline::before{background:linear-gradient(90deg,transparent,var(--neon))}.gline::after{background:linear-gradient(90deg,transparent,var(--neon))}
+.celeb h3,.celeb .prize{font-family:var(--disp)}
+.resbanner{font-family:var(--disp)}
+#modal .dlg{border-top:4px solid var(--neon)}
+@media(max-width:720px){.hero h1{font-size:2.1rem}.logo{font-size:1rem}}
+.form .line:has(input){grid-template-columns:1fr 1fr}
