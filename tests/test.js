@@ -38,7 +38,7 @@ t('save/load round trip keeps the game going identically', ()=>{
   SF.setG(G);
 });
 t('buy a player: money moves, squad changes, price check works', ()=>{
-  const G=Game.newGame({seed:6,coaches:[{name:'A'}]}); const co=G.coaches[0]; const club=G.clubs[co.club];
+  const G=Game.newGame({seed:6,coaches:[{role:'both',name:'A'}]}); const co=G.coaches[0]; const club=G.clubs[co.club];
   B.credit(G,club.id,5e6,'bailout');
   const p=A.search(G,co,{minOvr:55,limit:5}).find(x=>!G.clubs[x.club].human);
   const ask=A.askPrice(G,co,p);
@@ -55,7 +55,7 @@ t('cannot buy without funds / when squad full', ()=>{
   eq(A.buy(G,co,p.id,ask).err,'no_funds');
 });
 t('loan: take, weekly instalments, early repay', ()=>{
-  const G=Game.newGame({seed:8,coaches:[{name:'A'}]}); const co=G.coaches[0]; const club=G.clubs[co.club];
+  const G=Game.newGame({seed:8,coaches:[{role:'both',name:'A'}]}); const co=G.coaches[0]; const club=G.clubs[co.club];
   const lim=B.creditLimit(G,club.id); truthy(lim>0);
   eq(A.takeLoan(G,co,lim*2,1).err,'loan_limit');
   const bal0=B.bal(G,club.id); const r=A.takeLoan(G,co,100000,2); truthy(r.ok);
@@ -66,7 +66,7 @@ t('loan: take, weekly instalments, early repay', ()=>{
   truthy(A.repayLoan(G,co,r.loan.id).ok); eq(G.bank.loans.length,0);
 });
 t('stadium expansion takes effect after 4 weeks', ()=>{
-  const G=Game.newGame({seed:9,coaches:[{name:'A'}]}); const co=G.coaches[0]; const club=G.clubs[co.club];
+  const G=Game.newGame({seed:9,coaches:[{role:'both',name:'A'}]}); const co=G.coaches[0]; const club=G.clubs[co.club];
   B.credit(G,club.id,1e6,'bailout'); const cap=club.cap; const step=A.expandStep(club);
   truthy(A.expandStadium(G,co,1).ok); eq(A.expandStadium(G,co,1).err,'building');
   for(let i=0;i<5;i++) Game.playWeekAuto(G); // 4 economy weeks (+1 european week)
@@ -129,7 +129,7 @@ t('european cup: 16 clubs, 9 matchdays, a champion, prizes paid, money conserved
   Game.newSeason(G); eq(G.eu.q.join(),G.euroQ.join(),'qualifiers carry over'); eq(G.clubIds.length,48);
 });
 t('loans: borrow, cannot sell/release, returns after the loan, loan out brings a fee', ()=>{
-  const G=Game.newGame({seed:24,coaches:[{name:'A'}]}); const co=G.coaches[0]; const club=G.clubs[co.club];
+  const G=Game.newGame({seed:24,coaches:[{role:'both',name:'A'}]}); const co=G.coaches[0]; const club=G.clubs[co.club];
   B.credit(G,club.id,3e6,'bailout');
   const cand=A.search(G,co,{minOvr:60,limit:5,loanable:true}).find(p=>!G.clubs[p.club].foreign);
   const owner=G.clubs[cand.club]; const bal=B.bal(G,club.id), obal=B.bal(G,owner.id), n=club.squad.length;
@@ -142,7 +142,7 @@ t('loans: borrow, cannot sell/release, returns after the loan, loan out brings a
   eq(cand.club,owner.id,'borrowed player went home'); eq(mine.club,club.id,'loaned out player came back'); eq(cand.loan,undefined);
 });
 t('loans: limit of borrowed players', ()=>{
-  const G=Game.newGame({seed:25,coaches:[{name:'A'}]}); const co=G.coaches[0]; const club=G.clubs[co.club];
+  const G=Game.newGame({seed:25,coaches:[{role:'both',name:'A'}]}); const co=G.coaches[0]; const club=G.clubs[co.club];
   B.credit(G,club.id,9e6,'bailout');
   while(club.squad.length>20) club.squad.shift();
   for(let i=0;i<CFG.loanMaxIn;i++){ const c=A.search(G,co,{limit:80,loanable:true}).find(p=>p.club!==club.id&&G.clubs[p.club].squad.length>18); truthy(A.loanIn(G,co,c.id,1).ok); }
@@ -209,13 +209,13 @@ t('rivals: every club has a mutual rival in its division; derbies earn more at t
   for(const id of G.clubIds){ const c=G.clubs[id]; if(c.rival){ eq(G.clubs[c.rival].rival,id); eq(G.clubs[c.rival].div,c.div);} }
 });
 t('idols and captain: sold idol angers fans; captain is assigned automatically', ()=>{
-  const G=Game.newGame({seed:35,coaches:[{name:'A'}]}); const co=G.coaches[0]; const club=G.clubs[co.club];
+  const G=Game.newGame({seed:35,coaches:[{role:'both',name:'A'}]}); const co=G.coaches[0]; const club=G.clubs[co.club];
   truthy(club.capt>0,'captain'); const p=Game.players(G,club).find(x=>x.age>=24); p.yrs=5; truthy(E.isIdol(p)); eq(E.tagOf(p),'idol');
   const fans=club.fans; const r=A.sellNow(G,co,p.id); truthy(r.ok); truthy(club.fans<fans);
   const q=Game.players(G,club)[3]; truthy(A.setCaptain(G,co,q.id).ok); eq(club.capt,q.id);
 });
 t('market drama: shortlisted players attract rival interest; release clause buys instantly', ()=>{
-  const G=Game.newGame({seed:36,coaches:[{name:'A'}]}); const co=G.coaches[0]; const club=G.clubs[co.club]; B.credit(G,club.id,5e7,'bailout');
+  const G=Game.newGame({seed:36,coaches:[{role:'both',name:'A'}]}); const co=G.coaches[0]; const club=G.clubs[co.club]; B.credit(G,club.id,5e7,'bailout');
   const ps=A.search(G,co,{limit:40,minOvr:55}); ps.forEach(p=>A.watch(G,co,p.id)); truthy(co.watch.length>0);
   let hot=null; for(let i=0;i<60&&!hot;i++){ X.weeklyHot(G); hot=ps.find(p=>p.hot); }
   truthy(hot,'someone got hot'); const base=A.askPrice(G,co,hot); truthy(base>=Math.round(E.value(hot)*hot.ask*(1-0.015*co.sk.neg)/100)*100);

@@ -37,7 +37,7 @@
   function save() { try { localStorage.setItem(SAVE, Game.serialize(UI.G)); } catch (e) { /* storage full or blocked */ } }
   function errMsg(r) {
     const k = 'err_' + r.err;
-    return SF.I18N.D[k] ? t(k, { ask: r.ask, max: r.max != null ? r.max : CFG.SQUAD_MAX, min: CFG.SQUAD_MIN, cost: r.cost }) : t('err_generic');
+    return SF.I18N.D[k] ? t(k, { ask: r.ask, max: r.max != null ? r.max : CFG.SQUAD_MAX, min: CFG.SQUAD_MIN, cost: r.cost, why: r.why ? t('why_' + r.why) : '' }) : t('err_generic');
   }
   function res(r, okMsg) {
     if (r.ok) { if (okMsg) toast(okMsg); save(); render(); return true; }
@@ -99,8 +99,9 @@
     return out;
   }
   function setupView() {
-    if (!UI.setup) UI.setup = { seed: (Math.random() * 4294967295) >>> 0, n: 1, names: ['', '', '', ''], clubs: ['', '', '', ''] };
+    if (!UI.setup) UI.setup = { seed: (Math.random() * 4294967295) >>> 0, n: 1, names: ['', '', '', ''], clubs: ['', '', '', ''], roles: ['coach', 'coach', 'coach', 'coach'] };
     const S = UI.setup;
+    if (!S.roles) S.roles = ['coach', 'coach', 'coach', 'coach'];
     if (!S.list) S.list = previewClubs(S.seed);
     const opts = (sel) => `<option value="">${t('random_club')}</option>` + [0, 1, 2, 3].map((d) => `<optgroup label="${divName(d)}">${S.list.filter((c) => c.div === d).map((c) => `<option value="${c.id}" ${sel === c.id ? 'selected' : ''}>${esc(c.name)} · ${t('strength')} ${c.str}</option>`).join('')}</optgroup>`).join('');
     const has = !!localStorage.getItem(SAVE);
@@ -108,7 +109,7 @@
       <div class="grid"><div class="card form"><h2>${t('setup_title')}</h2>
         <div class="line"><label>${t('language')}</label><select data-chg="lang">${SF.I18N.LANGS.map(([k, n]) => `<option value="${k}" ${SF.I18N.get() === k ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
         <div class="line"><label>${t('coaches_n')}</label><select data-chg="setup-n">${[1, 2, 3, 4].map((n) => `<option ${S.n === n ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
-        ${Array.from({ length: S.n }, (_, i) => `<div class="line"><input type="text" id="sn${i}" maxlength="18" placeholder="${t('coach_name')} ${i + 1}" value="${esc(S.names[i])}"><select id="sc${i}">${opts(S.clubs[i])}</select></div>`).join('')}
+        ${Array.from({ length: S.n }, (_, i) => `<div class="line"><input type="text" id="sn${i}" maxlength="18" placeholder="${t('coach_name')} ${i + 1}" value="${esc(S.names[i])}"><select id="sc${i}">${opts(S.clubs[i])}</select><select id="sr${i}" title="${t('role_label')}">${['coach', 'both'].map((r) => `<option value="${r}" ${S.roles[i] === r ? 'selected' : ''}>${t('role_' + r)}</option>`).join('')}</select></div>`).join('')}
         ${S.n > 1 ? `<p class="mut sm">${t('hotseat_note')}</p>` : ''}
         ${bonusOpt()}
         <div class="row end"><button class="btn pri" data-act="setup-start">${t('start')}</button></div>
@@ -126,7 +127,7 @@
       let cid = $('#sc' + i).value || null;
       if (cid && used.has(cid)) cid = null;
       if (cid) used.add(cid);
-      coaches.push({ name, clubId: cid });
+      coaches.push({ name, clubId: cid, role: $('#sr' + i) ? $('#sr' + i).value : 'coach' });
     }
     let bonus;
     if ($('#usebonus') && $('#usebonus').checked) { const L = legends(), l = L.slice().reverse().find((x) => !x.used); if (l) { bonus = X.bonusFor(l.legacy); l.used = 1; saveLegends(L); } }
@@ -138,7 +139,7 @@
   // ---------- main frame ----------
   function gameView() {
     const G = UI.G, c = co(), club = myClub();
-    const tabs = ['home', 'squad', 'league', 'cup', 'europe', 'transfers', 'finance', 'coach', 'settings'];
+    const tabs = ['home', 'squad', 'league', 'cup', 'europe', 'transfers', 'finance'].concat(SF.Owner.role(c) !== 'coach' ? ['owner'] : [], ['coach', 'settings']);
     const bal = club ? B.bal(G, club.id) : 0;
     return `<header class="top"><div class="in"><div class="logo">${SF.Fx.logo(34)}<span>Sui<b>Foot</b></span></div>
       <span class="pill">${t('season')} ${G.season}${G.phase === 'seasonEnd' ? '' : ' · ' + t('week') + ' ' + G.week + '/' + G.sched.length}</span>
@@ -157,6 +158,7 @@
       case 'transfers': return transfersView();
       case 'finance': return financeView();
       case 'coach': return coachView();
+      case 'owner': return ownerView();
       case 'settings': return settingsView();
       default: return UI.G.phase === 'seasonEnd' ? seasonEndView() : homeView();
     }
@@ -510,6 +512,33 @@
     if (c.vac > 0) return `<div class="card"><h2>🏖 ${t('vac_title')}</h2><p>${t('vac_active', { n: c.vac })}</p><div class="row"><button class="btn pri" data-act="vac-run">${t('vac_run')}</button><button class="btn" data-act="vac-stop">${t('vac_back')}</button></div></div>`;
     return `<div class="card"><h2>🏖 ${t('vac_title')}</h2><p class="mut sm">${t('vac_desc')}</p><div class="row"><button class="btn" data-act="vac-start:4">${t('vac_weeks', { n: 4 })}</button><button class="btn" data-act="vac-start:8">${t('vac_weeks', { n: 8 })}</button><button class="btn" data-act="vac-start:99">${t('vac_season')}</button></div></div>`;
   }
+  const rqStatus = (a) => `<span class="${a.status === 'ok' ? 'good' : a.status === 'no' || a.status === 'exp' ? 'bad' : 'mut'}">${t('rq_' + a.status)}</span>`;
+  function contractCard(c, club) {
+    const G = UI.G, O = SF.Owner, ct = c.contract;
+    if (SF.Owner.role(c) !== 'coach' || !club) return '';
+    const rq = O.mine(G, c.id).map((a) => `<div class="row"><span>${esc(t('ap_' + a.kind))} ${esc(a.name || '')}${a.cost ? ' · ' + money(a.cost) : ''} <span class="mut sm">(${esc(t('why_' + a.why))})</span></span>${rqStatus(a)}</div>`).join('');
+    const body = !ct ? `<p class="mut">${t('ct_none')}</p>` : `
+      <div class="row"><span>${t('ct_salary')}</span><b>${money(ct.wage)}</b></div>
+      <div class="row"><span>${t('ct_left')}</span><b>${(Math.max(0, ct.left) / CFG.owner.W).toFixed(1)}</b></div>
+      <p class="mut sm">${t('ct_bonus', { a: money(ct.bonus.title), b: money(ct.bonus.promo), c: money(ct.bonus.euro) })}</p>
+      <p class="mut sm">${t('ct_share', { n: Math.round(ct.share * 100) })} · ${t('ct_exit', { fee: money(O.exitFee(c)) })}</p>
+      ${ct.late > 0 ? `<p class="bad">${t('ct_late', { n: ct.late })}</p>` : ''}
+      <button class="btn" data-act="mutual">${t('ct_mutual')}</button>`;
+    return `<div class="card"><h2>${t('ct_title')}</h2>${body}
+      <div class="row"><span>${t('ct_wallet')}</span><b>${money(O.walletBal(G, c.id))}</b></div>
+      <h2 style="margin-top:12px">${t('rq_title')}</h2>${rq || `<span class="mut">${t('rq_none')}</span>`}</div>`;
+  }
+  function ownerView() {
+    const G = UI.G, c = co(), club = myClub(), O = SF.Owner;
+    if (!club) return `<div class="card"><p class="mut">-</p></div>`;
+    const pol = O.policy(G, club);
+    return `<div class="grid"><div class="card hl"><h2>${t('own_title')}</h2><p class="mut">${t('own_note_both')}</p>
+      <div class="row"><span>${t('own_club_cash')}</span><b>${money(B.bal(G, club.id))}</b></div>
+      <div class="row"><span>${t('ct_wallet')}</span><b>${money(O.walletBal(G, c.id))}</b></div>
+      <div class="row"><span>${t('own_reserve')}</span><b>${money(pol.reserve)}</b></div>
+      <div class="line"><label>${t('own_amount')}</label><input type="number" id="own-amt" min="0" step="1000" value="10000"></div>
+      <div class="row"><button class="btn" data-act="withdraw">${t('own_withdraw')}</button> <button class="btn" data-act="invest">${t('own_invest')}</button></div></div></div>`;
+  }
   function coachView() {
     const G = UI.G, c = co(), club = myClub();
     const lvl = Game.level(c.xp), pts = Game.freePoints(c);
@@ -520,8 +549,8 @@
     const hall = G.hall.slice().reverse().slice(0, 15).map((h) => `<tr><td>${h.s}</td><td>${h.champ.map((id) => ctag(id, 14)).join('<br>')}</td><td>${h.cup ? ctag(h.cup, 14) : '-'}</td><td>${h.euro ? ctag(h.euro, 14) : '-'}</td></tr>`);
     return `<div class="grid"><div class="card hl"><h2>${esc(c.name)}</h2><p>${club ? ctag(club.id, 22) : '<span class="bad">—</span>'}</p>
         <p>${t('coach_level')}: <b>${lvl}</b></p><div class="bar"><i style="width:${Math.max(0, Math.min(100, pct))}%"></i></div><p class="mut sm">${t('xp')} ${c.xp} · ${t('skill_points', { n: pts })}</p>${sk}
-        <p class="mut sm">${t('sacked_count', { n: c.sacked })}</p>${club ? `<button class="btn dng" data-act="resign">${t('resign')}</button>` : ''} <button class="btn dng" data-act="retire">${t('retire')}</button></div>
-      ${goalsCard(c)}${repCard(c)}${vacCard(c, club)}
+        <p class="mut sm">${t('sacked_count', { n: c.sacked })}</p>${club && SF.Owner.role(c) === 'coach' ? `<button class="btn dng" data-act="resign">${t('resign')}</button>` : ''} <button class="btn dng" data-act="retire">${t('retire')}</button></div>
+      ${contractCard(c, club)}${goalsCard(c)}${repCard(c)}${vacCard(c, club)}
       <div class="card">${offersBlock(c)}</div>
       <div class="card"><h2>${t('trophies')}</h2>${trophies.length ? trophies.map((x) => `<div>${x}</div>`).join('') : `<span class="mut">${t('no_trophies')}</span>`}
         <h2 style="margin-top:14px">${t('career')}</h2>${c.hist.length ? tbl([t('season'), t('club'), '>#'], c.hist.slice().reverse().map((h) => `<tr><td>${h.s}</td><td>${ctag(h.club, 14)} <span class="mut sm">${divName(h.d)}</span></td><td class="r">${h.pos}</td></tr>`)) : `<span class="mut">-</span>`}</div>
@@ -730,6 +759,7 @@
     if (!p) return p;
     const q = Object.assign({}, p);
     if (q.tk) q.name = t(q.tk);
+    if (q.kind && SF.I18N.D['ap_' + q.kind]) q.kind = t('ap_' + q.kind);
     return q;
   }
 
@@ -903,7 +933,7 @@
     if (!k) return;
     const G = UI.G;
     if (k === 'lang') { SF.I18N.set(el.value); localStorage.setItem(LANGK, el.value); return render(); }
-    if (k === 'setup-n') { const S = UI.setup; for (let i = 0; i < S.n; i++) { S.names[i] = $('#sn' + i).value; S.clubs[i] = $('#sc' + i).value; } S.n = +el.value; return render(); }
+    if (k === 'setup-n') { const S = UI.setup; for (let i = 0; i < S.n; i++) { S.names[i] = $('#sn' + i).value; S.clubs[i] = $('#sc' + i).value; if ($('#sr' + i)) S.roles[i] = $('#sr' + i).value; } S.n = +el.value; return render(); }
     if (k === 'import') {
       const f = el.files[0]; if (!f) return;
       const r = new FileReader();
@@ -992,7 +1022,14 @@
       case 'job': closeModal(); return res(A.acceptJob(G, c, +arg));
       case 'jobdec': closeModal(); return res(A.declineJob(G, c, +arg));
       case 'jobview': { const o = c.offers.find((x) => x.id === +arg); if (o) jobDialog(o, true); return; }
-      case 'resign': return modal(`<p>${t('resign_confirm')}</p>`, () => { res(A.resign(G, c)); });
+      case 'resign': {
+        const O = SF.Owner, ct = c.contract;
+        const extra = !ct ? '' : O.justCauseCoach(c) ? `<p>${t('ct_quit_just', { w: CFG.owner.late, amt: money(O.remaining(c)) })}</p>` : `<p>${t('ct_quit_q', { fee: money(Math.min(O.exitFee(c), Math.max(0, O.walletBal(G, c.id)))), w: CFG.owner.ban })}</p>`;
+        return modal(`<p>${t('resign_confirm')}</p>${extra}`, () => { res(A.resign(G, c)); });
+      }
+      case 'mutual': return modal(`<p>${t('ct_mutual_q', { amt: money(SF.Owner.mutualOffer(G, c)) })}</p>`, () => { const r = SF.Owner.mutual(G, c); if (r.ok) { A.sack(G, c, 'expired'); Game.news(G, 'n_payoff', { club: myClub() ? myClub().name : '', amt: r.offer }, c.id); } res(r.ok ? r : { ok: false, err: r.err }, t('ok_done')); });
+      case 'withdraw': return res(SF.Owner.withdraw(G, c, $('#own-amt').value), t('ok_done'));
+      case 'invest': return res(SF.Owner.invest(G, c, $('#own-amt').value), t('ok_done'));
       case 'oacc': { const r = A.acceptOffer(G, c, +arg); return res(r, r.ok ? t('ok_sold', { fee: r.fee }) : ''); }
       case 'odec': return res(A.declineOffer(G, c, +arg));
       case 'price': return res(A.setPrice(G, c, myClub().price + parseFloat(arg)));

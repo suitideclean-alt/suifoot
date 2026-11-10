@@ -67,10 +67,16 @@
       club.human = c.id;
       G.bank.tracked[cid] = 1;
       c.rep = util.clamp(Math.round((E.strength(G, club) - 46) / 0.3 - 4), 8, 95);
+      c.role = sp.role === 'both' || sp.role === 'owner' ? sp.role : 'coach';
+      club.owner = c.role === 'coach' ? 0 : c.id;
+      if (c.role === 'coach') c.contract = SF.Owner.newContract(club, c.rep);
+      SF.Owner.openWallet(G, c.id);
+      if (c.role !== 'coach') SF.Bank.credit(G, SF.Owner.wallet(c.id), 500000, 'bailout');
       G.coaches.push(c);
     });
     if (o.bonus && G.coaches[0]) { G.coaches[0].rep = Math.min(100, G.coaches[0].rep + (o.bonus.rep || 0)); G.coaches[0].xp += o.bonus.xp || 0; }
     Game.startSeason(G);
+    SF.Owner.seasonStart(G);
     for (const c of G.coaches) Game.news(G, 'n_welcome', { club: G.clubs[c.club].name }, c.id);
     return G;
   };
@@ -487,6 +493,7 @@
       SF.Extras.weeklyHot(G);
       SF.Actions.weeklyMarket(G);
       SF.Actions.weeklyCareer(G);
+      SF.Owner.weekly(G);
       for (const cid of G.clubIds) {
         const club = G.clubs[cid];
         if (!club.human) aiWeekly(G, club);
@@ -586,6 +593,7 @@
     SF.Extras.onLeave(G, from, p, true);
     p.club = to.id; p.listed = 0; p.yrs = 0; p.mood = 70; delete p.hot; delete p.wo;
     p.wage = Math.max(E.wage(p), 40); p.ct = Math.max(p.ct, 2);
+    if (to.human) SF.Owner.onJoin(G, p);
     if (fee > 0) B.transfer(G, to.id, from.id, fee, 'transfer');
     from.rev += 0;
   }
@@ -721,6 +729,7 @@
       co.hist.push({ s: G.season, club: club.id, d: club.div, pos: club.pos, target: club.target, cup: club.cupRound });
       if (club.nextDiv < club.div) Game.news(G, 'n_promoted', { club: club.name }, co.id);
       if (club.nextDiv > club.div) Game.news(G, 'n_relegated', { club: club.name }, co.id);
+      SF.Owner.seasonEnd(G, co, club);
       const X = SF.Extras;
       if (club.pos === 1) X.unlock(G, co, 'a_champion');
       if (G.cup.winner === club.id) X.unlock(G, co, 'a_cup');
@@ -839,6 +848,7 @@
     for (const id of G.clubIds) if (!G.clubs[id].human) aiSeasonStart(G, G.clubs[id]);
     G.season++;
     Game.startSeason(G);
+    SF.Owner.seasonStart(G);
     for (const co of G.coaches) { if (co.club) { co.board = Math.max(co.board, 45); co.jobWeeks = Math.max(co.jobWeeks, 0); } }
     for (const id of G.clubIds) {
       const cl = G.clubs[id];
