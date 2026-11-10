@@ -84,3 +84,6 @@ Owner layer shipped for the coach and owner-coach roles (see docs/OWNER-COACH-RU
 
 ## v0.5.0 status
 The owner role is playable: computer coach, hire/fire/renew, limits editor, requests inbox, coach market, untouchable players. Next: play-test, then the testnet work.
+
+## v0.6.0 status
+Wallet login: connect any Sui wallet (Wallet Standard, no library) at the setup screen or in the header. One save slot per address on this device; a guest game is adopted by the first wallet that connects. Nothing is signed or sent on chain yet: the address only identifies the player. Next on chain: signed login proof checked by a server, then the Move package (see docs/SUI-RESEARCH.md).

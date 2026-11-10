@@ -6,7 +6,7 @@
   const $ = (s) => document.querySelector(s);
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const money = (n) => util.money(n);
-  const SAVE = 'suifoot.save.v1', LANGK = 'suifoot.lang';
+  const SAVE0 = 'suifoot.save.v1', LANGK = 'suifoot.lang';
 
   const UI = (SF.UI = { G: null, tab: 'home', ci: 0, tr: 'market', eu: 'groups', lg: 'table', lgDiv: null, md: null, live: null, f: { pos: '', minOvr: 50, maxAge: '', maxPrice: '', div: '', sort: 'ovr' }, setup: null, mok: null });
 
@@ -34,7 +34,8 @@
   const ovCls = (o) => (o >= 75 ? 'hi' : o >= 60 ? 'mid' : o >= 48 ? 'lo' : 'vlo');
   const ovTag = (o) => `<span class="ov ${ovCls(o)}">${o}</span>`;
   const divName = (d) => t('div_n', { n: d + 1 });
-  function save() { try { localStorage.setItem(SAVE, Game.serialize(UI.G)); } catch (e) { /* storage full or blocked */ } }
+  const SAVE_ = () => SF.Wallet.slot(SAVE0);
+  function save() { try { localStorage.setItem(SAVE_(), Game.serialize(UI.G)); } catch (e) { /* storage full or blocked */ } }
   function errMsg(r) {
     const k = 'err_' + r.err;
     return SF.I18N.D[k] ? t(k, { ask: r.ask, max: r.max != null ? r.max : CFG.SQUAD_MAX, min: CFG.SQUAD_MIN, cost: r.cost, why: r.why ? t('why_' + r.why) : '' }) : t('err_generic');
@@ -72,10 +73,36 @@
   }
   function init() {
     SF.I18N.set(detectLang());
-    try { const s = localStorage.getItem(SAVE); if (s) { UI.G = Game.deserialize(s); } } catch (e) { UI.G = null; }
+    try { const s = localStorage.getItem(SAVE_()); if (s) { UI.G = Game.deserialize(s); } } catch (e) { UI.G = null; }
     document.addEventListener('click', onClick);
     document.addEventListener('change', onChange);
+    let lastAddr = SF.Wallet.addr;
+    SF.Wallet.init(() => { if (SF.Wallet.addr !== lastAddr) { lastAddr = SF.Wallet.addr; swapSlot(); } if (!UI.live) render(); });
     render();
+  }
+  /** a different wallet (or none) means a different save slot */
+  function walletPill(big) {
+    const W = SF.Wallet;
+    if (W.addr) return `<button class="pill wl on" data-act="wl-menu" title="${esc(W.addr)}">🟣 ${W.short(W.addr)}</button>`;
+    return `<button class="${big ? 'btn pri' : 'pill wl'}" data-act="wl-menu">${t('wl_connect')}</button>${big ? `<p class="mut sm" style="margin-top:8px">${t('wl_note')}</p>` : ''}`;
+  }
+  function walletMenu() {
+    const W = SF.Wallet;
+    if (W.addr) return modal(`<h3>${t('wl_title')}</h3><p class="mono sm">${esc(W.addr)}</p><p class="mut sm">${t('wl_note')}</p>`, async () => { await W.disconnect(); toast(t('wl_off')); render(); }, t('wl_disconnect'));
+    const ws = W.available();
+    if (!ws.length) return modal(`<h3>${t('wl_title')}</h3><p>${t('wl_none')}</p>`, null, t('cancel'));
+    modal(`<h3>${t('wl_title')}</h3><p class="mut sm">${t('wl_pick')}</p>${ws.map((w, i) => `<button class="btn" style="display:block;width:100%;margin:6px 0" data-act="wl-go:${i}">${w.icon ? `<img src="${esc(w.icon)}" width="18" height="18" alt=""> ` : ''}${esc(w.name)}</button>`).join('')}`, null, t('cancel'));
+  }
+  async function walletGo(i) {
+    closeModal();
+    try { await SF.Wallet.connect(SF.Wallet.available()[i]); toast(t('wl_connected', { addr: SF.Wallet.short(SF.Wallet.addr) })); render(); } catch (e) { toast(t('wl_err'), true); }
+  }
+  function swapSlot() {
+    UI.setup = null;
+    const first = !localStorage.getItem(SAVE_());
+    if (SF.Wallet.addr && first && UI.G) { save(); toast(t('wl_adopted')); return; } // the guest game moves to this wallet
+    UI.G = null;
+    try { const s = localStorage.getItem(SAVE_()); if (s) UI.G = Game.deserialize(s); } catch (e) { UI.G = null; }
   }
 
   function render() {
@@ -104,8 +131,8 @@
     if (!S.roles) S.roles = ['coach', 'coach', 'coach', 'coach'];
     if (!S.list) S.list = previewClubs(S.seed);
     const opts = (sel) => `<option value="">${t('random_club')}</option>` + [0, 1, 2, 3].map((d) => `<optgroup label="${divName(d)}">${S.list.filter((c) => c.div === d).map((c) => `<option value="${c.id}" ${sel === c.id ? 'selected' : ''}>${esc(c.name)} · ${t('strength')} ${c.str}</option>`).join('')}</optgroup>`).join('');
-    const has = !!localStorage.getItem(SAVE);
-    return `<div class="wrap"><div class="hero">${SF.Fx.logo(120)}<h1>Sui<b>Foot</b></h1><div class="tagline">${t('app_tagline')}</div><div class="gline"><i>★</i></div></div>
+    const has = !!localStorage.getItem(SAVE_());
+    return `<div class="wrap"><div class="hero">${SF.Fx.logo(120)}<h1>Sui<b>Foot</b></h1><div class="tagline">${t('app_tagline')}</div><div class="gline"><i>★</i></div>${walletPill(true)}</div>
       <div class="grid"><div class="card form"><h2>${t('setup_title')}</h2>
         <div class="line"><label>${t('language')}</label><select data-chg="lang">${SF.I18N.LANGS.map(([k, n]) => `<option value="${k}" ${SF.I18N.get() === k ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
         <div class="line"><label>${t('coaches_n')}</label><select data-chg="setup-n">${[1, 2, 3, 4].map((n) => `<option ${S.n === n ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
@@ -146,7 +173,7 @@
     return `<header class="top"><div class="in"><div class="logo">${SF.Fx.logo(34)}<span>Sui<b>Foot</b></span></div>
       <span class="pill">${t('season')} ${G.season}${G.phase === 'seasonEnd' ? '' : ' · ' + t('week') + ' ' + G.week + '/' + G.sched.length}</span>
       ${club ? `<span class="pill">${badge(club, 16)} ${esc(club.name)}</span><span class="pill ${bal < 0 ? 'neg' : ''}">${t('balance')} <b>${money(bal)}</b> SFOOT</span>${c.vac > 0 ? `<span class="pill vac">🏖 ${t('vac_pill', { n: c.vac })}</span>` : ''}` : ''}
-      <div class="sp"></div><button class="sndbtn" data-act="snd" title="${t('sound_label')}">${SF.Fx.soundOn() ? '🔊' : '🔇'}</button>
+      <div class="sp"></div>${walletPill()}<button class="sndbtn" data-act="snd" title="${t('sound_label')}">${SF.Fx.soundOn() ? '🔊' : '🔇'}</button>
       ${G.coaches.length > 1 ? `<div class="coachsw">${G.coaches.map((x, i) => `<button class="${i === UI.ci ? 'on' : ''}" data-act="coach:${i}">${esc(x.name)}</button>`).join('')}</div>` : ''}
     </div><nav class="tabs">${tabs.map((k) => `<button class="${UI.tab === k ? 'on' : ''}" data-act="tab:${k}">${t('tab_' + k)}${k === 'owner' && nreq ? ` <b class="badge">${nreq}</b>` : ''}</button>`).join('')}</nav></header>
     <div class="wrap" style="padding-top:14px">${UI.live ? liveShell() : view()}</div>`;
@@ -1087,8 +1114,10 @@
     const G = UI.G;
     if (act === 'm-cancel') { closeModal(); return popups(); }
     if (act === 'm-ok') { const r = UI.mok ? UI.mok(readModal()) : true; if (r !== false) closeModal(); return; }
+    if (act === 'wl-menu') return walletMenu();
+    if (act === 'wl-go') return walletGo(+arg);
     if (act === 'setup-start') return setupStart();
-    if (act === 'continue') { try { UI.G = Game.deserialize(localStorage.getItem(SAVE)); render(); } catch (err) { toast(t('import_bad'), true); } return; }
+    if (act === 'continue') { try { UI.G = Game.deserialize(localStorage.getItem(SAVE_())); render(); } catch (err) { toast(t('import_bad'), true); } return; }
     if (!G) return;
     const c = co();
     switch (act) {
@@ -1128,7 +1157,7 @@
       case 'live-sub': { const L = UI.live; const o = +$('#sub-out').value, i = +$('#sub-in').value; if (!i || !o) return; L.mt.sub(L.side, o, i); for (const ev of L.mt.events.slice(-1)) { const l = evLine(ev); if (l) L.log.push(l); } return liveTickRender(); }
       case 'save': save(); return toast(t('saved'));
       case 'export': { const b = new Blob([Game.serialize(G)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `suifoot-s${G.season}-w${G.week}.json`; a.click(); return; }
-      case 'newgame': return modal(`<p>${t('set_newgame')}</p>`, () => { localStorage.removeItem(SAVE); UI.G = null; UI.setup = null; render(); });
+      case 'newgame': return modal(`<p>${t('set_newgame')}</p>`, () => { localStorage.removeItem(SAVE_()); UI.G = null; UI.setup = null; render(); });
       case 'skill': return res(A.spendSkill(G, c, arg));
       case 'job': closeModal(); return res(A.acceptJob(G, c, +arg));
       case 'jobdec': closeModal(); return res(A.declineJob(G, c, +arg));
@@ -1210,7 +1239,7 @@
       case 'capt': { const r = A.setCaptain(G, c, +arg); if (!r.ok) { toast(errMsg(r), true); return; } save(); render(); if ($('#modal .sheet')) sheet(+arg); return; }
       case 'promote': { closeModal(); return res(A.promote(G, c, +arg), t('ok_done')); }
       case 'retire': return modal(`<p>${t('retire_confirm')}</p>`, () => { const r = A.retire(G, c); const L = legends(); L.push(r.summary); saveLegends(L); UI.ci = 0; UI.tab = 'home'; save(); render(); });
-      case 'newcareer': localStorage.removeItem(SAVE); UI.G = null; UI.setup = null; return render();
+      case 'newcareer': localStorage.removeItem(SAVE_()); UI.G = null; UI.setup = null; return render();
       case 'snd': SF.Fx.setSound(!SF.Fx.soundOn()); SF.Fx.play('ding'); return render();
       case 'sign': { const p = G.players[+arg]; const r = A.signFree(G, c, p.id); return res(r, r.ok ? t('ok_bought', { name: p.n, fee: r.cost }) : ''); }
     }

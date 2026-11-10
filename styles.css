@@ -328,3 +328,4 @@ body{background:radial-gradient(1200px 500px at 50% -120px,hsl(var(--h) 80% 55% 
 .bub{align-self:flex-start;background:var(--bg3);border:1px solid var(--line);border-radius:12px;padding:6px 10px;max-width:90%;font-size:.9rem}
 .bub.me{align-self:flex-end;background:var(--acc);color:var(--onacc)}
 .wrapb{flex-wrap:wrap}
+.pill.wl{cursor:pointer;border:1px solid var(--line)}.pill.wl.on{font-family:ui-monospace,monospace}.mono{font-family:ui-monospace,monospace;word-break:break-all}
