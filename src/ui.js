@@ -104,7 +104,7 @@
     if (!S.list) S.list = previewClubs(S.seed);
     const opts = (sel) => `<option value="">${t('random_club')}</option>` + [0, 1, 2, 3].map((d) => `<optgroup label="${divName(d)}">${S.list.filter((c) => c.div === d).map((c) => `<option value="${c.id}" ${sel === c.id ? 'selected' : ''}>${esc(c.name)} · ${t('strength')} ${c.str}</option>`).join('')}</optgroup>`).join('');
     const has = !!localStorage.getItem(SAVE);
-    return `<div class="wrap"><div class="hero"><h1>Sui<b>Foot</b></h1><div class="mut">${t('app_tagline')}</div></div>
+    return `<div class="wrap"><div class="hero">${SF.Fx.logo(120)}<h1>Sui<b>Foot</b></h1><div class="tagline">${t('app_tagline')}</div><div class="gline"><i>★</i></div></div>
       <div class="grid"><div class="card form"><h2>${t('setup_title')}</h2>
         <div class="line"><label>${t('language')}</label><select data-chg="lang">${SF.I18N.LANGS.map(([k, n]) => `<option value="${k}" ${SF.I18N.get() === k ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
         <div class="line"><label>${t('coaches_n')}</label><select data-chg="setup-n">${[1, 2, 3, 4].map((n) => `<option ${S.n === n ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
@@ -140,7 +140,7 @@
     const G = UI.G, c = co(), club = myClub();
     const tabs = ['home', 'squad', 'league', 'cup', 'europe', 'transfers', 'finance', 'coach', 'settings'];
     const bal = club ? B.bal(G, club.id) : 0;
-    return `<header class="top"><div class="in"><div class="logo">Sui<b>Foot</b></div>
+    return `<header class="top"><div class="in"><div class="logo">${SF.Fx.logo(34)}<span>Sui<b>Foot</b></span></div>
       <span class="pill">${t('season')} ${G.season}${G.phase === 'seasonEnd' ? '' : ' · ' + t('week') + ' ' + G.week + '/' + G.sched.length}</span>
       ${club ? `<span class="pill">${badge(club, 16)} ${esc(club.name)}</span><span class="pill ${bal < 0 ? 'neg' : ''}">${t('balance')} <b>${money(bal)}</b> SFOOT</span>${c.vac > 0 ? `<span class="pill vac">🏖 ${t('vac_pill', { n: c.vac })}</span>` : ''}` : ''}
       <div class="sp"></div><button class="sndbtn" data-act="snd" title="${t('sound_label')}">${SF.Fx.soundOn() ? '🔊' : '🔇'}</button>

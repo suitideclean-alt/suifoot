@@ -5,6 +5,13 @@
   const fmt = (n) => (Math.abs(n) >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : Math.abs(n) >= 1e3 ? Math.round(n / 1e3) + 'k' : String(Math.round(n)));
   Fx.fmt = fmt;
 
+  /** the SuiFoot mark: football with a drop, gold ring */
+  let lid = 0;
+  Fx.logo = function (size) {
+    const id = 'lg' + (lid++), s = size || 32;
+    return `<svg class="mark" width="${s}" height="${s}" viewBox="-70 -70 140 140" role="img" aria-label="SuiFoot"><defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6dc86"/><stop offset=".55" stop-color="#d9a521"/><stop offset="1" stop-color="#9a6d12"/></linearGradient></defs><circle r="66" fill="#0b1b3a"/><circle r="64" fill="none" stroke="url(#${id})" stroke-width="6"/><circle r="55" fill="#4DA2FF" stroke="#0B2A5B" stroke-width="4"/><g stroke="#0B2A5B" stroke-width="5" stroke-linecap="round"><line x1="23" y1="-17" x2="48" y2="-28"/><line x1="23" y1="17" x2="48" y2="28"/><line x1="0" y1="-28" x2="0" y2="-52"/><line x1="-23" y1="-17" x2="-48" y2="-28"/><line x1="-23" y1="17" x2="-48" y2="28"/></g><path transform="translate(0,3) scale(.5)" fill="#fff" d="M0 -58 C26 -26 44 -4 44 20 A44 44 0 0 1 -44 20 C-44 -4 -26 -26 0 -58 Z"/></svg>`;
+  };
+
   /** small line chart; series = [{v:[...], c:'css colour', dash:bool}], labels optional */
   Fx.line = function (series, o) {
     o = o || {};
