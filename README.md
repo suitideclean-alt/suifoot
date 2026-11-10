@@ -1,4 +1,11 @@
-# SuiFoot
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/brand/lockup-dark.png">
+    <img src="assets/brand/lockup-light.png" alt="SuiFoot" width="420">
+  </picture>
+</p>
+
+<p align="center"><b>The football manager for the Sui ecosystem</b><br><a href="https://suitideclean-alt.github.io/suifoot/">Play in your browser</a></p>
 
 A free football-manager game in the spirit of the classic 90s manager games, made for the Sui ecosystem.
 Everything runs in the browser: no server, no build step, no dependencies.
