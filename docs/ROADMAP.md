@@ -80,4 +80,7 @@ Needs from the owner: a Sui wallet (testnet), an Enoki account for sponsored gas
 
 
 ## v0.4.0 status
-Owner layer shipped for the coach and owner-coach roles (see docs/OWNER-COACH-RULES.md). Remaining for v0.4: the owner role with a computer coach, limits editor, requests inbox, coach market.
+Owner layer shipped for the coach and owner-coach roles (see docs/OWNER-COACH-RULES.md).
+
+## v0.5.0 status
+The owner role is playable: computer coach, hire/fire/renew, limits editor, requests inbox, coach market, untouchable players. Next: play-test, then the testnet work.

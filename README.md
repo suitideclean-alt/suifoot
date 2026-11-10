@@ -109,3 +109,6 @@ before phase B/C.
 ## License
 
 MIT, see `LICENSE`.
+
+## Roles
+Pick one per player at setup: **Coach** (the computer owns the club and sets limits), **Owner and coach** (no limits), or **Owner** (you hire a computer coach, set his limits, answer his requests, fire or renew him). Rules: [docs/OWNER-COACH-RULES.md](docs/OWNER-COACH-RULES.md).

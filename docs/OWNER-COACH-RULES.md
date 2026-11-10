@@ -2,14 +2,13 @@
 
 Game rules inspired by real football employment practice. They follow the principles, not any country's law: coaches have no standard contract (it is whatever the contract says), laws differ by country and FIFA reformed its Article 17 recently. Real-world notes are in docs/SUI-RESEARCH.md and the sources at the end. All numbers below are game parameters and live in `CFG.owner` in `src/owner.js`.
 
-## Status (v0.4.0)
-Done: coach role with a computer owner (limits, requests, contract, pay-offs, bonuses, profit share), owner-coach role (Owner tab: wallet, withdraw above the reserve, invest), tests including abuse attempts.
-Next: the **owner** role (you hire and fire a computer coach, edit the limits, decide requests in an inbox, coach market), then multi-league.
+## Status (v0.5.0)
+All three roles are playable: **coach**, **owner-coach** and **owner**. In owner mode a computer coach is hired from a market (12 candidates, refreshed each season), with a contract you set (seasons, break clause, cap on the pay-off, mitigation; clauses raise his salary). He picks the team, trains, signs free agents, buys, sells, renews and promotes academy players inside your limits. Above them he files a request (at most 3 open at once); you approve or decline in the Owner tab, and an approval is used once within 3 game weeks. A legal squad is the one thing he may do outside the limits (cheapest free agents). Firing without cause pays the rest of the contract in weekly instalments (break clause replaces it); mutual termination pays 40-60%; 8 weeks of unpaid wages let him leave with just cause; when the contract ends he returns to the market. Not yet modelled for the computer coach: poaching by other clubs, just cause for the club, profit share.
 
 ## Roles
 - **Coach** (today's game): you coach, the computer is the owner with a default policy sized to the club.
 - **Owner-coach**: you own and coach. Limits do not apply to you. You can still sign yourself a contract; it is paid by you to you (no effect), and only coach reputation counts.
-- **Owner**: you own the club and hire a computer coach. The coach acts inside your limits. (Second step of v0.4.)
+- **Owner**: you own the club and hire a computer coach. The coach acts inside your limits. Done in v0.5.
 
 ## Who decides what
 | Level | Actions |

@@ -197,5 +197,117 @@ t('long run with all roles: 8 seasons, money conserved, no crash', () => {
   for (const co of G.coaches) truthy(co.club === null || G.clubs[co.club].human === co.id, 'club link consistent');
 });
 
+
+// ---------- owner role: a computer coach works for the human owner ----------
+function ownerSetup(seed) {
+  const G = Game.newGame({ seed: seed || 5, coaches: [{ name: 'Own', role: 'owner' }] });
+  const co = G.coaches[0], club = G.clubs[co.club];
+  B.credit(G, club.id, 2000000, 'bailout');
+  return { G, co, club };
+}
+const weeks = (G, n) => { for (let i = 0; i < n && G.phase === 'play'; i++) Game.playWeekAuto(G); };
+
+t('owner role: starts with a hired coach on contract, owner cannot trade by hand', () => {
+  const { G, co, club } = ownerSetup();
+  truthy(club.ac && club.ac.contract && club.ac.contract.wage > 0, 'coach hired');
+  eq(club.owner, co.id); eq(O.role(co), 'owner');
+  const other = G.clubIds.map((id) => G.clubs[id]).find((c) => !c.human && !c.foreign && c.div === club.div);
+  eq(A.buy(G, co, other.squad[0], 1e9).err === 'owner_cant' || A.buy(G, co, other.squad[0], 1e9).err !== undefined, true);
+  eq(club.ac.sk.train >= 0, true); eq(co.sk.train, club.ac.sk.train, 'skills mirrored to the owner object');
+});
+
+t('owner role: firing costs the rest of the contract in instalments, then money is conserved', () => {
+  const { G, co, club } = ownerSetup();
+  const owed = O.fireCost(G, co);
+  eq(owed, club.ac.contract.wage * club.ac.contract.left, 'full remaining salary without cause');
+  const bal0 = B.bal(G, club.id);
+  const r = O.fire(G, co); truthy(r.ok); eq(club.ac, null); eq(co.sk.train, 0, 'caretaker has no skills');
+  const od = (G.owed || []).find((x) => x.ai); truthy(od, 'pay-off created'); eq(od.total, owed);
+  weeks(G, 6);
+  const od2 = (G.owed || []).find((x) => x.id === od.id); truthy(od2 && od2.left < od.total, 'instalments are being paid');
+  conserved(G);
+});
+
+t('owner role: hiring a second coach is refused, hiring after firing works, clauses change the salary', () => {
+  const { G, co, club } = ownerSetup();
+  eq(O.hire(G, co, O.market(G)[0].id, {}).err, 'has_coach');
+  O.fire(G, co);
+  const k = O.market(G)[0], base = O.salaryFor(club, k.rep);
+  truthy(O.hire(G, co, k.id, { brk: 50000, cap: true, years: 2 }).ok);
+  truthy(club.ac.contract.wage > base, 'clauses raise the salary');
+  eq(club.ac.contract.left, 2 * CFG.owner.W); eq(club.ac.contract.brk, 50000);
+  eq(O.sackAmount(G, club.ac), 50000, 'break clause replaces the remaining salary');
+});
+
+t('owner role: the coach never leaves the limits without asking (spend, wage bill, untouchable)', () => {
+  const { G, co, club } = ownerSetup(9);
+  const pol = O.policy(G, club);
+  pol.budget = 80000; pol.maxFee = 40000;
+  const keep = club.squad.slice().sort((a, b) => G.players[b].ovr - G.players[a].ovr).slice(0, 3);
+  pol.untouchable = keep.slice();
+  const wb0 = O.wageBill(G, club);
+  for (let s = 0; s < 3; s++) {
+    for (let w = 0; w < 40 && G.phase === 'play'; w++) {
+      Game.playWeekAuto(G);
+      truthy(pol.spent <= pol.budget + 1, 'budget respected, spent ' + pol.spent);
+      truthy(O.openFor(G, club.id).length <= 3, 'never floods the owner');
+      for (const id of keep) { const p = G.players[id]; if (p.club !== club.id && p.age < 36) throw new Error('untouchable player left'); }
+    }
+    if (G.phase === 'seasonEnd') Game.newSeason(G);
+  }
+  conserved(G);
+  truthy(O.wageBill(G, club) < wb0 * 2.2, 'wage bill stays sane');
+});
+
+t('owner role: an approved request is carried out by the coach and only once', () => {
+  const { G, co, club } = ownerSetup();
+  const pol = O.policy(G, club); pol.maxFee = 1; pol.spent = 0;
+  const seller = G.clubIds.map((id) => G.clubs[id]).find((c) => !c.human && !c.foreign && c.div === club.div);
+  const p = G.players[seller.squad.slice().sort((a, b) => G.players[b].ovr - G.players[a].ovr)[4]];
+  const act = Object.assign({}, co, { role: 'coach', aiAct: true });
+  const fee = A.askPrice(G, act, p);
+  const r = A.buy(G, act, p.id, fee);
+  eq(r.err, 'needs_approval');
+  const ap = O.openFor(G, club.id)[0]; truthy(ap, 'request exists');
+  truthy(O.decide(G, co, ap.id, true).ok);
+  O.acWeekly(G, co);
+  eq(p.club, club.id, 'coach completed the signing');
+  eq(G.approvals.find((a) => a.id === ap.id).status, 'used');
+});
+
+t('owner role: unpaid wages for 8 weeks let the coach walk with just cause', () => {
+  const { G, co, club } = ownerSetup();
+  B.credit(G, club.id, -B.bal(G, club.id) - 5000, 'bailout'); // push the club into debt
+  const name = club.ac.name;
+  for (let i = 0; i < 9 && club.ac; i++) { B.debit(G, club.id, Math.max(0, B.bal(G, club.id) + 5000), 'tax'); O.acWeekly(G, co); }
+  eq(club.ac, null, 'coach left');
+  truthy((G.owed || []).some((x) => x.ai && x.name === name), 'club owes the rest');
+});
+
+t('owner role: contract end releases the coach to the market; renewing keeps him', () => {
+  const { G, co, club } = ownerSetup();
+  club.ac.contract.left = 1;
+  const n = G.cm.length, nm = club.ac.name;
+  O.acWeekly(G, co);
+  eq(club.ac, null); truthy(G.cm.some((k) => k.name === nm) && G.cm.length === n + 1);
+  const k = O.market(G)[0]; O.hire(G, co, k.id, { years: 1 });
+  club.ac.contract.left = 3; O.renewCoach(G, co, 2);
+  eq(club.ac.contract.left, 2 * CFG.owner.W);
+});
+
+t('owner role: 6 seasons with a human owner, money conserved, requests answered', () => {
+  const { G, co, club } = ownerSetup(13);
+  for (let s = 0; s < 6; s++) {
+    for (let w = 0; w < 40 && G.phase === 'play'; w++) {
+      Game.playWeekAuto(G);
+      for (const ap of O.openFor(G, club.id)) if (G.week % 2 === 0) O.decide(G, co, ap.id, ap.cost < B.bal(G, club.id) * 0.2);
+      if (!club.ac && G.week % 5 === 0) O.hire(G, co, O.market(G).sort((a, b) => b.rep - a.rep)[0].id, {});
+      if (G.week === 5) truthy(club.squad.length >= CFG.SQUAD_MIN, 'squad legal in week 5 of season ' + G.season + ': ' + club.squad.length);
+    }
+    if (G.phase === 'seasonEnd') Game.newSeason(G);
+    conserved(G);
+  }
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

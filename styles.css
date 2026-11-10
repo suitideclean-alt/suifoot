@@ -323,3 +323,4 @@ body{background:radial-gradient(1200px 500px at 50% -120px,hsl(var(--h) 80% 55% 
 .logo svg.mark{height:56px;width:auto}
 .logo{font-size:1.5rem;gap:12px}
 @media(max-width:720px){.logo svg.mark{height:42px}.logo{font-size:1.15rem;gap:8px}}
+.badge{display:inline-block;min-width:18px;padding:0 5px;margin-left:4px;border-radius:99px;background:var(--bad,#d33);color:#fff;font-size:.7rem;line-height:18px;text-align:center}

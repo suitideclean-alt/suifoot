@@ -9,7 +9,7 @@ for(const [p,ks] of Object.entries(fam)) for(const k of ks){const key=(p==='tr'?
 for(const k of ['train','tact','neg','youth']) if(!D['sk_'+k+'_d']){console.log('MISSING sk_'+k+'_d');bad++;}
 for(const k of SF.Game.CUP_KEYS) if(!D[k]){console.log('MISSING',k);bad++;}
 // news keys from engine
-const nk=new Set([...fs.readFileSync('src/game.js','utf8').matchAll(/news\(G, '(n_[a-z_]+)'/g)].map(m=>m[1]).concat([...fs.readFileSync('src/actions.js','utf8').matchAll(/news\(G, '(n_[a-z_]+)'/g)].map(m=>m[1])));
+const nk=new Set([...fs.readFileSync('src/game.js','utf8').matchAll(/news\(G, '(n_[a-z_]+)'/g)].map(m=>m[1]).concat([...fs.readFileSync('src/actions.js','utf8').matchAll(/news\(G, '(n_[a-z_]+)'/g)].map(m=>m[1]), [...fs.readFileSync('src/owner.js','utf8').matchAll(/news\(G, '(n_[a-z_]+)'/g)].map(m=>m[1])));
 for(const k of nk) if(!D[k]){console.log('MISSING news',k);bad++;}
 for(const k of ['n_sacked','n_resigned']) if(!D[k]){bad++;}
 // errors

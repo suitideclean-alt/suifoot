@@ -77,6 +77,7 @@
     if (o.bonus && G.coaches[0]) { G.coaches[0].rep = Math.min(100, G.coaches[0].rep + (o.bonus.rep || 0)); G.coaches[0].xp += o.bonus.xp || 0; }
     Game.startSeason(G);
     SF.Owner.seasonStart(G);
+    for (const c of G.coaches) if (c.role === 'owner') SF.Owner.autoHire(G, c);
     for (const c of G.coaches) Game.news(G, 'n_welcome', { club: G.clubs[c.club].name }, c.id);
     return G;
   };
