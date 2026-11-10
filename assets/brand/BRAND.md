@@ -2,6 +2,7 @@
 
 ## Logo
 - `logo-mark.svg` is the master mark: an angular hexagon shield (gold rim, navy core, cyan inner line) with a football and a white drop. Also used as the favicon.
+- Light backgrounds: `wordmark-light.png` (transparent, navy "SUI"), `wordmark-on-white.png`, `lockup-light.png`. Never use the white-text versions on white.
 - PNG exports: `logo-mark-1024.png` (transparent), `x-profile-400.png` (X/Twitter avatar), `x-banner-1500x500.png` (X header), `lockup-dark.png`, `wordmark.png` (transparent), `social-1200x630.png` (link preview / Open Graph).
 - Keep clear space of at least 1/4 of the mark's width around it. Do not recolour the mark, stretch it or add other effects. Put it on navy or white backgrounds.
 
