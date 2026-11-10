@@ -324,3 +324,7 @@ body{background:radial-gradient(1200px 500px at 50% -120px,hsl(var(--h) 80% 55% 
 .logo{font-size:1.5rem;gap:12px}
 @media(max-width:720px){.logo svg.mark{height:42px}.logo{font-size:1.15rem;gap:8px}}
 .badge{display:inline-block;min-width:18px;padding:0 5px;margin-left:4px;border-radius:99px;background:var(--bad,#d33);color:#fff;font-size:.7rem;line-height:18px;text-align:center}
+.chat{display:flex;flex-direction:column;gap:6px;max-height:340px;overflow:auto}
+.bub{align-self:flex-start;background:var(--bg3);border:1px solid var(--line);border-radius:12px;padding:6px 10px;max-width:90%;font-size:.9rem}
+.bub.me{align-self:flex-end;background:var(--acc);color:var(--onacc)}
+.wrapb{flex-wrap:wrap}

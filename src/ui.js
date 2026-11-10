@@ -188,9 +188,9 @@
     if (f.none) { body = `<p>${f.none === 'bye' ? t('bye_cup') : f.none === 'eu' ? t('eu_out') : t('cup_out')}</p>`; canPlay = false; }
     else body = `<div class="vs col"><span>${ctag(f.h, 28)}</span><span class="mut sm">vs</span><span>${ctag(f.a, 28)}</span></div><p class="mut" style="text-align:center">${f.k === 'L' ? t('matchday') + ' ' + f.md : f.k === 'E' ? '⭐ ' + euLabel(f.s) : t(Game.CUP_KEYS[f.r])} · ${f.h === c.club ? t('home') : t('away')}</p>${f.k === 'L' && X.isDerby(G, f.h, f.a) ? '<p style="text-align:center;margin:2px"><span class="chip derby">🔥 ' + t('derby') + '</span> <span class="mut sm">' + t('derby_info') + '</span></p>' : ''}${tacticHint(f, c)}`;
     return `<div class="card hl"><h2>${t('next_match')}</h2>${body}<div class="row" style="justify-content:center;margin-top:8px">
-      ${canPlay && !(c.vac > 0) ? `<button class="btn pri" data-act="play-live">${t('play_live')}</button>` : ''}
+      ${canPlay && !(c.vac > 0) && SF.Owner.role(c) !== 'owner' ? `<button class="btn pri" data-act="play-live">${t('play_live')}</button>` : ''}
       ${c.vac > 0 ? `<button class="btn pri" data-act="vac-run">🏖 ${t('vac_run')}</button>` : ''}
-      <button class="btn" data-act="sim-week">${f.none || true ? t('sim_week') : ''}</button>
+      <button class="btn ${SF.Owner.role(c) === 'owner' ? 'pri' : ''}" data-act="sim-week">${f.none || true ? t('sim_week') : ''}</button>
       <button class="btn" data-act="sim-season">${t('sim_season')}</button></div></div>`;
   }
   const euLabel = (s) => (s < 6 ? t('eu_md_n', { n: s + 1 }) : t(['eu_qf', 'eu_sf', 'eu_final'][s - 6]));
@@ -547,8 +547,74 @@
     if (!club) return `<div class="card"><p class="mut">-</p></div>`;
     if (O.role(c) !== 'owner') return `<div class="grid">${cashCard(c, club, t('own_note_both'))}</div>`;
     const sub = UI.ot || 'office';
-    const bar = `<div class="sub">${['office', 'limits', 'market'].map((k) => `<button class="${sub === k ? 'on' : ''}" data-act="ot:${k}">${t('ot_' + k)}</button>`).join('')}</div>`;
-    return bar + (sub === 'limits' ? ownerLimits(c, club) : sub === 'market' ? ownerMarket(c, club) : ownerOffice(c, club));
+    const bar = `<div class="sub">${['office', 'business', 'team', 'goals', 'chat', 'limits', 'market'].map((k) => `<button class="${sub === k ? 'on' : ''}" data-act="ot:${k}">${t('ot_' + k)}</button>`).join('')}</div>`;
+    const fn = { limits: ownerLimits, market: ownerMarket, business: ownerBusiness, team: ownerTeam, goals: ownerGoals, chat: ownerChat }[sub] || ownerOffice;
+    return bar + fn(c, club);
+  }
+
+  function ownerTips(c, club) {
+    const G = UI.G, O = SF.Owner, tips = [];
+    const open = O.openFor(G, club.id).length;
+    const sq = Game.players(G, club), unhappy = sq.filter((p) => SF.Extras.mood(p) < 40).length;
+    const r = A.financeReport(G, c), bal = B.bal(G, club.id);
+    if (!club.ac) tips.push(t('sg_nocoach'));
+    else if (club.ac.contract.left <= 8) tips.push(t('sg_expiring'));
+    if (open) tips.push(t('sg_requests', { n: open }));
+    if (!club.obj || club.obj.pos == null) tips.push(t('sg_noobj'));
+    if (unhappy >= 3) tips.push(t('sg_mood', { n: unhappy }));
+    if (r && r.ratio > 0.62) tips.push(t('sg_wages', { pct: Math.round(r.ratio * 100) }));
+    if (r && bal > r.wageW * 28 * 1.2) tips.push(t('sg_cash'));
+    return tips.length ? tips : [t('sg_ok')];
+  }
+  function ownerBusiness(c, club) {
+    const G = UI.G, O = SF.Owner, r = A.financeReport(G, c), pl = O.seasonPL(G, club);
+    const att = Game.attendance(club);
+    const kpi = (l, v, cls) => `<div class="row"><span>${l}</span><b class="${cls || ''}">${v}</b></div>`;
+    const hist = (club.pl || []).slice().reverse();
+    return `<div class="grid"><div class="card hl"><h2>${t('ot_business')}</h2>
+      ${kpi(t('balance'), money(B.bal(G, club.id)), B.bal(G, club.id) < 0 ? 'bad' : 'good')}
+      ${kpi(t('biz_income'), money(Math.round(pl.inc)))}${kpi(t('biz_expense'), money(Math.round(pl.exp)))}
+      ${kpi(t('biz_net'), (pl.inc - pl.exp >= 0 ? '+' : '') + money(Math.round(pl.inc - pl.exp)), pl.inc - pl.exp >= 0 ? 'good' : 'bad')}
+      ${r ? kpi(t('biz_ratio'), Math.round(r.ratio * 100) + '%', r.ratio > 0.62 ? 'bad' : '') : ''}${kpi(t('biz_att'), Math.round((att / club.cap) * 100) + '%')}
+      <p class="mut sm" style="margin-top:8px">${t('biz_more')}</p><button class="btn" data-act="tab:finance">${t('biz_go')}</button></div>
+      ${balanceChart(club)}${advisorCard(c, club)}
+      <div class="card"><h2>${t('biz_pl')}</h2>${hist.length ? tbl([t('season'), '>' + t('fin_income'), '>' + t('fin_expenses'), '>' + t('biz_net'), '#'], hist.map((h) => `<tr><td>${h.s}</td><td class="r">${money(h.inc)}</td><td class="r">${money(h.exp)}</td><td class="r ${h.net >= 0 ? 'good' : 'bad'}">${h.net >= 0 ? '+' : ''}${money(h.net)}</td><td class="r">${h.pos}</td></tr>`)) : `<span class="mut">${t('biz_none')}</span>`}</div></div>`;
+  }
+  function ownerTeam(c, club) {
+    const G = UI.G, sq = Game.players(G, club);
+    const moods = sq.map((p) => SF.Extras.mood(p)), avg = Math.round(util.sum(moods) / Math.max(1, moods.length));
+    const list = (arr, f) => (arr.length ? arr.slice(0, 8).map(f).join('') : `<span class="mut">${t('team_none')}</span>`);
+    const row = (p, extra) => `<div class="row sm"><span>${posTag(p.pos)} ${plink(p)} ${ovTag(p.ovr)}</span><span>${extra}</span></div>`;
+    const unhappy = sq.filter((p) => SF.Extras.mood(p) < 40).sort((a, b) => SF.Extras.mood(a) - SF.Extras.mood(b));
+    const out = sq.filter((p) => p.inj > 0 || p.sus > 0), exp = sq.filter((p) => p.ct <= 1 && !p.loan);
+    return `<div class="grid"><div class="card hl"><h2>${t('team_title')}</h2>
+      <div class="row"><span>${t('team_mood')}</span><b>${avg}/100</b></div><div class="bar ${avg < 40 ? 'red' : avg < 60 ? 'yel' : ''}"><i style="width:${avg}%"></i></div>
+      <button class="btn" data-act="tab:squad" style="margin-top:10px">${t('team_open')}</button></div>
+      <div class="card"><h2>${t('team_unhappy')}</h2>${list(unhappy, (p) => row(p, moodChip(p)))}</div>
+      <div class="card"><h2>${t('team_injured')}</h2>${list(out, (p) => row(p, statusOf(p)))}</div>
+      <div class="card"><h2>${t('team_expiring')}</h2>${list(exp, (p) => row(p, money(p.wage) + ' · ' + t('yr_n', { n: p.ct })))}</div>
+      <div class="card"><h2>${t('team_best')}</h2>${list(sq.slice().sort((a, b) => b.ovr - a.ovr), (p) => row(p, moodChip(p)))}</div></div>`;
+  }
+  function ownerGoals(c, club) {
+    const ob = club.obj || {}, hist = (club.objHist || []).slice().reverse();
+    return `<div class="grid"><div class="card"><h2>${t('goal_title')}</h2><p class="mut sm">${t('goal_note')}</p>
+      <div class="line"><label>${t('goal_pos')}</label><input type="number" id="obj-pos" min="1" max="12" value="${ob.pos != null ? ob.pos : club.target}"></div>
+      <div class="line"><label>${t('goal_profit')}</label><input type="number" id="obj-profit" step="1000" value="${ob.profit != null ? ob.profit : ''}"></div>
+      <div class="line"><label>${t('goal_cup')}</label><select id="obj-cup"><option value="0">${t('no')}</option><option value="1" ${ob.cup ? 'selected' : ''}>${t('yes')}</option></select></div>
+      <button class="btn pri" data-act="obj-save">${t('goal_save')}</button>
+      <p class="mut sm" style="margin-top:10px">${t('goal_stance', { s: t('stance_' + (club.stance || 'normal')) })}</p></div>
+      <div class="card"><h2>${t('goal_hist')}</h2>${hist.length ? tbl([t('season'), '#', '', ''], hist.map((h) => `<tr><td>${h.s}</td><td>${h.pos} / ${h.tp}</td><td class="r">${h.tn != null ? (h.net >= 0 ? '+' : '') + money(h.net) : ''}</td><td class="${h.ok ? 'good' : 'bad'}">${h.ok ? t('goal_met') : t('goal_missed')}</td></tr>`)) : `<span class="mut">${t('biz_none')}</span>`}</div></div>`;
+  }
+  function ownerChat(c, club) {
+    const ac = club.ac;
+    if (!ac) return `<div class="card"><p class="warn">${t('ac_none')}</p></div>`;
+    const O = SF.Owner, log = club.chat || [];
+    const bub = (m) => m.me ? `<div class="bub me">${t('cq_' + m.k)}</div>` : `<div class="bub"><b>${esc(ac.name)}</b><br>${t(m.k, m.p)}</div>`;
+    const btn = (k) => `<button class="btn sm" data-act="chat:${k}">${t('cq_' + k)}</button>`;
+    return `<div class="grid"><div class="card"><h2>${t('chat_title')}</h2><p class="mut sm">${t('chat_note')}</p>
+      <div class="chat">${log.length ? log.map(bub).join('') : `<span class="mut">${t('chat_empty')}</span>`}</div></div>
+      <div class="card"><h3 class="sm mut">${t('chat_ask')}</h3><div class="row wrapb">${['status', 'money', 'squad', 'plans'].map(btn).join(' ')}</div>
+      <h3 class="sm mut" style="margin-top:12px">${t('chat_say')}</h3><div class="row wrapb">${['save', 'normal', 'ambition', 'youth', 'att', 'bal', 'def'].map(btn).join(' ')}</div></div></div>`;
   }
   function ownerOffice(c, club) {
     const G = UI.G, O = SF.Owner, ac = club.ac, ct = ac && ac.contract;
@@ -566,7 +632,8 @@
       <p class="mut sm">${t('ct_exit', { fee: money(O.exitFee(ac)) })}${ct.brk != null ? ' · ' + t('ac_brk').split(' (')[0] + ': ' + money(ct.brk) : ''}</p>
       ${ct.left <= 8 ? `<p class="warn">${t('ac_expiring', { n: Math.max(0, ct.left) })}</p>` : ''}${ct.late > 0 ? `<p class="bad">${t('ac_late', { n: ct.late })}</p>` : ''}
       <div class="row"><button class="btn" data-act="acrenew">${t('ac_renew')}</button> <button class="btn" data-act="acmutual">${t('ct_mutual')}</button> <button class="btn dng" data-act="acfire">${t('ac_fire')}</button></div></div>`;
-    return `<div class="grid">${inbox}${coachCard}${cashCard(c, club, t('own_note_owner'))}</div>`;
+    const tips = `<div class="card"><h2>${t('sg_title')}</h2>${ownerTips(c, club).map((x) => `<p class="sm">• ${x}</p>`).join('')}</div>`;
+    return `<div class="grid">${tips}${inbox}${coachCard}${cashCard(c, club, t('own_note_owner'))}</div>`;
   }
   function ownerLimits(c, club) {
     const G = UI.G, O = SF.Owner, pol = O.policy(G, club);
@@ -1073,6 +1140,8 @@
       }
       case 'mutual': return modal(`<p>${t('ct_mutual_q', { amt: money(SF.Owner.mutualOffer(G, c)) })}</p>`, () => { const r = SF.Owner.mutual(G, c); if (r.ok) { A.sack(G, c, 'expired'); Game.news(G, 'n_payoff', { club: myClub() ? myClub().name : '', amt: r.offer }, c.id); } res(r.ok ? r : { ok: false, err: r.err }, t('ok_done')); });
       case 'ot': UI.ot = arg; return render();
+      case 'obj-save': return res(SF.Owner.setObjectives(G, c, { pos: $('#obj-pos').value, profit: $('#obj-profit').value, cup: $('#obj-cup').value === '1' }), t('ok_done'));
+      case 'chat': return res(SF.Owner.chat(G, c, arg));
       case 'apy': return res(SF.Owner.decide(G, c, +arg, true), t('ok_done'));
       case 'apn': return res(SF.Owner.decide(G, c, +arg, false), t('ok_done'));
       case 'untouch': return res(SF.Owner.toggleUntouchable(G, c, +arg));

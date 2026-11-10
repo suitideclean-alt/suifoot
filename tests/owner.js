@@ -342,5 +342,23 @@ t('computer coach: profit share on a homegrown sale and poaching pays the club',
   truthy(left, 'eventually poached'); truthy((G.bank.flows.coach_comp || 0) !== 0, 'club received compensation'); conserved(G);
 });
 
+t('owner as manager: objectives judged at season end, P&L recorded, chat answers from real state and directives change behaviour', () => {
+  const { G, co, club } = ownerSetup(17);
+  truthy(O.setObjectives(G, co, { pos: 12, profit: -999999999, cup: false }).ok); eq(club.target, 12);
+  eq(O.chat(G, co, 'status').ok, true);
+  const last = club.chat[club.chat.length - 1]; eq(last.k, 'ch_status'); truthy(last.p.pos >= 1 && last.p.pos <= 12, 'real position');
+  O.chat(G, co, 'save'); eq(club.stance, 'save'); eq(club.chat[club.chat.length - 1].k, 'ch_ok_save');
+  O.chat(G, co, 'att'); eq(club.ac.tactic, 'att'); eq(co.lineup.tactic, 'att');
+  eq(O.chat(G, co, 'nonsense').ok, false);
+  const squad0 = club.squad.length;
+  let g = 0; while (G.phase === 'play' && g++ < 60) Game.playWeekAuto(G);
+  eq(club.pl.length, 1, 'season P&L recorded'); truthy(club.pl[0].inc > 0 && club.pl[0].exp > 0);
+  eq(club.objHist.length, 1); eq(club.objHist[0].ok, true, 'easy objective met');
+  truthy(club.fh.length > 20, 'balance history kept');
+  const rep0 = club.ac ? club.ac.rep : 0;
+  O.fire(G, co); eq(O.chat(G, co, 'status').err, 'no_coach');
+  conserved(G);
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

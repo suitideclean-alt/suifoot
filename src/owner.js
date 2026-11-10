@@ -391,12 +391,13 @@
     legalSquad(G, club, act);
     // 3) every second week look for an upgrade among free agents; every sixth week aim at a better player and ask if it is above the limits
     const sorted = squad.slice().sort((a, b) => b.ovr - a.ovr), bar = sorted[Math.min(11, sorted.length - 1)].ovr;
-    if (G.week % 2 === 0 && club.squad.length < CFG.SQUAD_MAX - 1) {
+    const st = club.stance || 'normal';
+    if (st !== 'save' && (G.week % (st === 'ambition' ? 1 : 2) === 0) && club.squad.length < CFG.SQUAD_MAX - 1) {
       const fa = A().search(G, act, { free: true, minOvr: bar + 3, limit: 3 });
       for (const p of fa) { if (violation(G, club, pol, 'sign', { pid: p.id, cost: E.wage(p) * 3, wage: E.wage(p) })) continue; const r = A().signFree(G, act, p.id); if (r.ok) break; }
     }
-    if (G.week % 6 === 3 && club.squad.length < CFG.SQUAD_MAX && !O.openFor(G, club.id).length) {
-      const cands = A().search(G, act, { minOvr: bar + 4, limit: 12, maxAge: 31 }).filter((p) => !p.loan && !G.clubs[p.club].human && G.clubs[p.club].squad.length > CFG.SQUAD_MIN + 2);
+    if (st !== 'save' && G.week % (st === 'ambition' ? 3 : 6) === 3 && club.squad.length < CFG.SQUAD_MAX && !O.openFor(G, club.id).length) {
+      const cands = A().search(G, act, { minOvr: bar + (st === 'youth' ? 0 : 4), limit: 12, maxAge: st === 'youth' ? 23 : 31, sort: st === 'youth' ? 'pot' : 'ovr' }).filter((p) => !p.loan && !G.clubs[p.club].human && G.clubs[p.club].squad.length > CFG.SQUAD_MIN + 2);
       const p = cands.sort((a, b) => ((b.ovr - bar) * 3 - A().askPrice(G, act, b) / 20000) - ((a.ovr - bar) * 3 - A().askPrice(G, act, a) / 20000))[0];
       if (p) A().buy(G, act, p.id, A().askPrice(G, act, p)); // inside the limits it is done, otherwise it becomes a request
     }
@@ -411,7 +412,7 @@
       const good = best.includes(p.id) ? o.fee >= v * 1.4 : o.fee >= v * 0.95;
       if (good) A().acceptOffer(G, act, o.id); else if (o.ttl <= 1) A().declineOffer(G, act, o.id);
     }
-    if (G.week % 3 === 0 && club.squad.length > 24) {
+    if (G.week % 3 === 0 && club.squad.length > (club.stance === 'save' ? 20 : 24)) {
       const p = SF.Game.players(G, club).filter((q) => !q.loan && !q.listed && !best.includes(q.id) && !pol.untouchable.includes(q.id)).sort((a, b) => a.ovr - b.ovr)[0];
       if (p) A().listPlayer(G, act, p.id, Math.round(E.value(p) * 1.05));
     }
@@ -454,13 +455,15 @@
     acBuying(G, co, club, act, ac);
     acSelling(G, co, club, act);
     acRenewals(G, co, club, act);
-    if (G.week === 2) { const y = (club.acad || []).slice().sort((a, b) => G.players[b].pot - G.players[a].pot)[0]; if (y && club.squad.length < CFG.SQUAD_MAX - 2 && G.players[y].pot >= 60) SF.Extras.promote(G, act, y); }
+    if (G.week === 2) { const y = (club.acad || []).slice().sort((a, b) => G.players[b].pot - G.players[a].pot)[0]; if (y && club.squad.length < CFG.SQUAD_MAX - 2 && G.players[y].pot >= (club.stance === 'youth' ? 50 : 60)) SF.Extras.promote(G, act, y); }
   };
 
   /** bonuses and rating changes for the computer coach at season end */
   O.acSeasonEnd = function (G, co, club) {
     const ac = club.ac;
+    plSnapshot(G, club, true);
     if (!ac) return;
+    judgeObjectives(G, co, club, ac);
     const c = ac.contract;
     const pay = (amt) => { amt = Math.min(Math.round(amt), Math.max(0, B.bal(G, club.id))); if (amt > 0) B.debit(G, club.id, amt, 'coach_bonus'); };
     if (club.pos === 1) pay(c.bonus.title);
@@ -475,6 +478,75 @@
     }
     ac.rep = util.clamp(ac.rep + (club.pos <= club.target ? 2 : -2) + (club.nextDiv < club.div ? 2 : 0), 5, 99);
     ac.age++;
+  };
+
+  // ---------- owner as manager: books, objectives, chat with the coach ----------
+  /** season profit and loss from the ledger totals: what came in and went out since the last snapshot */
+  function plSnapshot(G, club, push) {
+    const sf = G.bank.sf[club.id] || {}, snap = club.sfSnap || {};
+    let inc = 0, exp = 0;
+    for (const k in sf) { const d = sf[k] - (snap[k] || 0); if (d > 0) inc += d; else exp -= d; }
+    if (push) {
+      (club.pl = club.pl || []).push({ s: G.season, inc: Math.round(inc), exp: Math.round(exp), net: Math.round(inc - exp), bal: Math.round(B.bal(G, club.id)), pos: club.pos });
+      club.sfSnap = Object.assign({}, sf);
+    }
+    return { inc, exp };
+  }
+  O.seasonPL = (G, club) => plSnapshot(G, club, false);
+
+  O.setObjectives = function (G, co, o) {
+    const club = G.clubs[co.club];
+    if (!club || ROLE(co) !== 'owner' || club.owner !== co.id) return { ok: false, err: 'owner_only' };
+    club.obj = club.obj || {};
+    if (o.pos != null && +o.pos >= 1) { club.obj.pos = util.clamp(Math.round(+o.pos), 1, 12); club.target = club.obj.pos; }
+    if (o.profit != null && o.profit !== '' && isFinite(+o.profit)) club.obj.profit = Math.round(+o.profit);
+    if (o.cup != null) club.obj.cup = !!o.cup;
+    return { ok: true };
+  };
+  /** at season end: did the coach deliver what the owner asked? */
+  function judgeObjectives(G, co, club, ac) {
+    const ob = club.obj;
+    if (!ob || ob.pos == null) return;
+    const pl = (club.pl || [])[club.pl ? club.pl.length - 1 : 0] || { net: 0 };
+    const posOk = club.pos <= ob.pos, profitOk = ob.profit == null || pl.net >= ob.profit;
+    const cupOk = !ob.cup || (club.cupRound != null && club.cupRound >= 3);
+    const ok = posOk && profitOk && cupOk;
+    (club.objHist = club.objHist || []).push({ s: G.season, pos: club.pos, tp: ob.pos, net: pl.net, tn: ob.profit == null ? null : ob.profit, ok, posOk, profitOk });
+    ac.rep = util.clamp(ac.rep + (ok ? 2 : -2), 5, 99);
+    SF.Game.news(G, ok ? 'n_obj_ok' : 'n_obj_fail', { pos: club.pos, n: ob.pos }, co.id);
+  }
+
+  const STANCES = ['save', 'normal', 'ambition', 'youth'];
+  const CHAT_Q = ['status', 'money', 'squad', 'plans', 'save', 'normal', 'ambition', 'youth', 'att', 'bal', 'def'];
+  O.chatQuestions = CHAT_Q;
+  /** the owner says something; the coach answers from the real state. Replies are stored as keys so the language can change later. */
+  O.chat = function (G, co, q) {
+    const club = G.clubs[co.club], ac = club && club.ac;
+    if (!club || ROLE(co) !== 'owner' || club.owner !== co.id || !CHAT_Q.includes(q)) return { ok: false, err: 'owner_only' };
+    if (!ac) return { ok: false, err: 'no_coach' };
+    const log = (club.chat = club.chat || []);
+    log.push({ me: 1, k: q, s: G.season, w: G.week });
+    const squad = SF.Game.players(G, club), sorted = squad.slice().sort((a, b) => b.ovr - a.ovr);
+    let k, p = {};
+    if (q === 'status') {
+      const f = club.form.slice(-5), inj = squad.filter((x) => x.inj > 0).length;
+      k = 'ch_status'; p = { pos: SF.Game.standings(G, club.div).indexOf(club.id) + 1, n: (club.obj && club.obj.pos) || club.target, w: f.filter((x) => x === 3).length, d: f.filter((x) => x === 1).length, l: f.filter((x) => x === 0).length, inj };
+    } else if (q === 'money') {
+      const wb = O.wageBill(G, club), bal = B.bal(G, club.id);
+      k = bal < 0 ? 'ch_money_bad' : 'ch_money'; p = { bal: Math.round(bal), wsum: wb, cost: Math.max(0, O.policy(G, club).budget - O.policy(G, club).spent) };
+    } else if (q === 'squad') {
+      const weak = ['GK', 'DF', 'MF', 'FW'].map((x) => [x, squad.filter((y) => y.pos === x).length - posNeed(x)]).sort((a, b) => a[1] - b[1])[0];
+      k = 'ch_squad'; p = { name: sorted[0].n, ovr: sorted[0].ovr, pos: weak[0], mood: Math.round(util.sum(squad.map(SF.Extras.mood)) / Math.max(1, squad.length)) };
+    } else if (q === 'plans') {
+      k = 'ch_plans_' + (club.stance || 'normal'); p = { n: O.openFor(G, club.id).length };
+    } else if (STANCES.includes(q)) {
+      club.stance = q; k = 'ch_ok_' + q;
+    } else { // att / bal / def: tactic
+      ac.tactic = q; O.sync(G, co); k = 'ch_ok_tac';
+    }
+    log.push({ k, p, s: G.season, w: G.week });
+    if (log.length > 30) log.splice(0, log.length - 30);
+    return { ok: true };
   };
 
   /** a new club owner starts with a coach that fits the club */
@@ -512,7 +584,11 @@
       payMatchBonus(G, club, co, c, false);
       c.left--;
     }
-    for (const co of O.ownerClubs(G)) O.acWeekly(G, co);
+    for (const co of O.ownerClubs(G)) {
+      O.acWeekly(G, co);
+      const cl = G.clubs[co.club];
+      if (cl) { (cl.fh = cl.fh || []).push(Math.round(B.bal(G, cl.id))); if (cl.fh.length > 120) cl.fh.shift(); }
+    }
     // pay-offs in instalments (mitigation: what he earns elsewhere reduces the instalment)
     for (const o of G.owed || []) {
       const co = o.ai ? null : G.coaches.find((x) => x.id === o.to);
