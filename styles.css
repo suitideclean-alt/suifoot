@@ -318,3 +318,8 @@ nav.tabs button.on{background:linear-gradient(180deg,transparent,hsl(var(--h) 90
 .hero{background:radial-gradient(circle at 50% 35%,hsl(var(--h) 90% 60% / .22),transparent 55%),radial-gradient(circle at 50% 60%,rgba(217,165,33,.14),transparent 65%)}
 .hero svg.mark{filter:drop-shadow(0 0 22px hsl(var(--h) 90% 60% / .55)) drop-shadow(0 8px 14px rgba(7,11,36,.4))}
 body{background:radial-gradient(1200px 500px at 50% -120px,hsl(var(--h) 80% 55% / .10),transparent 70%),var(--bg)}
+
+/* v0.3.4 bigger header logo */
+.logo svg.mark{height:56px;width:auto}
+.logo{font-size:1.5rem;gap:12px}
+@media(max-width:720px){.logo svg.mark{height:42px}.logo{font-size:1.15rem;gap:8px}}
