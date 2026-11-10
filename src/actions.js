@@ -12,7 +12,7 @@
 
   // ---------- market ----------
   A.askPrice = function (G, coach, p) {
-    return Math.round((E.value(p) * p.ask * (1 - 0.015 * coach.sk.neg)) / 100) * 100;
+    return Math.round((E.value(p) * p.ask * (1 - 0.015 * coach.sk.neg) * (p.hot ? CFG.hotPremium : 1)) / 100) * 100;
   };
 
   A.buy = function (G, coach, pid, fee) {
@@ -27,12 +27,15 @@
     if (seller.squad.length <= CFG.SQUAD_MIN + 1) return no('seller_min');
     fee = Math.round(fee);
     const ask = A.askPrice(G, coach, p);
-    if (fee < ask * 0.88) return no('rejected', { ask });
-    if (fee < ask) return no('counter', { ask });
+    if (fee < E.clause(p)) { // paying the release clause skips the haggling
+      if (fee < ask * 0.88) return no('rejected', { ask });
+      if (fee < ask) return no('counter', { ask });
+    }
     if (B.bal(G, club.id) < fee) return no('no_funds', { ask });
     Game.moveClub(G, p, seller, club, fee);
     p.ct = 3;
     Game.news(G, 'n_bought', { name: p.n, club: seller.name, fee }, coach.id);
+    if (E.isStar(p)) SF.Extras.unlock(G, coach, 'a_star');
     return ok({ fee });
   };
 
@@ -65,6 +68,7 @@
     if (club.squad.length <= CFG.SQUAD_MIN) return no('squad_min');
     if (p.loan) return no('on_loan');
     const price = Math.round((E.value(p) * 0.65 * (1 + 0.015 * coach.sk.neg)) / 100) * 100;
+    SF.Extras.onLeave(G, club, p, true);
     B.credit(G, club.id, price, 'sale_fee');
     Game.releasePlayer(G, club, p, true);
     Game.news(G, 'n_sold_now', { name: p.n, fee: price }, coach.id);
@@ -90,12 +94,13 @@
     const club = myClub(G, coach), p = G.players[pid];
     if (!club || !p || p.club !== club.id) return no('bad');
     years = util.clamp(years | 0, 1, 4);
+    if (SF.Extras.mood(p) < 25) return no('unhappy');
     if (p.ct >= 6) return no('max_contract');
     const wage = Math.round((E.wage(p) * (1 + 0.02 * years)) / 10) * 10;
     const bonus = wage * 2;
     if (B.bal(G, club.id) < bonus) return no('no_funds', { cost: bonus });
     B.debit(G, club.id, bonus, 'signing');
-    p.wage = wage; p.ct = Math.min(6, p.ct + years);
+    p.wage = wage; p.ct = Math.min(6, p.ct + years); p.mood = Math.min(100, SF.Extras.mood(p) + 6); delete p.wo;
     return ok({ wage, cost: bonus });
   };
 
@@ -186,6 +191,32 @@
     coach.vac = weeks >= 99 ? left + 1 : Math.min(weeks, left);
     G.offers = G.offers.filter((o) => o.coach !== coach.id);
     return ok({ weeks: coach.vac });
+  };
+
+  // ---------- v0.3: scouting, shortlist, captain, academy, career end ----------
+  A.scoutPlayer = (G, c, pid) => SF.Extras.scoutPlayer(G, c, pid);
+  A.scoutReport = (G, c) => SF.Extras.scoutReport(G, c);
+  A.promote = (G, c, pid) => SF.Extras.promote(G, c, pid);
+  A.watch = function (G, coach, pid) {
+    coach.watch = coach.watch || [];
+    const i = coach.watch.indexOf(pid);
+    if (i >= 0) { coach.watch.splice(i, 1); return ok({ on: false }); }
+    if (coach.watch.length >= CFG.watchMax) return no('watch_full');
+    coach.watch.push(pid);
+    return ok({ on: true });
+  };
+  A.setCaptain = function (G, coach, pid) {
+    const club = myClub(G, coach), p = G.players[pid];
+    if (!club || !p || p.club !== club.id || p.loan) return no('bad');
+    club.capt = pid;
+    return ok();
+  };
+  A.retire = function (G, coach) {
+    const summary = SF.Extras.summary(G, coach);
+    if (coach.club) { G.clubs[coach.club].human = 0; G.offers = G.offers.filter((o) => o.coach !== coach.id); }
+    G.coaches.splice(G.coaches.indexOf(coach), 1);
+    if (!G.coaches.length) G.over = summary;
+    return ok({ summary, over: !G.coaches.length });
   };
 
   // ---------- squad / lineup ----------

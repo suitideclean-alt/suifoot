@@ -4,7 +4,7 @@ errs=[]
 with sync_playwright() as p:
     b=p.chromium.launch(); pg=b.new_page(viewport={'width':1200,'height':900})
     pg.on('console', lambda m: errs.append(m.text) if m.type=='error' else None); pg.on('pageerror', lambda e: errs.append(str(e)))
-    pg.goto('http://localhost:8765/index.html'); pg.wait_for_selector('.hero')
+    pg.add_init_script("try{localStorage.setItem('suifoot.recap','0')}catch(e){}"); pg.goto('http://localhost:8765/index.html'); pg.wait_for_selector('.hero')
     pg.select_option('#sc0', index=13); pg.click('[data-act=setup-start]'); pg.wait_for_selector('header.top')
     # inject an offer to the player's club and a job offer
     pg.evaluate("""()=>{const SF=window.SF,G=SF.UI.G,c=G.coaches[0],club=G.clubs[c.club];

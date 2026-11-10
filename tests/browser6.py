@@ -5,7 +5,7 @@ with sync_playwright() as p:
     b=p.chromium.launch(); pg=b.new_page(viewport={'width':1200,'height':900})
     pg.on('pageerror', lambda e: errs.append(str(e)))
     pg.on('console', lambda m: errs.append(m.text) if m.type=='error' else None)
-    pg.goto('http://localhost:8765/index.html'); pg.wait_for_selector('.hero')
+    pg.add_init_script("try{localStorage.setItem('suifoot.recap','0')}catch(e){}"); pg.goto('http://localhost:8765/index.html'); pg.wait_for_selector('.hero')
     pg.select_option('#sc0', index=13); pg.click('[data-act=setup-start]'); pg.wait_for_selector('header.top')
     pg.screenshot(path='/tmp/shots/60_home.png')
     pg.click('[data-act="tab:squad"]'); pg.wait_for_timeout(150); pg.screenshot(path='/tmp/shots/61_squad.png')

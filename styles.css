@@ -126,3 +126,92 @@ select:focus,input:focus{outline:2px solid var(--acc);outline-offset:-1px}
 @media(max-width:600px){.grid{grid-template-columns:1fr}.form .line{grid-template-columns:1fr}.score{font-size:1.7rem}.mm .line{grid-template-columns:80px 1fr 70px}}
 
 .tbl td.act{min-width:0;white-space:nowrap}.actsel{padding:3px 6px;font-size:.8rem;max-width:120px}
+
+/* ===== v0.3 ===== */
+a.pl{color:inherit;text-decoration:none;font-weight:600;border-bottom:1px dotted var(--mut)}a.pl:hover{color:var(--acc);border-bottom-color:var(--acc)}
+.capt{display:inline-block;background:var(--acc);color:var(--onacc);border-radius:50%;width:1.35em;height:1.35em;line-height:1.35em;text-align:center;font-size:.72rem;font-weight:800}
+.btn.ghost{box-shadow:none;border-color:transparent;background:transparent;font-size:1rem;color:#e0a100;padding:1px 6px}
+.chip.tg-idol{background:#fff0c9;border-color:#f1c75a;color:#7a5200}
+.chip.tg-prospect{background:#e2f6ea;border-color:#8fd3ac;color:#0d6b3e}
+.chip.tg-scorer{background:#fde4e7;border-color:#f1a1ab;color:#9c2434}
+.chip.tg-veteran{background:#ece8f7;border-color:#b9aee0;color:#4a3a8c}
+.chip.tg-star{background:#fff4d0;border-color:#f1d27a;color:#8a5d00}
+.chip.hot,.chip.derby{background:#ffe9d9;border-color:#f6a56b;color:#a34100}
+html[data-theme=dark] .chip.tg-idol,html[data-theme=dark] .chip.tg-prospect,html[data-theme=dark] .chip.tg-scorer,html[data-theme=dark] .chip.tg-veteran,html[data-theme=dark] .chip.tg-star,html[data-theme=dark] .chip.hot,html[data-theme=dark] .chip.derby{background:var(--bg3);color:var(--tx)}
+/* morale bars */
+.mood{display:inline-block;width:54px;height:8px;border-radius:99px;background:var(--bg3);overflow:hidden;vertical-align:middle}
+.mood.big{width:100%;height:12px}
+.mood i{display:block;height:100%;border-radius:99px}
+.mood.mg i{background:#13935a}.mood.mo i{background:#6bbf3c}.mood.mm2 i{background:#e0a100}.mood.mb i{background:#e8742a}.mood.ma i{background:#d93b4b}
+/* player sheet */
+.dlg.sheet{max-width:520px}
+.sheet .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
+.sheet .st{background:var(--bg);border:1px solid var(--line2);border-radius:10px;padding:6px 10px;display:flex;flex-direction:column}
+.sheet .st b{font-size:1rem}
+.ovbig{font-size:2rem;line-height:1}
+svg.chart{width:100%;height:auto;display:block;margin:4px 0 8px}
+svg.chart .gl{stroke:var(--line);stroke-width:1}svg.chart .gt{fill:var(--mut);font-size:9px}
+/* goals + medals */
+.goalrow{margin:10px 0}
+.medals{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.medal{display:flex;flex-direction:column;gap:2px;padding:10px;border:1px dashed var(--line);border-radius:12px;opacity:.55;background:var(--bg)}
+.medal .mi{font-size:1.5rem}
+.medal.on{opacity:1;border:1px solid #f1d27a;background:linear-gradient(160deg,#fff7dc,var(--bg2));animation:pop .6s cubic-bezier(.2,1.4,.4,1)}
+html[data-theme=dark] .medal.on{background:linear-gradient(160deg,#3a3010,var(--bg2))}
+.legrow{padding:8px 0;border-bottom:1px solid var(--line2)}
+/* recap */
+.dlg.recap{max-width:440px;animation:slidein .35s ease-out}
+.resbanner{margin:-20px -20px 14px;padding:10px 20px;border-radius:16px 16px 0 0;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:var(--mut)}
+.resbanner.win{background:var(--grn)}.resbanner.loss{background:var(--red)}.resbanner.draw{background:var(--yel)}
+@keyframes slidein{from{transform:translateY(24px);opacity:0}to{transform:none;opacity:1}}
+/* live */
+.livecard{position:relative;overflow:hidden}
+.livecard.flash{animation:flash .9s ease-out}
+@keyframes flash{0%{box-shadow:0 0 0 0 var(--grn)}40%{box-shadow:0 0 0 8px rgba(19,147,90,.25)}100%{box-shadow:var(--shadow)}}
+.goalbanner{position:absolute;left:0;right:0;top:36%;text-align:center;font-size:2.6rem;font-weight:900;color:#fff;padding:8px;background:linear-gradient(90deg,transparent,rgba(19,147,90,.92) 20%,rgba(19,147,90,.92) 80%,transparent);text-shadow:0 2px 6px rgba(0,0,0,.4);animation:banner .5s cubic-bezier(.2,1.4,.4,1);pointer-events:none}
+.goalbanner small{display:block;font-size:1rem;font-weight:600}
+@keyframes banner{from{transform:scale(.5);opacity:0}to{transform:none;opacity:1}}
+.dual{display:flex;align-items:center;gap:8px;margin:4px auto 0;max-width:420px}
+.dual b{min-width:2.6em;text-align:center;font-size:.85rem}
+.duo{flex:1;height:9px;border-radius:99px;background:hsl(var(--h) 20% 70%);overflow:hidden}
+.duo i{display:block;height:100%;background:var(--acc);transition:width .4s}
+.dlab{text-align:center;font-size:.72rem;color:var(--mut);text-transform:uppercase;letter-spacing:.08em}
+.htbox{margin:10px auto 0;max-width:420px;padding:8px 12px;border-radius:10px;background:var(--accs);text-align:center;font-size:.9rem}
+.log .sh{color:var(--mut)}
+.log .g{font-size:1rem;background:linear-gradient(90deg,rgba(19,147,90,.15),transparent);padding-left:4px;border-radius:4px}
+/* shirt, stadium */
+svg.shirt{vertical-align:middle;filter:drop-shadow(0 2px 3px rgba(0,0,0,.18))}
+svg.stadium{width:100%;max-width:340px;display:block;margin:4px auto 8px}
+.stadium .bowl{fill:var(--bg3);stroke:var(--line)}.stadium .pitch{fill:#3f9d5a}html[data-theme=dark] .stadium .pitch{fill:#2c7a43}
+.stadium .pl{stroke:rgba(255,255,255,.8);stroke-width:1.2;fill:none}.stadium .nf{fill:none}
+.stadium .fan{fill:var(--acc)}.stadium .seat{fill:var(--line)}
+.sndbtn{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.25);border-radius:99px;color:#fff;cursor:pointer;padding:2px 10px}
+.card .big{animation:none}
+.card{animation:cardin .3s ease-out}
+@keyframes cardin{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ===== mobile ===== */
+@media(max-width:720px){
+  html,body{font-size:14.5px}
+  .wrap{padding:0 10px 60px}
+  .top .in{padding:8px 10px 4px;gap:6px}
+  .pill{font-size:.76rem;padding:2px 9px}
+  nav.tabs{padding:2px 8px 0}nav.tabs button{padding:9px 11px}
+  .card{padding:13px 13px}
+  .grid{grid-template-columns:1fr}
+  .groups{grid-template-columns:1fr}
+  .btn{padding:9px 14px}.btn.sm{padding:7px 11px;font-size:.82rem}
+  select,input[type=text],input[type=number]{padding:8px 9px;font-size:16px}
+  #modal .ovl{padding:0;align-items:flex-end}
+  #modal .dlg{max-width:none;border-radius:18px 18px 0 0;max-height:92vh}
+  .resbanner{border-radius:18px 18px 0 0}
+  .sheet .stats{grid-template-columns:repeat(2,1fr)}
+  .tbl{font-size:.84rem}.tbl th,.tbl td{padding:7px 6px}
+  .tbl.squad th:nth-child(6),.tbl.squad td:nth-child(6),.tbl.squad th:nth-child(7),.tbl.squad td:nth-child(7),.tbl.squad th:nth-child(8),.tbl.squad td:nth-child(8),.tbl.squad th:nth-child(10),.tbl.squad td:nth-child(10){display:none}
+  .tbl.mkt th:nth-child(3),.tbl.mkt td:nth-child(3){display:none}
+  .goalbanner{font-size:1.9rem}
+  .score{font-size:1.9rem}
+  .vs{gap:8px;font-size:.95rem}
+  .live .log{height:200px}
+}

@@ -21,11 +21,12 @@
     const xi = s.xi;
     let gk = 0, df = 0, mf = 0, fw = 0, best = 0;
     for (const p of xi) {
-      best = Math.max(best, p.ovr);
-      if (p.pos === 'GK') gk = Math.max(gk, p.ovr);
-      else if (p.pos === 'DF') df += p.ovr;
-      else if (p.pos === 'MF') mf += p.ovr;
-      else fw += p.ovr;
+      const o = p.ovr + SF.Econ.moodAdj(p);
+      best = Math.max(best, o);
+      if (p.pos === 'GK') gk = Math.max(gk, o);
+      else if (p.pos === 'DF') df += o;
+      else if (p.pos === 'MF') mf += o;
+      else fw += o;
     }
     if (!gk) gk = best * 0.35; // outfield player in goal
     let Ap = (fw + 0.45 * mf) / 3.8;
@@ -51,14 +52,24 @@
     this.a = sideFrom(G, away);
     this.neutral = !!opts.neutral;
     this.knockout = !!opts.knockout;
+    this.derby = !!opts.derby;
     this.min = 0;
     this.events = [];
     this.done = false;
     this.et = false;
     this.pens = null;
     this.phase = 'ft'; // 'ft' | 'et' | 'pens'
-    power(this.h); power(this.a);
+    this.refresh();
   }
+
+  // tactics are a triangle: attack beats balanced, balanced beats defensive, defensive beats attack
+  const BEATS = { att: 'bal', bal: 'def', def: 'att' };
+  Match.prototype.refresh = function () {
+    power(this.h); power(this.a);
+    for (const [s, o] of [[this.h, this.a], [this.a, this.h]]) {
+      if (BEATS[s.tactic] === o.tactic) { s.pw.Ap *= 1.025; s.pw.Mp *= 1.025; s.pw.Dp *= 1.025; s.edge = 1; } else s.edge = BEATS[o.tactic] === s.tactic ? -1 : 0;
+    }
+  };
 
   Match.prototype.ev = function (e) { e.min = this.min; this.events.push(e); return e; };
 
@@ -70,7 +81,7 @@
     if (io < 0 || ib < 0) return false;
     const pin = s.bench[ib], pout = s.xi[io];
     s.xi[io] = pin; s.bench.splice(ib, 1); s.subs++; s.used.push(pin.id);
-    power(s);
+    this.refresh();
     this.ev({ t: 'sub', side, pid: pin.id, pid2: pout.id });
     return true;
   };
@@ -91,10 +102,10 @@
         this.ev({ t: 'sub', side, pid: pin.id, pid2: p.id, forced: 1 });
       }
     }
-    power(s);
+    this.refresh();
   };
 
-  Match.prototype.setTactic = function (side, t) { const s = side === 'h' ? this.h : this.a; s.tactic = t; power(s); };
+  Match.prototype.setTactic = function (side, t) { const s = side === 'h' ? this.h : this.a; s.tactic = t; this.refresh(); };
 
   Match.prototype.attackFrom = function (side) {
     const att = side === 'h' ? this.h : this.a;
@@ -112,6 +123,11 @@
       const assist = R.chance(0.7) ? R.weighted(att.xi.filter((p) => p !== sc), (p) => (p.pos === 'GK' ? 0 : p.pos === 'MF' ? 1.2 * p.ovr : p.ovr)) : null;
       att.goals++;
       this.ev({ t: 'goal', side, pid: sc.id, pid2: assist ? assist.id : 0 });
+    } else if (att.shots && R.chance(0.34)) {
+      // a chance worth telling: saved, wide or off the woodwork
+      const sh = R.weighted(att.xi, (p) => (p.pos === 'GK' ? 0 : p.pos === 'DF' ? 0.1 * p.ovr : p.pos === 'MF' ? 0.4 * p.ovr : p.ovr));
+      const gkp = def.xi.find((p) => p.pos === 'GK');
+      this.ev({ t: 'shot', side, pid: sh.id, pid2: gkp ? gkp.id : 0, r: R.pick(['save', 'save', 'miss', 'miss', 'post', 'block']) });
     }
   };
 
@@ -128,7 +144,7 @@
     }
     for (const side of ['h', 'a']) {
       const s = side === 'h' ? h : a;
-      if (R.chance(0.019)) {
+      if (R.chance(this.derby ? 0.025 : 0.019)) {
         const p = R.weighted(s.xi, (x) => (x.pos === 'GK' ? 0.2 : x.pos === 'DF' ? 1.3 : x.pos === 'MF' ? 1.1 : 0.8));
         s.yel[p.id] = (s.yel[p.id] || 0) + 1;
         if (s.yel[p.id] >= 2) { this.ev({ t: 'red', side, pid: p.id, second: 1 }); this.remove(side, p, false); }

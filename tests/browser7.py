@@ -4,7 +4,7 @@ errs=[]
 with sync_playwright() as p:
     b=p.chromium.launch(); pg=b.new_page(viewport={'width':1000,'height':900})
     pg.on('pageerror', lambda e: errs.append(str(e)))
-    pg.goto('http://localhost:8765/index.html'); pg.wait_for_selector('.hero')
+    pg.add_init_script("try{localStorage.setItem('suifoot.recap','0')}catch(e){}"); pg.goto('http://localhost:8765/index.html'); pg.wait_for_selector('.hero')
     pg.select_option('#sc0', index=2); pg.click('[data-act=setup-start]'); pg.wait_for_selector('header.top')
     pg.click('[data-act=sim-season]'); pg.wait_for_selector('text=Start next season', timeout=60000)
     for _ in range(4):

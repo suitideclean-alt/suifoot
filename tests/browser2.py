@@ -6,7 +6,7 @@ def run():
     b=p.chromium.launch(); ctx=b.new_context(viewport={'width':1200,'height':900}); pg=ctx.new_page()
     pg.on('console', lambda m: errs.append(('console.'+m.type, m.text)) if m.type in ('error','warning') else None)
     pg.on('pageerror', lambda e: errs.append(('pageerror', str(e))))
-    pg.goto('http://localhost:8765/index.html'); pg.wait_for_selector('.hero')
+    pg.add_init_script("try{localStorage.setItem('suifoot.recap','0')}catch(e){}"); pg.goto('http://localhost:8765/index.html'); pg.wait_for_selector('.hero')
     # pick a division-2 club in setup via option text
     pg.select_option('#sc0', index=13)  # first club of div2
     pg.fill('#sn0','Ana'); pg.click('[data-act=setup-start]'); pg.wait_for_selector('header.top')
@@ -27,7 +27,7 @@ def run():
     # simulate the season
     pg.click('[data-act="tab:home"]'); pg.click('[data-act=sim-season]'); pg.wait_for_selector('text=Start next season', timeout=60000)
     pg.screenshot(path='/tmp/shots/14_season_end.png')
-    pg.click('[data-act=next-season]'); pg.wait_for_timeout(300)
+    [pg.click('[data-act=m-cancel]') for _ in range(3) if pg.query_selector('[data-act=m-cancel]')]; pg.click('[data-act=next-season]'); pg.wait_for_timeout(300)
     pg.screenshot(path='/tmp/shots/15_season2.png')
     # languages
     for lang in ['fr','pt','de']:

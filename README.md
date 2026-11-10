@@ -34,6 +34,16 @@ To publish on GitHub Pages: push to `main`, then in the repository go to
 - **Finance advisor**: a money map (where you earn and lose) plus concrete advice with one-click actions (ticket price, stadium, wage cuts, loans, selling).
 - **Reputation** with an itemised log (what raised or lowered it) and perks (sponsors, job offers).
 - Season-end celebration with your club badge: titles, cup, promotion, top scorer, European run, prize money.
+- **Player sheet** (click any name): potential, value history chart, goals and games per season, morale, release clause, tag ("young prospect", "veteran", "club idol"...).
+- **Morale and dressing room**: playing time, fair wages, too many stars and bad runs move morale; unhappy players play worse, refuse contracts and ask to leave.
+- **Scouts**: young players of other clubs show only a potential range; order a scouting report (3 hidden gems) or scout one player. Shortlist with rival-interest alerts.
+- **Goals and achievements**: three short goals per season ("win 3 in a row", "win a derby"...) with XP and reputation, plus 17 medals.
+- **Round summary** after every matchday: result, scorers, injuries, league position change, promotion/relegation zone.
+- **Better live match**: possession and shots bars, named chances, goal banner, half-time pause for tactics and substitutions.
+- **Derbies and tactics**: each club has a rival (bigger gate, more board pressure) and a play style; tactics form a triangle (attack beats balanced beats defensive beats attack).
+- **Club idols and captain**, **market drama** (release clauses, rival bids with a deadline), **visible academy** with promote buttons.
+- **Career end**: retire, enter the Hall of Legends, start a new career with a legacy bonus.
+- Charts (form, balance, player value), stadium and shirts in club colours, optional sound (off by default), mobile layout.
 - Clean light theme (dark optional) whose colours follow the club you coach.
 - Save/load in the browser, export/import save files (saves from 0.1 are upgraded automatically).
 
@@ -48,6 +58,8 @@ src/match.js                match engine
 src/game.js                 calendar, league, cup, weekly economy, season rollover, evolution
 src/actions.js              everything a human coach can do (market, finance, career)
 src/i18n.js                 translations
+src/extras.js               morale, scouting, goals, achievements, rivals, academy, legends
+src/fx.js                   charts, shirts, stadium, sound
 src/ui.js                   interface
 tests/                      node tests, balance and economy simulations, browser tests (Playwright)
 ```
@@ -55,10 +67,10 @@ tests/                      node tests, balance and economy simulations, browser
 ## Tests
 
 ```bash
-npm test                    # 23 engine tests + translation completeness check
+npm test                    # 34 engine tests + translation completeness check
 npm run balance             # match-engine statistics over 100 simulated seasons
 npm run sim                 # 30 seasons: talent and money supply stay stable
-python3 tests/browser6.py   # new v0.2 features (also browser.py ... browser7.py); end-to-end with Playwright (needs `python3 -m http.server 8765` running)
+python3 tests/browser8.py   # v0.3 features incl. mobile (also browser.py ... browser7.py); end-to-end with Playwright (needs `python3 -m http.server 8765` running)
 ```
 
 Measured with the current numbers: about 2.6 goals per game, 43% home wins, 25% draws, the strongest

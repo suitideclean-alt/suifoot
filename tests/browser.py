@@ -5,7 +5,7 @@ with sync_playwright() as p:
     b=p.chromium.launch(); ctx=b.new_context(viewport={'width':1200,'height':900}); pg=ctx.new_page()
     pg.on('console', lambda m: errs.append(('console.'+m.type, m.text)) if m.type in ('error','warning') else None)
     pg.on('pageerror', lambda e: errs.append(('pageerror', str(e))))
-    pg.goto('http://localhost:8765/index.html'); pg.wait_for_selector('.hero')
+    pg.add_init_script("try{localStorage.setItem('suifoot.recap','0')}catch(e){}"); pg.goto('http://localhost:8765/index.html'); pg.wait_for_selector('.hero')
     pg.screenshot(path='/tmp/shots/01_setup.png')
     pg.fill('#sn0','Rui'); pg.click('[data-act=setup-start]'); pg.wait_for_selector('header.top')
     pg.screenshot(path='/tmp/shots/02_home.png')

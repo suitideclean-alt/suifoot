@@ -26,6 +26,18 @@
       if (a <= 24) v *= 1 + Math.max(0, p.pot - p.ovr) * 0.012;
       return Math.max(500, Math.round(v / 100) * 100);
     },
+    moodAdj(p) { const m = p.mood == null ? 70 : p.mood; return m < 35 ? -(35 - m) / 12 : 0; }, // unhappy players play worse
+    clause(p) { return Math.round((E.value(p) * 2.2) / 100) * 100; }, // release clause: pay it and the club cannot refuse
+    isIdol(p) { return (p.yrs || 0) >= 4 && p.age >= 24; },
+    tagOf(p) {
+      if (E.isIdol(p)) return 'idol';
+      if (E.isStar(p)) return 'star';
+      if (p.age <= 21 && p.pot >= p.ovr + 10) return 'prospect';
+      if (p.gt >= 30 && p.pos === 'FW') return 'scorer';
+      if (p.age >= 32) return 'veteran';
+      if (p.apt >= 80) return 'regular';
+      return p.age <= 23 ? 'young' : 'prime';
+    },
     isStar(p) { return p.ovr >= CFG.starOvr; },
     wage(p) { return Math.max(40, Math.round((E.wageFor(p.ovr) * (p.ovr >= CFG.starOvr ? CFG.starWage : 1)) / 10) * 10); },
     starCount(list) { return list.filter((p) => p.ovr >= CFG.starOvr).length; },
@@ -49,7 +61,7 @@
       const p = {
         id: G.nextPid++, n: playerName(), pos: o.pos, age, ovr, pot,
         wage: 0, ct: o.ct || R.int(1, 4), club: o.club || null,
-        inj: 0, sus: 0, yc: 0, g: 0, ap: 0, gt: 0, apt: 0, ask: Math.round(R.range(0.95, 1.3) * 100) / 100, listed: 0,
+        mood: 70, yrs: 0, inj: 0, sus: 0, yc: 0, g: 0, ap: 0, gt: 0, apt: 0, ask: Math.round(R.range(0.95, 1.3) * 100) / 100, listed: 0,
       };
       p.wage = E.wage(p);
       G.players[p.id] = p;
@@ -84,7 +96,7 @@
       const club = {
         id, name: SF.World.clubName(used), div: 0, foreign: 1, nat,
         c1: `hsl(${hue} 62% 42%)`, c2: R.chance(0.5) ? '#ffffff' : '#111827',
-        squad: [], fans: 30000, cap: 40000, price: 3, facility: { youth: 3, train: 3 }, build: null, lastRevenue: 0, hist: [], title: 0, cups: 0, human: 0, form: [], rev: 0,
+        squad: [], fans: 30000, cap: 40000, price: 3, facility: { youth: 3, train: 3 }, build: null, lastRevenue: 0, hist: [], title: 0, cups: 0, human: 0, form: [], rev: 0, style: R.weighted(['att', 'bal', 'def'], (x) => ({ att: 3, bal: 4, def: 3 }[x])),
       };
       G.clubs[id] = club;
       SF.World.makeSquad(G, club, CFG.divOvr[0] + R.gauss(0, 2.2));
@@ -105,7 +117,8 @@
         id: 'c' + idx, name: SF.World.clubName(used), div,
         c1: `hsl(${hue} 62% 42%)`, c2: R.chance(0.5) ? '#ffffff' : '#111827',
         squad: [], fans: 0, cap: 0, price: 0, facility: { youth: [3, 2, 1, 1][div], train: [3, 2, 1, 1][div] },
-        build: null, lastRevenue: 0, hist: [], title: 0, cups: 0, human: 0,
+        build: null, lastRevenue: 0, hist: [], title: 0, cups: 0, human: 0, rival: null, capt: 0, acad: [],
+        style: R.weighted(['att', 'bal', 'def'], (x) => ({ att: 3, bal: 4, def: 3 }[x])),
       };
       const off = R.gauss(0, 2.6);
       club.fans = Math.round(CFG.fans[div] * R.range(0.8, 1.25));

@@ -43,7 +43,7 @@
   function makeCoach(G, name, id) {
     return {
       id, name, club: null, rep: 20, xp: 0, board: 60, jobWeeks: 0, unemp: 0, sk: { train: 0, tact: 0, neg: 0, youth: 0 },
-      lineup: { auto: true, form: '4-4-2', tactic: 'bal', xi: [], bench: [] }, offers: [], hist: [], trophies: [], sacked: 0, nextOffer: 1, vac: 0, vacReport: null, replog: [],
+      lineup: { auto: true, form: '4-4-2', tactic: 'bal', xi: [], bench: [] }, offers: [], hist: [], trophies: [], sacked: 0, nextOffer: 1, vac: 0, vacReport: null, replog: [], goals: [], ach: {}, watch: [], gems: [], scouted: 0, gdone: 0, wstreak: 0,
     };
   }
 
@@ -69,6 +69,7 @@
       c.rep = util.clamp(Math.round((E.strength(G, club) - 46) / 0.3 - 4), 8, 95);
       G.coaches.push(c);
     });
+    if (o.bonus && G.coaches[0]) { G.coaches[0].rep = Math.min(100, G.coaches[0].rep + (o.bonus.rep || 0)); G.coaches[0].xp += o.bonus.xp || 0; }
     Game.startSeason(G);
     for (const c of G.coaches) Game.news(G, 'n_welcome', { club: G.clubs[c.club].name }, c.id);
     return G;
@@ -89,7 +90,10 @@
       for (let i = 0; i < CFG.EU_FOREIGN; i++) G.euIds.push(W.makeForeign(G, idx++, i % CFG.euNat.length).id);
       delete G._usedNames;
     }
+    for (const id of G.clubIds.concat(G.euIds)) { const c = G.clubs[id]; if (!c.style) c.style = R.weighted(['att', 'bal', 'def'], (x) => ({ att: 3, bal: 4, def: 3 }[x])); if (c.acad === undefined) c.acad = []; if (c.rival === undefined) c.rival = null; }
     if (!G.eu) { G.eu = null; if (G.divs) setupEuro(G, true); G.eu.idle = 1; }
+    if (!G.tq) G.tq = [];
+    if (G.divs) { SF.Extras.pairRivals(G); for (const co of G.coaches) { co.goals = co.goals || []; co.ach = co.ach || {}; co.watch = co.watch || []; if (co.club) { SF.Extras.fillGoals(G, co); SF.Extras.autoCaptain(G, G.clubs[co.club]); } } }
     return G;
   };
 
@@ -141,6 +145,8 @@
     G.week = 1; G.phase = 'play'; G.wk = null; G.summary = null;
     setupEuro(G);
     for (const c of G.coaches) { c.startRep = c.rep; }
+    SF.Extras.pairRivals(G);
+    for (const co of G.coaches) { co.goals = []; co.wstreak = 0; if (co.club) { SF.Extras.fillGoals(G, co); SF.Extras.autoCaptain(G, G.clubs[co.club]); } }
   };
 
   // ---------- european cup: 4 domestic qualifiers + 12 foreign clubs, 4 groups of 4, then QF / SF / final ----------
@@ -270,7 +276,7 @@
         bench = [...new Set(L.bench.filter(ok))].filter((id) => !xi.includes(id)).slice(0, 7);
         for (const id of auto.bench.concat(auto.xi)) { if (bench.length >= 7) break; if (!xi.includes(id) && !bench.includes(id)) bench.push(id); }
       }
-    } else ({ xi, bench } = pickXI(G, club, '4-4-2'));
+    } else { ({ xi, bench } = pickXI(G, club, '4-4-2')); tactic = club.style || 'bal'; }
     return { club: clubId, xi, bench, tactic, tbonus: tb };
   };
 
@@ -314,7 +320,7 @@
     if (sw.t === 'E') {
       for (const [h, a] of euFixtures(G, sw.s)) matches.push({ id: id++, k: 'E', s: sw.s, h, a, res: null });
     } else if (sw.t === 'L') {
-      for (const d in sw.fx) for (const [h, a] of sw.fx[d]) matches.push({ id: id++, k: 'L', div: +d, h, a, res: null });
+      for (const d in sw.fx) for (const [h, a] of sw.fx[d]) matches.push({ id: id++, k: 'L', div: +d, h, a, res: null, derby: SF.Extras.isDerby(G, h, a) });
     } else {
       drawCup(G);
       for (const cm of G.cup.matches) matches.push({ id: id++, k: 'C', r: G.cup.round, h: cm.h, a: cm.a, res: null });
@@ -324,7 +330,7 @@
   };
 
   Game.buildMatch = function (G, m) {
-    return new SF.Match(G, Game.specFor(G, m.h), Game.specFor(G, m.a), { knockout: m.k === 'C' || (m.k === 'E' && m.s >= 6), neutral: (m.k === 'C' && m.r === 5) || (m.k === 'E' && m.s === 8) });
+    return new SF.Match(G, Game.specFor(G, m.h), Game.specFor(G, m.a), { knockout: m.k === 'C' || (m.k === 'E' && m.s >= 6), neutral: (m.k === 'C' && m.r === 5) || (m.k === 'E' && m.s === 8), derby: !!m.derby });
   };
 
   Game.simMatch = function (G, m, mt) {
@@ -347,11 +353,19 @@
     const s = mt.summary();
     const hc = G.clubs[m.h], ac = G.clubs[m.a];
     const nm = (id) => (G.players[id] ? G.players[id].n : '?');
-    const ev = [];
+    const ev = [], gc = {};
     for (const e of s.events) {
       const p = G.players[e.pid];
       if (!p) continue;
-      if (e.t === 'goal') { p.g++; p.gt++; if (m.k === 'L') p.gl = (p.gl || 0) + 1; ev.push([e.min, 'g', e.side, p.n, e.pid2 ? nm(e.pid2) : '']); }
+      if (e.t === 'goal') {
+        p.g++; p.gt++; if (m.k === 'L') p.gl = (p.gl || 0) + 1;
+        const gcl = G.clubs[p.club], gco = gcl && gcl.human ? Game.humanOf(G, gcl.id) : null;
+        if (gco) {
+          if (p.hg) SF.Extras.onHomegrownGoal(G, gco);
+          gc[p.id] = (gc[p.id] || 0) + 1;
+          if (gc[p.id] === 3) { SF.Extras.unlock(G, gco, 'a_hattrick'); Game.news(G, 'n_hattrick', { name: p.n }, gco.id); }
+        }
+        ev.push([e.min, 'g', e.side, p.n, e.pid2 ? nm(e.pid2) : '']); }
       else if (e.t === 'yellow') {
         p.yc++;
         if (p.yc >= 5) { p.yc = 0; p.sus = Math.max(p.sus, 1); p._f = 1; if (G.clubs[p.club] && G.clubs[p.club].human) Game.news(G, 'n_suspended', { name: p.n }, G.clubs[p.club].human); }
@@ -368,6 +382,11 @@
     for (const sd of [mt.h, mt.a]) {
       for (const pid of sd.started.concat(sd.used)) { const p = G.players[pid]; if (p) { p.ap++; p.apt++; } }
     }
+    for (const [sd, cl] of [[mt.h, hc], [mt.a, ac]]) {
+      if (!cl.human) continue;
+      const played = new Set(sd.started.concat(sd.used));
+      for (const id of cl.squad) { const q = G.players[id]; if (q) q.pl = played.has(id) ? 1 : 0; }
+    }
     ev.sort((a, b) => a[0] - b[0]);
     const att = attendance(hc);
     m.res = { hg: s.hg, ag: s.ag, p: s.pens ? [s.pens.h, s.pens.a] : null, et: s.et ? 1 : 0, ev, hs: s.hs, as: s.as, hp: s.hp, att };
@@ -381,7 +400,7 @@
       m.res.att = hc.cap;
       Game.income(G, m.h, hc.cap * hc.price * CFG.euGate, 'gate');
     } else {
-      Game.income(G, m.h, att * hc.price, 'gate');
+      Game.income(G, m.h, att * hc.price * (m.derby ? CFG.derbyGate : 1), 'gate');
     }
     // table & form (league only)
     const hpts = s.hg > s.ag ? 3 : s.hg === s.ag ? 1 : 0;
@@ -396,6 +415,7 @@
       if (hc.form.length > 5) hc.form.shift();
       if (ac.form.length > 5) ac.form.shift();
     }
+    hc.lastPts = hpts; ac.lastPts = apts;
     // coaches
     const strH = E.strength(G, hc), strA = E.strength(G, ac);
     coachResult(G, hc, hpts, strH, strA, true, m);
@@ -407,13 +427,15 @@
     if (!coach) return;
     if (m.k === 'L') {
       const exp = util.clamp(1.35 + (own - opp) * 0.06 + (home ? 0.15 : -0.15), 0.2, 2.6);
-      coach.board = util.clamp(coach.board + (pts - exp) * 1.6, 0, 100);
+      coach.board = util.clamp(coach.board + (pts - exp) * 1.6 * (m.derby ? 2 : 1), 0, 100);
+      if (m.derby && pts !== 1) Game.addRep(G, coach, pts === 3 ? 0.5 : -0.5, 'derby');
       if (pts === 3 && own < opp - 4) Game.addRep(G, coach, 0.25, 'upset');
       else if (pts === 0 && own > opp + 4) Game.addRep(G, coach, -0.25, 'flop');
     } else {
       coach.board = util.clamp(coach.board + (pts === 3 ? 1.5 : -1), 0, 100);
     }
     coach.xp += pts === 3 ? 12 : pts === 1 ? 5 : 1;
+    SF.Extras.onMatch(G, coach, { pts, gf: home ? m.res.hg : m.res.ag, ga: home ? m.res.ag : m.res.hg, home, k: m.k, derby: m.derby, upset: pts === 3 && own < opp - 3 });
   }
 
   // ---------- end of week ----------
@@ -453,8 +475,16 @@
       if (p.inj > 0) p.inj--;
       if (p.sus > 0) p.sus--;
     }
+    for (const cid of G.clubIds) {
+      const cl = G.clubs[cid];
+      if (!cl.human) continue;
+      SF.Extras.moodTick(G, cl, wk.matches.some((x) => x.h === cid || x.a === cid), cl.lastPts);
+      const hc = Game.humanOf(G, cid);
+      if (hc && B.bal(G, cid) >= 2500000) SF.Extras.unlock(G, hc, 'a_rich');
+    }
     for (const co of G.coaches) if (co.vac > 0) co.vac--;
     if (!eu) {
+      SF.Extras.weeklyHot(G);
       SF.Actions.weeklyMarket(G);
       SF.Actions.weeklyCareer(G);
       for (const cid of G.clubIds) {
@@ -553,7 +583,8 @@
   function moveClub(G, p, from, to, fee) {
     from.squad.splice(from.squad.indexOf(p.id), 1);
     to.squad.push(p.id);
-    p.club = to.id; p.listed = 0;
+    SF.Extras.onLeave(G, from, p, true);
+    p.club = to.id; p.listed = 0; p.yrs = 0; p.mood = 70; delete p.hot; delete p.wo;
     p.wage = Math.max(E.wage(p), 40); p.ct = Math.max(p.ct, 2);
     if (fee > 0) B.transfer(G, to.id, from.id, fee, 'transfer');
     from.rev += 0;
@@ -561,6 +592,7 @@
   Game.moveClub = moveClub;
 
   function releasePlayer(G, club, p, toPool) {
+    SF.Extras.onLeave(G, club, p, false);
     club.squad.splice(club.squad.indexOf(p.id), 1);
     p.club = null; p.ct = 0; p.listed = 0;
     if (toPool && p.age < 34 && p.ovr >= 30) G.free.push(p.id); else delete G.players[p.id];
@@ -589,6 +621,7 @@
   }
 
   function youthIntake(G, club) {
+    if (club.human) return SF.Extras.academyIntake(G, club);
     const coach = Game.humanOf(G, club.id);
     const yl = club.facility.youth;
     const n = 1 + (R.chance(CFG.youthExtra) ? 1 : 0) + (yl >= 3 ? 1 : 0);
@@ -688,6 +721,14 @@
       co.hist.push({ s: G.season, club: club.id, d: club.div, pos: club.pos, target: club.target, cup: club.cupRound });
       if (club.nextDiv < club.div) Game.news(G, 'n_promoted', { club: club.name }, co.id);
       if (club.nextDiv > club.div) Game.news(G, 'n_relegated', { club: club.name }, co.id);
+      const X = SF.Extras;
+      if (club.pos === 1) X.unlock(G, co, 'a_champion');
+      if (G.cup.winner === club.id) X.unlock(G, co, 'a_cup');
+      if (G.eu.winner === club.id) X.unlock(G, co, 'a_euro');
+      if (club.nextDiv < club.div) X.unlock(G, co, 'a_promo');
+      if (G.table[club.id].l === 0) X.unlock(G, co, 'a_unbeaten');
+      if (co.hist.length >= 5) X.unlock(G, co, 'a_seasons5');
+      if (co.hist.length >= 10) X.unlock(G, co, 'a_seasons10');
     }
     G.hall.push(hall);
     G.summary = summary;
@@ -736,6 +777,7 @@
   Game.newSeason = function (G) {
     if (G.phase !== 'seasonEnd') return;
     returnLoans(G);
+    SF.Extras.archive(G);
     for (const co of G.coaches) if (co.vac > 0 && co.club) autoRenew(G, G.clubs[co.club], co);
     W.refreshForeign(G);
     for (const id of G.clubIds) {
@@ -761,10 +803,11 @@
       const club = G.clubs[id];
       const coach = Game.humanOf(G, id);
       for (const p of Game.players(G, club).slice()) {
-        p.age++; p.ct--; p.inj = 0; p.sus = 0; p.yc = 0;
+        p.age++; p.ct--; p.inj = 0; p.sus = 0; p.yc = 0; p.yrs = (p.yrs || 0) + 1;
         progress(G, p, club, coach);
         const retire = p.age >= 34 && R.chance(Math.min(0.95, (p.age - 33) * 0.28));
         if (retire) {
+          if (club.human && E.isIdol(p)) { club.fans = Math.round(club.fans * 1.02); Game.news(G, 'n_idol_retired', { name: p.n, yrs: p.yrs }, club.human); }
           if (club.human) Game.news(G, 'n_retired', { name: p.n, age: p.age }, club.human);
           club.squad.splice(club.squad.indexOf(p.id), 1); delete G.players[p.id];
           continue;
@@ -797,7 +840,18 @@
     G.season++;
     Game.startSeason(G);
     for (const co of G.coaches) { if (co.club) { co.board = Math.max(co.board, 45); co.jobWeeks = Math.max(co.jobWeeks, 0); } }
-    for (const co of G.coaches) co.vac = 0;
+    for (const id of G.clubIds) {
+      const cl = G.clubs[id];
+      if (cl.human) { SF.Extras.autoCaptain(G, cl); const hc = Game.humanOf(G, id); if (Game.players(G, cl).some((p) => p.hg && p.ovr >= 75)) SF.Extras.unlock(G, hc, 'a_homegrown'); if (Game.players(G, cl).some((p) => E.isIdol(p))) SF.Extras.unlock(G, hc, 'a_idol'); }
+      else if (cl.acad && cl.acad.length) { for (const pid of cl.acad) { const q = G.players[pid]; if (q && q.acad === id) delete G.players[pid]; } cl.acad = []; }
+    }
+    for (const co of G.coaches) {
+      if (co.vac > 0 && co.club) { // holiday: the staff promotes the best two youngsters
+        const cl = G.clubs[co.club];
+        for (const pid of (cl.acad || []).slice().sort((a, b) => G.players[b].pot - G.players[a].pot).slice(0, 2)) if (cl.squad.length < CFG.SQUAD_MAX - 2) SF.Extras.promote(G, co, pid);
+      }
+      co.vac = 0;
+    }
     SF.Actions.newSeasonCareer(G);
   };
 

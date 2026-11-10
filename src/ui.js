@@ -80,13 +80,14 @@
 
   function render() {
     document.documentElement.setAttribute('data-theme', localStorage.getItem(THEMEK) || 'light');
-    document.documentElement.style.setProperty('--h', UI.G && myClub() ? hueOf(myClub()) : 215);
+    document.documentElement.style.setProperty('--h', UI.G && UI.G.coaches.length && myClub() ? hueOf(myClub()) : 215);
     document.documentElement.lang = SF.I18N.get() === 'pt' ? 'pt-BR' : SF.I18N.get();
-    $('#app').innerHTML = UI.G ? gameView() : setupView();
+    $('#app').innerHTML = UI.G ? (UI.G.over ? overView() : gameView()) : setupView();
     if (UI.live && UI.G) liveTickRender();
     popups();
+    drainToasts();
   }
-  function popups() { maybeCelebrate(); maybeJobPopup(); maybeVacReport(); }
+  function popups() { if (UI.G && UI.G.over) return; maybeCelebrate(); maybeJobPopup(); maybeVacReport(); }
 
   // ---------- setup ----------
   function previewClubs(seed) {
@@ -109,11 +110,12 @@
         <div class="line"><label>${t('coaches_n')}</label><select data-chg="setup-n">${[1, 2, 3, 4].map((n) => `<option ${S.n === n ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
         ${Array.from({ length: S.n }, (_, i) => `<div class="line"><input type="text" id="sn${i}" maxlength="18" placeholder="${t('coach_name')} ${i + 1}" value="${esc(S.names[i])}"><select id="sc${i}">${opts(S.clubs[i])}</select></div>`).join('')}
         ${S.n > 1 ? `<p class="mut sm">${t('hotseat_note')}</p>` : ''}
+        ${bonusOpt()}
         <div class="row end"><button class="btn pri" data-act="setup-start">${t('start')}</button></div>
         <p class="mut sm">${t('fictional_note')}</p></div>
         <div class="card"><h2>${t('about_title')}</h2><p>${t('about_text')}</p><p class="mut sm">${t('roadmap')}</p>
         ${has ? `<button class="btn" data-act="continue">${t('continue')}</button>` : ''}
-        <label class="btn" style="display:inline-block">${t('import')}<input type="file" accept=".json,application/json" data-chg="import" hidden></label></div></div></div>`;
+        <label class="btn" style="display:inline-block">${t('import')}<input type="file" accept=".json,application/json" data-chg="import" hidden></label></div>${legendsCard()}</div></div>`;
   }
   function setupStart() {
     const S = UI.setup;
@@ -126,7 +128,9 @@
       if (cid) used.add(cid);
       coaches.push({ name, clubId: cid });
     }
-    UI.G = Game.newGame({ seed: S.seed, coaches });
+    let bonus;
+    if ($('#usebonus') && $('#usebonus').checked) { const L = legends(), l = L.slice().reverse().find((x) => !x.used); if (l) { bonus = X.bonusFor(l.legacy); l.used = 1; saveLegends(L); } }
+    UI.G = Game.newGame({ seed: S.seed, coaches, bonus });
     UI.setup = null; UI.ci = 0; UI.tab = 'home'; UI.live = null;
     save(); render();
   }
@@ -139,7 +143,7 @@
     return `<header class="top"><div class="in"><div class="logo">Sui<b>Foot</b></div>
       <span class="pill">${t('season')} ${G.season}${G.phase === 'seasonEnd' ? '' : ' · ' + t('week') + ' ' + G.week + '/' + G.sched.length}</span>
       ${club ? `<span class="pill">${badge(club, 16)} ${esc(club.name)}</span><span class="pill ${bal < 0 ? 'neg' : ''}">${t('balance')} <b>${money(bal)}</b> SFOOT</span>${c.vac > 0 ? `<span class="pill vac">🏖 ${t('vac_pill', { n: c.vac })}</span>` : ''}` : ''}
-      <div class="sp"></div>
+      <div class="sp"></div><button class="sndbtn" data-act="snd" title="${t('sound_label')}">${SF.Fx.soundOn() ? '🔊' : '🔇'}</button>
       ${G.coaches.length > 1 ? `<div class="coachsw">${G.coaches.map((x, i) => `<button class="${i === UI.ci ? 'on' : ''}" data-act="coach:${i}">${esc(x.name)}</button>`).join('')}</div>` : ''}
     </div><nav class="tabs">${tabs.map((k) => `<button class="${UI.tab === k ? 'on' : ''}" data-act="tab:${k}">${t('tab_' + k)}</button>`).join('')}</nav></header>
     <div class="wrap" style="padding-top:14px">${UI.live ? liveShell() : view()}</div>`;
@@ -178,7 +182,7 @@
     if (!f) return `<div class="card hl"><h2>${t('next_match')}</h2><p>${t('unemployed')}</p><button class="btn" data-act="sim-week">${t('advance')}</button></div>`;
     let body, canPlay = true;
     if (f.none) { body = `<p>${f.none === 'bye' ? t('bye_cup') : f.none === 'eu' ? t('eu_out') : t('cup_out')}</p>`; canPlay = false; }
-    else body = `<div class="vs col"><span>${ctag(f.h, 28)}</span><span class="mut sm">vs</span><span>${ctag(f.a, 28)}</span></div><p class="mut" style="text-align:center">${f.k === 'L' ? t('matchday') + ' ' + f.md : f.k === 'E' ? '⭐ ' + euLabel(f.s) : t(Game.CUP_KEYS[f.r])} · ${f.h === c.club ? t('home') : t('away')}</p>`;
+    else body = `<div class="vs col"><span>${ctag(f.h, 28)}</span><span class="mut sm">vs</span><span>${ctag(f.a, 28)}</span></div><p class="mut" style="text-align:center">${f.k === 'L' ? t('matchday') + ' ' + f.md : f.k === 'E' ? '⭐ ' + euLabel(f.s) : t(Game.CUP_KEYS[f.r])} · ${f.h === c.club ? t('home') : t('away')}</p>${f.k === 'L' && X.isDerby(G, f.h, f.a) ? '<p style="text-align:center;margin:2px"><span class="chip derby">🔥 ' + t('derby') + '</span> <span class="mut sm">' + t('derby_info') + '</span></p>' : ''}${tacticHint(f, c)}`;
     return `<div class="card hl"><h2>${t('next_match')}</h2>${body}<div class="row" style="justify-content:center;margin-top:8px">
       ${canPlay && !(c.vac > 0) ? `<button class="btn pri" data-act="play-live">${t('play_live')}</button>` : ''}
       ${c.vac > 0 ? `<button class="btn pri" data-act="vac-run">🏖 ${t('vac_run')}</button>` : ''}
@@ -190,7 +194,7 @@
     const b = Math.round(c.board);
     const cls = b < 30 ? 'red' : b < 50 ? 'yel' : '';
     const pos = Game.standings(UI.G, club.div).indexOf(club.id) + 1;
-    return `<div class="card"><h2>${t('board')}</h2><div class="bar ${cls}"><i style="width:${b}%"></i></div><div class="row" style="margin-top:6px"><b>${b}%</b><span class="mut">${t('objective')}: ${t('obj_text', { n: club.target })}</span></div>
+    return `<div class="card"><div class="row" style="justify-content:space-between"><h2 style="margin:0">${t('board')}</h2>${SF.Fx.shirt(club, 38)}</div><div class="bar ${cls}"><i style="width:${b}%"></i></div><div class="row" style="margin-top:6px"><b>${b}%</b><span class="mut">${t('objective')}: ${t('obj_text', { n: club.target })}</span></div>
       <p>${t('standing')}: <b>${pos}</b> · ${divName(club.div)} · ${t('pts')} ${UI.G.table[club.id].pts}</p>
       <p class="sm mut">${t('form')}: ${club.form.map((x) => `<span class="${x === 3 ? 'good' : x === 1 ? 'warn' : 'bad'}">${x === 3 ? t('col_w') : x === 1 ? t('col_d') : t('col_l')}</span>`).join(' ') || '-'}</p></div>`;
   }
@@ -215,12 +219,12 @@
   function newsCard() {
     const G = UI.G, id = co().id;
     const items = G.news.filter((n) => n.c === id || n.c === 0).slice(-25).reverse();
-    return `<div class="card wide"><h2>${t('news')}</h2><ul class="news">${items.length ? items.map((n) => `<li><span class="mut sm">${t('season')} ${n.s} · ${t('week')} ${n.w}</span> ${esc(t(n.k, n.p))}</li>`).join('') : `<li class="mut">${t('no_news')}</li>`}</ul></div>`;
+    return `<div class="card wide"><h2>${t('news')}</h2><ul class="news">${items.length ? items.map((n) => `<li><span class="mut sm">${t('season')} ${n.s} · ${t('week')} ${n.w}</span> ${esc(t(n.k, newsParams(n.p)))}</li>`).join('') : `<li class="mut">${t('no_news')}</li>`}</ul></div>`;
   }
   function homeView() {
     const c = co(), club = myClub();
     if (!club) return `<div class="grid"><div class="card wide"><p class="bad"><b>${t('sacked_banner')}</b></p>${offersBlock(c)}<div class="row"><button class="btn" data-act="sim-week">${t('advance')}</button></div></div>${newsCard()}</div>`;
-    return `<div class="grid">${fixtureCard(c)}${boardCard(c, club)}${alertsCard(club)}${lastResultsCard(club)}${newsCard()}</div>`;
+    return `<div class="grid">${fixtureCard(c)}${boardCard(c, club)}${alertsCard(club)}${formChart(club)}${lastResultsCard(club)}${newsCard()}</div>`;
   }
 
   // ---------- season end ----------
@@ -266,17 +270,18 @@
     const away = A.loanedOut(G, club);
     const rows = sq.map((p) => `<tr>
       <td><select data-chg="role:${p.id}" ${L.auto || c.vac > 0 ? 'disabled' : ''}>${['xi', 'bench', 'out'].map((r) => `<option value="${r}" ${role(p) === r ? 'selected' : ''}>${t('role_' + r)}</option>`).join('')}</select></td>
-      <td>${starTag(p)}${esc(p.n)}${p.listed ? ` <span class="chip">${t('listed')}</span>` : ''}${p.loan ? ` <span class="chip loan">${t('loan_from', { club: cname(p.loan.owner) })}</span>` : ''}</td><td>${posTag(p.pos)}</td><td>${p.age}</td><td>${ovTag(p.ovr)}</td><td class="mut">${p.age < 28 ? p.pot : '-'}</td>
-      <td class="r">${money(p.wage)}</td><td>${t('yr_n', { n: p.ct })}</td><td class="r">${mc(E.value(p))}</td><td>${p.g}/${p.ap}</td><td>${statusOf(p)}</td>
-      <td class="act">${p.loan ? '' : `<select class="actsel" data-chg="act:${p.id}"><option value="">${t('actions')}</option><option value="${p.listed ? 'unlist' : 'list'}">${p.listed ? t('unlist') : t('list_sale')}</option><option value="renew">${t('renew')}</option><option value="reneg">${t('renegotiate')}</option><option value="loanout">${t('loan_out_btn')}</option><option value="sellnow">${t('sell_now')}</option><option value="release">${t('release')}</option></select>`}</td></tr>`);
+      <td>${p.id === club.capt ? '<span class="capt" title="' + t('captain') + '">C</span> ' : ''}${starTag(p)}${plink(p)}${tagSmall(p)}${p.listed ? ` <span class="chip">${t('listed')}</span>` : ''}${p.loan ? ` <span class="chip loan">${t('loan_from', { club: cname(p.loan.owner) })}</span>` : ''}</td><td>${posTag(p.pos)}</td><td>${p.age}</td><td>${ovTag(p.ovr)}</td><td class="mut">${potCell(p)}</td>
+      <td class="r">${money(p.wage)}</td><td>${t('yr_n', { n: p.ct })}</td><td class="r">${mc(E.value(p))}</td><td>${p.g}/${p.ap}</td><td>${moodChip(p)}</td><td>${statusOf(p)}</td>
+      <td class="act">${p.loan ? '' : `<select class="actsel" data-chg="act:${p.id}"><option value="">${t('actions')}</option><option value="${p.listed ? 'unlist' : 'list'}">${p.listed ? t('unlist') : t('list_sale')}</option><option value="renew">${t('renew')}</option><option value="reneg">${t('renegotiate')}</option><option value="loanout">${t('loan_out_btn')}</option><option value="capt">${t('make_captain')}</option><option value="sellnow">${t('sell_now')}</option><option value="release">${t('release')}</option></select>`}</td></tr>`);
     return `<div class="card"><div class="row"><label>${t('formation')} <select data-chg="form">${Object.keys(Game.FORMS).map((f) => `<option ${L.form === f ? 'selected' : ''}>${f}</option>`).join('')}</select></label>
       <label>${t('tactic')} <select data-chg="tactic">${['def', 'bal', 'att'].map((k) => `<option value="${k}" ${L.tactic === k ? 'selected' : ''}>${t('tac_' + k)}</option>`).join('')}</select></label>
       <label><input type="checkbox" data-chg="auto" ${L.auto || c.vac > 0 ? 'checked' : ''} ${c.vac > 0 ? 'disabled' : ''}> ${t('auto_pick')}</label>
       <span class="${nxi === 11 ? 'good' : 'warn'}">${t('xi_count', { n: nxi })}</span>
       <span class="${sxi > CFG.starFree ? 'bad' : sxi ? 'star' : 'mut'}">★ ${t('stars_xi', { n: sxi, max: CFG.starFree })}</span></div>
       ${sxi > CFG.starFree ? `<p class="bad sm">${t('stars_over')}</p>` : ''}<p class="mut sm" style="margin:6px 0 0">${t('stars_info', { r: CFG.starOvr, max: CFG.starFree })}</p></div>
-      <div class="card" style="margin-top:14px">${tbl([t('sq_status').slice(0, 0) + '', t('sq_name'), t('sq_pos'), t('sq_age'), t('sq_ovr'), t('sq_pot'), '>' + t('sq_wage'), t('sq_ct'), '>' + t('sq_val'), t('sq_goals') + '/' + t('sq_apps'), t('sq_status'), ''], rows)}</div>
-      ${away.length ? `<div class="card" style="margin-top:14px"><h2>${t('loans_out_title')}</h2>${away.map((p) => `<div class="sm">${posTag(p.pos)} ${starTag(p)}${esc(p.n)} ${ovTag(p.ovr)} · ${t('loan_to', { club: cname(p.club) })} · <span class="mut">${t('loan_left', { n: p.loan.left })}</span></div>`).join('')}</div>` : ''}`;
+      <div class="card" style="margin-top:14px">${tbl([t('sq_status').slice(0, 0) + '', t('sq_name'), t('sq_pos'), t('sq_age'), t('sq_ovr'), t('sq_pot'), '>' + t('sq_wage'), t('sq_ct'), '>' + t('sq_val'), t('sq_goals') + '/' + t('sq_apps'), t('mood_label'), t('sq_status'), ''], rows, 'squad')}</div>
+      <div class="grid" style="margin-top:14px">${dressingCard(club)}${academyCard(club)}</div>
+      ${away.length ? `<div class="card" style="margin-top:14px"><h2>${t('loans_out_title')}</h2>${away.map((p) => `<div class="sm">${posTag(p.pos)} ${starTag(p)}${plink(p)} ${ovTag(p.ovr)} · ${t('loan_to', { club: cname(p.club) })} · <span class="mut">${t('loan_left', { n: p.loan.left })}</span></div>`).join('')}</div>` : ''}`;
   }
   const mc = (n) => util.money(n, true);
 
@@ -357,16 +362,18 @@
   function transfersView() {
     const G = UI.G, c = co(), club = myClub();
     if (!club) return `<div class="card">${t('unemployed')}</div>`;
-    const sub = ['market', 'free', 'loans', 'offers'];
-    const subBar = `<div class="sub">${sub.map((k) => `<button class="${UI.tr === k ? 'on' : ''}" data-act="tr:${k}">${t(k === 'market' ? 'tr_market' : k === 'free' ? 'tr_free' : k === 'loans' ? 'tr_loans' : 'tr_offers')}</button>`).join('')}</div>`;
+    const sub = ['market', 'free', 'loans', 'scout', 'watch', 'offers'];
+    const subBar = `<div class="sub">${sub.map((k) => `<button class="${UI.tr === k ? 'on' : ''}" data-act="tr:${k}">${t('tr_' + k)}</button>`).join('')}</div>`;
     const vacNote = c.vac > 0 ? `<div class="card warn" style="margin-bottom:14px">🏖 ${t('vac_blocked')}</div>` : '';
     if (UI.tr === 'offers') {
       const mine = G.offers.filter((o) => o.coach === c.id);
       return subBar + `<div class="card">${mine.length ? tbl([t('sq_name'), t('sq_pos'), t('age'), t('sq_ovr'), t('sq_pot'), t('market_value'), t('club'), '>' + t('offer_label'), '', ''], mine.map((o) => {
         const p = G.players[o.pid], val = E.value(p), pct = Math.round((o.fee / val - 1) * 100);
-        return `<tr><td>${starTag(p)}${esc(p.n)}</td><td>${posTag(p.pos)}</td><td>${p.age}</td><td>${ovTag(p.ovr)}</td><td class="mut">${p.age < 28 ? p.pot : '-'}</td><td class="r">${money(val)}</td><td>${ctag(o.club, 16)}</td><td class="r"><b>${money(o.fee)}</b></td><td class="${pct >= 0 ? 'good' : 'bad'}">${pct >= 0 ? '+' : ''}${pct}% ${t('vs_value')}</td><td><button class="btn sm grn" data-act="oacc:${o.id}">${t('accept')}</button> <button class="btn sm" data-act="odec:${o.id}">${t('decline')}</button></td></tr>`;
+        return `<tr><td>${starTag(p)}${plink(p)}</td><td>${posTag(p.pos)}</td><td>${p.age}</td><td>${ovTag(p.ovr)}</td><td class="mut">${potCell(p)}</td><td class="r">${money(val)}</td><td>${ctag(o.club, 16)}</td><td class="r"><b>${money(o.fee)}</b></td><td class="${pct >= 0 ? 'good' : 'bad'}">${pct >= 0 ? '+' : ''}${pct}% ${t('vs_value')} <span class="mut sm">⏳${o.ttl}</span></td><td><button class="btn sm grn" data-act="oacc:${o.id}">${t('accept')}</button> <button class="btn sm" data-act="odec:${o.id}">${t('decline')}</button></td></tr>`;
       })) : `<span class="mut">${t('no_offers')}</span>`}</div>`;
     }
+    if (UI.tr === 'scout') return subBar + vacNote + scoutView(c, club);
+    if (UI.tr === 'watch') return subBar + watchView(c);
     const F = UI.f, free = UI.tr === 'free', loans = UI.tr === 'loans';
     const list = A.search(G, c, { free, pos: F.pos, minOvr: +F.minOvr || 0, maxAge: +F.maxAge || 0, maxPrice: loans ? 0 : +F.maxPrice || 0, div: F.div, sort: F.sort, stars: F.stars, loanable: loans, limit: 60 });
     const filters = `<div class="card" style="margin-bottom:14px"><div class="row">
@@ -381,18 +388,18 @@
     let head, rows, extra = '';
     if (loans) {
       head = [t('sq_name'), t('sq_pos'), t('sq_age'), t('sq_ovr'), t('sq_pot'), t('club'), '>' + t('sq_wage'), ''];
-      rows = list.map((p) => `<tr><td>${starTag(p)}${esc(p.n)}</td><td>${posTag(p.pos)}</td><td>${p.age}</td><td>${ovTag(p.ovr)}</td><td class="mut">${p.age < 28 ? p.pot : '-'}</td><td>${ctag(p.club, 16)}</td><td class="r">${money(p.wage)}</td>
+      rows = list.map((p) => `<tr><td>${starTag(p)}${plink(p)}</td><td>${posTag(p.pos)}</td><td>${p.age}</td><td>${ovTag(p.ovr)}</td><td class="mut">${potCell(p)}</td><td>${ctag(p.club, 16)}</td><td class="r">${money(p.wage)}</td>
         <td class="act">${[1, 2].map((n) => `<button class="btn sm pri" data-act="loanin:${p.id}-${n}">${t('loan_in_btn', { n, fee: A.loanInFee(G, c, p, n) })}</button>`).join(' ')}</td></tr>`);
       const bor = A.loanedIn(G, club);
       extra = `<div class="card" style="margin-bottom:14px"><p class="sm mut">${t('loan_rules', { max: CFG.loanMaxIn })}</p>
-        <h2>${t('loans_in_title')}</h2>${bor.length ? bor.map((p) => `<div class="sm">${posTag(p.pos)} ${starTag(p)}${esc(p.n)} ${ovTag(p.ovr)} · ${t('loan_from', { club: cname(p.loan.owner) })} · <span class="mut">${t('loan_left', { n: p.loan.left })}</span></div>`).join('') : '<span class="mut">-</span>'}</div>`;
+        <h2>${t('loans_in_title')}</h2>${bor.length ? bor.map((p) => `<div class="sm">${posTag(p.pos)} ${starTag(p)}${plink(p)} ${ovTag(p.ovr)} · ${t('loan_from', { club: cname(p.loan.owner) })} · <span class="mut">${t('loan_left', { n: p.loan.left })}</span></div>`).join('') : '<span class="mut">-</span>'}</div>`;
     } else {
       head = [t('sq_name'), t('sq_pos'), t('sq_age'), t('sq_ovr'), t('sq_pot'), free ? '>' + t('sq_wage') : t('club'), '>' + (free ? t('cost') : t('asking_price')), ''];
-      rows = list.map((p) => `<tr><td>${starTag(p)}${esc(p.n)}</td><td>${posTag(p.pos)}</td><td>${p.age}</td><td>${ovTag(p.ovr)}</td><td class="mut">${p.age < 28 ? p.pot : '-'}</td>
+      rows = list.map((p) => `<tr><td>${starTag(p)}${plink(p)}${hotTag(p)}</td><td>${posTag(p.pos)}</td><td>${p.age}</td><td>${ovTag(p.ovr)}</td><td class="mut">${potCell(p)}</td>
       <td>${free ? money(E.wage(p)) : ctag(p.club, 16) + loanTag(p)}</td><td class="r">${free ? money(E.wage(p) * 3) : money(A.askPrice(G, c, p))}</td>
-      <td><button class="btn sm pri" data-act="${free ? 'sign' : 'buy'}:${p.id}">${free ? t('sign') : t('buy')}</button></td></tr>`);
+      <td class="act">${free ? '' : watchBtn(p) + scoutBtn(p)}<button class="btn sm pri" data-act="${free ? 'sign' : 'buy'}:${p.id}">${free ? t('sign') : t('buy')}</button></td></tr>`);
     }
-    return subBar + vacNote + extra + filters + `<div class="card">${list.length ? tbl(head, rows) : `<span class="mut">${t('nothing_found')}</span>`}</div>`;
+    return subBar + vacNote + extra + filters + `<div class="card">${list.length ? tbl(head, rows, 'mkt') : `<span class="mut">${t('nothing_found')}</span>`}</div>`;
   }
 
   // ---------- finance ----------
@@ -442,11 +449,11 @@
     const step = A.expandStep(club);
     const steps = [1, 2, 3].map((n) => `<button class="btn sm" data-act="expand:${n}" ${club.build ? 'disabled' : ''}>${t('expand_n', { n: n * step })} · ${mc(A.stadiumCost(G, club, n))}</button>`).join(' ');
     const fac = (k) => { const l = club.facility[k]; return `<div class="row"><span style="min-width:150px">${t('fac_' + k)}</span><span>${t('level')} ${l}/5</span>${l < 5 ? `<button class="btn sm" data-act="fac:${k}">${t('upgrade')} · ${mc(A.facilityCost(club, k))}</button>` : ''}</div>`; };
-    return `<div class="grid">${advisorCard(c, club)}
+    return `<div class="grid">${advisorCard(c, club)}${balanceChart(club)}
       <div class="card"><h2>${t('fin_summary')}</h2><div class="big ${B.bal(G, club.id) < 0 ? 'bad' : 'good'}">${money(B.bal(G, club.id))} SFOOT</div>
         <h3 class="sm mut">${t('fin_income')}: ${money(ti)}</h3>${inc.map(([k, v]) => `<div class="row sm"><span style="flex:1">${kl(k)}</span><span class="good">+${money(v)}</span></div>`).join('')}
         <h3 class="sm mut" style="margin-top:10px">${t('fin_expenses')}: ${money(te)}</h3>${exp.map(([k, v]) => `<div class="row sm"><span style="flex:1">${kl(k)}</span><span class="bad">-${money(v)}</span></div>`).join('')}</div>
-      <div class="card"><h2>${t('stadium')}</h2><p>${t('capacity')}: <b>${money(club.cap)}</b> · ${t('exp_attendance')}: <b>${money(att)}</b></p>
+      <div class="card"><h2>${t('stadium')}</h2>${SF.Fx.stadium(att / club.cap, club)}<p>${t('capacity')}: <b>${money(club.cap)}</b> · ${t('exp_attendance')}: <b>${money(att)}</b></p>
         <div class="row"><span>${t('ticket_price')}:</span><button class="btn sm" data-act="price:-0.1">−</button><b>${club.price.toFixed(1)}</b><button class="btn sm" data-act="price:0.1">+</button></div>
         <p>${club.build ? `<span class="warn">${t('building', { seats: club.build.seats, left: club.build.left })}</span>` : steps}</p>
         <h2 style="margin-top:14px">${t('facilities')}</h2>${fac('youth')}${fac('train')}</div>
@@ -513,12 +520,12 @@
     const hall = G.hall.slice().reverse().slice(0, 15).map((h) => `<tr><td>${h.s}</td><td>${h.champ.map((id) => ctag(id, 14)).join('<br>')}</td><td>${h.cup ? ctag(h.cup, 14) : '-'}</td><td>${h.euro ? ctag(h.euro, 14) : '-'}</td></tr>`);
     return `<div class="grid"><div class="card hl"><h2>${esc(c.name)}</h2><p>${club ? ctag(club.id, 22) : '<span class="bad">—</span>'}</p>
         <p>${t('coach_level')}: <b>${lvl}</b></p><div class="bar"><i style="width:${Math.max(0, Math.min(100, pct))}%"></i></div><p class="mut sm">${t('xp')} ${c.xp} · ${t('skill_points', { n: pts })}</p>${sk}
-        <p class="mut sm">${t('sacked_count', { n: c.sacked })}</p>${club ? `<button class="btn dng" data-act="resign">${t('resign')}</button>` : ''}</div>
-      ${repCard(c)}${vacCard(c, club)}
+        <p class="mut sm">${t('sacked_count', { n: c.sacked })}</p>${club ? `<button class="btn dng" data-act="resign">${t('resign')}</button>` : ''} <button class="btn dng" data-act="retire">${t('retire')}</button></div>
+      ${goalsCard(c)}${repCard(c)}${vacCard(c, club)}
       <div class="card">${offersBlock(c)}</div>
       <div class="card"><h2>${t('trophies')}</h2>${trophies.length ? trophies.map((x) => `<div>${x}</div>`).join('') : `<span class="mut">${t('no_trophies')}</span>`}
         <h2 style="margin-top:14px">${t('career')}</h2>${c.hist.length ? tbl([t('season'), t('club'), '>#'], c.hist.slice().reverse().map((h) => `<tr><td>${h.s}</td><td>${ctag(h.club, 14)} <span class="mut sm">${divName(h.d)}</span></td><td class="r">${h.pos}</td></tr>`)) : `<span class="mut">-</span>`}</div>
-      <div class="card"><h2>${t('hall')}</h2>${hall.length ? tbl([t('season'), t('champion'), t('cup'), '⭐'], hall) : `<span class="mut">-</span>`}</div></div>`;
+      <div class="card"><h2>${t('hall')}</h2>${hall.length ? tbl([t('season'), t('champion'), t('cup'), '⭐'], hall) : `<span class="mut">-</span>`}</div>${achCard(c)}${legendsCard()}</div>`;
   }
 
   // ---------- settings ----------
@@ -526,6 +533,8 @@
     const th = localStorage.getItem(THEMEK) || 'light';
     return `<div class="grid"><div class="card"><h2>${t('language')}</h2><select data-chg="lang">${SF.I18N.LANGS.map(([k, n]) => `<option value="${k}" ${SF.I18N.get() === k ? 'selected' : ''}>${n}</option>`).join('')}</select>
       <h2 style="margin-top:14px">${t('theme')}</h2><select data-chg="theme"><option value="light" ${th === 'light' ? 'selected' : ''}>${t('theme_light')}</option><option value="dark" ${th === 'dark' ? 'selected' : ''}>${t('theme_dark')}</option></select>
+      <h2 style="margin-top:14px">${t('sound_label')}</h2><select data-chg="sound"><option value="0">${t('sound_off')}</option><option value="1" ${SF.Fx.soundOn() ? 'selected' : ''}>${t('sound_on')}</option></select>
+      <label class="row" style="margin-top:10px"><input type="checkbox" data-chg="recap" ${recapOn() ? 'checked' : ''}> ${t('recap_toggle')}</label>
       <div class="row" style="margin-top:14px"><button class="btn pri" data-act="save">${t('save')}</button><button class="btn" data-act="export">${t('export')}</button>
       <label class="btn">${t('import')}<input type="file" accept=".json,application/json" data-chg="import" hidden></label>
       <button class="btn dng" data-act="newgame">${t('new_game')}</button></div></div>
@@ -586,6 +595,7 @@
   function playWeek(live) {
     const G = UI.G, c = co();
     if (G.phase !== 'play') return;
+    const before = snapshotBefore();
     const wk = Game.beginWeek(G);
     const mine = live && c.club && !(c.vac > 0) ? wk.matches.find((m) => m.h === c.club || m.a === c.club) : null;
     for (const m of wk.matches) if (m !== mine) Game.simMatch(G, m);
@@ -593,17 +603,19 @@
       const mt = Game.buildMatch(G, mine);
       const mySide = mine.h === c.club ? mt.h : mt.a;
       mySide.auto = false;
-      UI.live = { m: mine, mt, side: mine.h === c.club ? 'h' : 'a', log: [], paused: true, speed: 1, timer: null, over: false };
+      UI.live = { m: mine, mt, side: mine.h === c.club ? 'h' : 'a', log: [], paused: true, speed: 1, timer: null, over: false, before, ht: false, htDone: false, flash: null };
       render();
       return;
     }
-    finishWeek();
+    finishWeek(before);
   }
-  function finishWeek() {
+  function finishWeek(before) {
     Game.endWeek(UI.G);
+    const rc = before && recapOn() ? buildRecap(before) : null;
     save();
     UI.tab = 'home';
     render();
+    if (rc && !$('#modal').innerHTML) showRecap(rc);
   }
   function simSeason() {
     const G = UI.G;
@@ -622,6 +634,7 @@
       case 'red': return `<div class="r">🟥 ${e.min}' ${esc(t('ev_red', { name: name(e.pid) }))}</div>`;
       case 'inj': return `<div class="i">🩹 ${e.min}' ${esc(t('ev_inj', { name: name(e.pid) }))}</div>`;
       case 'sub': return `<div class="s">🔁 ${e.min}' ${esc(t('ev_sub', { in: name(e.pid), out: name(e.pid2) }))}</div>`;
+      case 'shot': return `<div class="sh">${e.r === 'post' ? '🥅' : '🎯'} ${e.min}' ${esc(t('ev_shot_' + e.r, { name: name(e.pid), gk: name(e.pid2) }))}</div>`;
       case 'et': return `<div class="s">⏱ ${t('ev_et')}</div>`;
       case 'pens': return `<div class="s">🥅 ${t('ev_pens', { h: e.h, a: e.a })}</div>`;
       default: return '';
@@ -638,8 +651,12 @@
     const bench = mine.bench.map((p) => `<option value="${p.id}">${t('pos_' + p.pos)} ${esc(p.n)} (${p.ovr})</option>`).join('');
     const out = mine.xi.map((p) => `<option value="${p.id}">${t('pos_' + p.pos)} ${esc(p.n)} (${p.ovr})</option>`).join('');
     const sum = mt.summary();
-    el.innerHTML = `<div class="card"><div class="vs"><span>${badge(hc, 34)} ${esc(hc.name)}</span><span class="score">${mt.h.goals} - ${mt.a.goals}</span><span>${badge(ac, 34)} ${esc(ac.name)}</span></div>
-      <p style="text-align:center" class="mut">${lab}${mt.pens ? ` · ${mt.pens.h}-${mt.pens.a} ${t('pens_short')}` : ''} · ${t('shots')} ${sum.hs}-${sum.as} · ${t('possession')} ${sum.hp}%-${100 - sum.hp}%</p>
+    el.innerHTML = `<div class="card livecard${L.flash ? ' flash' : ''}"><div class="vs"><span>${badge(hc, 34)} ${esc(hc.name)}</span><span class="score">${mt.h.goals} - ${mt.a.goals}</span><span>${badge(ac, 34)} ${esc(ac.name)}</span></div>
+      <p style="text-align:center" class="mut">${lab}${mt.pens ? ` · ${mt.pens.h}-${mt.pens.a} ${t('pens_short')}` : ''}</p>
+      <div class="dual"><b>${sum.hp}%</b><div class="duo"><i class="l" style="width:${sum.hp}%"></i></div><b>${100 - sum.hp}%</b></div><div class="dlab">${t('possession')}</div>
+      <div class="dual"><b>${sum.hs}</b><div class="duo"><i class="l" style="width:${Math.round((sum.hs / Math.max(1, sum.hs + sum.as)) * 100)}%"></i></div><b>${sum.as}</b></div><div class="dlab">${t('shots')}</div>
+      ${L.flash ? `<div class="goalbanner ${L.flash.side}">⚽ ${t('goal_banner')}<small>${esc(L.flash.txt)}</small></div>` : ''}
+      ${L.ht && L.paused && !L.over ? `<div class="htbox"><b>⏸ ${t('ht')}</b> · ${t('ht_info')}</div>` : ''}
       <div class="row" style="justify-content:center">${L.over ? `<button class="btn pri" data-act="live-continue">${t('continue_btn')}</button>` : `<button class="btn pri" data-act="live-toggle">${L.paused ? t('resume') : t('pause')}</button>
         <button class="btn" data-act="live-speed">${t('speed')} ×${L.speed}</button><button class="btn" data-act="live-skip">${t('skip_end')}</button>`}</div></div>
       <div class="grid" style="margin-top:14px"><div class="card"><div class="log" id="log">${L.log.join('')}</div></div>
@@ -652,8 +669,18 @@
     const L = UI.live;
     if (!L || L.paused || L.over) return;
     const evs = L.mt.step();
-    for (const e of evs) { const l = evLine(e); if (l) L.log.push(l); }
-    if (L.mt.done) { L.over = true; L.paused = true; clearInterval(L.timer); }
+    for (const e of evs) {
+      const l = evLine(e); if (l) L.log.push(l);
+      if (e.t === 'goal') {
+        L.flash = { side: e.side, txt: e.min + "' " + name(e.pid) }; SF.Fx.play('goal');
+        setTimeout(() => { if (UI.live === L && L.flash) { L.flash = null; liveTickRender(); } }, 1900);
+      } else if (e.t === 'shot' && e.r === 'post') SF.Fx.play('crowd');
+    }
+    if (!L.mt.et && L.mt.min >= 45 && !L.htDone && !L.mt.done) {
+      L.htDone = true; L.paused = true; L.ht = true; clearInterval(L.timer);
+      L.log.push(`<div class="s">⏸ ${t('ht')}</div>`); SF.Fx.play('whistle');
+    }
+    if (L.mt.done) { L.over = true; L.paused = true; clearInterval(L.timer); SF.Fx.play('whistle'); }
     liveTickRender();
   }
   function liveStartTimer() {
@@ -666,14 +693,208 @@
     clearInterval(L.timer);
     let g = 0;
     while (!L.mt.done && g++ < 400) { for (const e of L.mt.step()) { const l = evLine(e); if (l) L.log.push(l); } }
-    L.over = true; L.paused = true; liveTickRender();
+    L.over = true; L.paused = true; L.ht = false; L.flash = null; liveTickRender();
   }
   function liveContinue() {
     const L = UI.live;
     clearInterval(L.timer);
     Game.simMatch(UI.G, L.m, L.mt);
     UI.live = null;
-    finishWeek();
+    finishWeek(L.before);
+  }
+
+  // ---------- v0.3: helpers ----------
+  const X = SF.Extras, FX = SF.Fx;
+  const RECAPK = 'suifoot.recap', LEGK = 'suifoot.legends';
+  const plink = (p) => `<a href="#" class="pl" data-act="pl:${p.id}">${esc(p.n)}</a>`;
+  const BEATS = { att: 'bal', bal: 'def', def: 'att' };
+  function potCell(p) {
+    const i = X.potInfo(UI.G, co(), p);
+    if (i.exact) return p.age < 28 ? String(p.pot) : '-';
+    return `<span title="${esc(t('sheet_pot_range', { lo: i.lo, hi: i.hi }))}">${i.lo}–${i.hi}</span>`;
+  }
+  const moodCls = (m) => (m >= 80 ? 'mg' : m >= 60 ? 'mo' : m >= 40 ? 'mm2' : m >= 25 ? 'mb' : 'ma');
+  const moodChip = (p) => { const m = X.mood(p); return `<span class="mood ${moodCls(m)}" title="${t('mood_label')} ${Math.round(m)}"><i style="width:${Math.round(m)}%"></i></span>`; };
+  const tagSmall = (p) => { const k = E.tagOf(p); return ['idol', 'prospect', 'scorer', 'veteran'].includes(k) ? ` <span class="chip tg-${k}">${t('tg_' + k)}</span>` : ''; };
+  const hotTag = (p) => (p.hot ? ` <span class="chip hot" title="${esc(t('hot_info', { n: p.hot.left }))}">🔥 ${t('hot_tag')}</span>` : '');
+  const watchBtn = (p) => `<button class="btn sm ghost" data-act="wt:${p.id}" title="${t('watch_on')}">${(co().watch || []).includes(p.id) ? '★' : '☆'}</button>`;
+  function scoutBtn(p) {
+    const club = myClub();
+    if (!club || X.potInfo(UI.G, co(), p).exact) return '';
+    return `<button class="btn sm" data-act="scout:${p.id}" title="${t('scout_btn', { cost: CFG.scoutOne[club.div] })}">🔎</button>`;
+  }
+  function legends() { try { return JSON.parse(localStorage.getItem(LEGK) || '[]'); } catch (e) { return []; } }
+  function saveLegends(a) { try { localStorage.setItem(LEGK, JSON.stringify(a.slice(-30))); } catch (e) { /* ignore */ } }
+  const recapOn = () => localStorage.getItem(RECAPK) !== '0';
+  function newsParams(p) {
+    if (!p) return p;
+    const q = Object.assign({}, p);
+    if (q.tk) q.name = t(q.tk);
+    return q;
+  }
+
+  // toast queue written by the engine (achievements, goals, rival interest)
+  function drainToasts() {
+    const G = UI.G;
+    if (!G || !G.tq || !G.tq.length || !G.coaches.length) return;
+    const id = co().id, keep = [];
+    let any = false;
+    for (const q of G.tq) {
+      if (q.c !== id) { keep.push(q); continue; }
+      const p = Object.assign({}, q.p);
+      if (q.k === 'toast_ach') p.name = t(p.k);
+      if (q.k === 'toast_goal') p.name = t('goal_' + p.k);
+      toast((q.k === 'toast_ach' ? '🏅 ' : q.k === 'toast_goal' ? '🎯 ' : '🔥 ') + t(q.k, p));
+      any = true;
+    }
+    G.tq = keep;
+    if (any) { FX.play('ding'); save(); }
+  }
+
+  // ---------- player sheet ----------
+  function sheet(pid) {
+    const G = UI.G, p = G.players[pid], c = co(), club = myClub();
+    if (!p) return;
+    const own = club && p.club === club.id, pc = p.club && G.clubs[p.club];
+    const pi = X.potInfo(G, c, p), tg = E.tagOf(p);
+    const val = E.value(p);
+    const vh = (p.vh || []).map((x) => x[1]).concat([val]);
+    const sh = p.sh || [];
+    const stat = (l, v) => `<div class="st"><span class="mut sm">${l}</span><b>${v}</b></div>`;
+    const acts = [];
+    if (own && !p.loan) acts.push(`<button class="btn sm" data-act="capt:${p.id}">© ${club.capt === p.id ? t('captain') : t('make_captain')}</button>`);
+    if (club && p.acad === club.id) acts.push(`<button class="btn sm pri" data-act="promote:${p.id}">${t('promote')}</button>`);
+    if (!own && p.club && !p.acad) acts.push(`<button class="btn sm" data-act="wt:${p.id}">${(c.watch || []).includes(p.id) ? '★ ' + t('watch_off') : '☆ ' + t('watch_on')}</button>`);
+    if (club && !pi.exact) acts.push(`<button class="btn sm" data-act="scout:${p.id}">🔎 ${t('scout_btn', { cost: CFG.scoutOne[club.div] })}</button>`);
+    const m = X.mood(p);
+    $('#modal').innerHTML = `<div class="ovl"><div class="dlg sheet"><div class="row" style="align-items:flex-start">${pc ? FX.shirt(pc, 54) : ''}<div style="flex:1;min-width:0"><h3 style="margin:0">${starTag(p)}${plink(p)}${club && club.capt === p.id ? ' <span class="capt">C</span>' : ''}</h3>
+        <div class="mut sm">${posTag(p.pos)} ${p.age} · ${pc ? ctag(pc.id, 14) : t('free_agent')}${p.loan ? ' · ' + t('loan_from', { club: cname(p.loan.owner) }) : ''}</div>
+        <div style="margin-top:4px"><span class="chip tg-${tg}">${t('tg_' + tg)}</span>${hotTag(p)}${p.listed ? ` <span class="chip">${t('listed')}</span>` : ''}</div></div>
+        <div class="ovbig">${ovTag(p.ovr)}</div></div>
+      <div class="stats">${stat(pi.exact ? t('sq_pot') : '≈ ' + t('sq_pot'), pi.exact ? (p.age < 28 ? p.pot : p.ovr) : `${pi.lo}–${pi.hi}`)}${stat(t('sq_val'), mc(val))}${stat(t('sq_wage'), money(p.wage))}${stat(t('sq_ct'), t('yr_n', { n: p.ct }))}${stat(t('clause'), mc(E.clause(p)))}${stat(t('sq_goals') + '/' + t('sq_apps'), p.g + '/' + p.ap)}</div>
+      ${own ? `<div class="row" style="margin:8px 0"><span class="mut sm" style="min-width:90px">${t('mood_label')}: ${t(X.moodLabel(m))}</span><span class="mood big ${moodCls(m)}"><i style="width:${Math.round(m)}%"></i></span></div>` : ''}
+      <p class="sm mut">${t('sheet_career', { a: p.apt, g: p.gt })}</p>
+      ${vh.length > 1 ? `<h2>${t('sheet_value')}</h2>${FX.line([{ v: vh }], { w: 360, h: 110, labels: (p.vh || []).map((x) => x[0]).concat(['·']) })}` : ''}
+      <h2>${t('sheet_hist')}</h2>${sh.length ? tbl([t('sh_season'), t('club'), '>' + t('sh_apps'), '>' + t('sh_goals'), '>' + t('sq_ovr')], sh.slice().reverse().map((h) => `<tr><td>${h.s}</td><td>${ctag(h.c, 14)}</td><td class="r">${h.a}</td><td class="r">${h.g}</td><td class="r">${h.o}</td></tr>`)) : `<p class="mut sm">${t('sheet_no_hist')}</p>`}
+      ${acts.length ? `<div class="row" style="margin-top:10px">${acts.join(' ')}</div>` : ''}
+      <div class="row end"><button class="btn pri" data-act="m-cancel">${t('close')}</button></div></div></div>`;
+    UI.mok = null;
+  }
+
+  // ---------- charts and cards ----------
+  function formChart(club) {
+    const G = UI.G;
+    const rows = G.res.filter((r) => r[1] === club.div && (r[2] === club.id || r[3] === club.id)).sort((a, b) => a[0] - b[0]);
+    if (!rows.length) return '';
+    let acc = 0;
+    const cum = rows.map((r) => { const home = r[2] === club.id, gf = home ? r[4] : r[5], ga = home ? r[5] : r[4]; acc += gf > ga ? 3 : gf === ga ? 1 : 0; return acc; });
+    const pace = rows.map((_, i) => Math.round((i + 1) * 1.5));
+    return `<div class="card"><h2>${t('chart_form')}</h2>${FX.line([{ v: pace, dash: true, c: 'var(--mut)' }, { v: cum }], { w: 360, h: 120, min: 0, labels: rows.map((r) => r[0]) })}</div>`;
+  }
+  function balanceChart(club) {
+    const G = UI.G, led = (G.bank.led[club.id] || []).slice(-40);
+    if (led.length < 3) return '';
+    let bal = B.bal(G, club.id);
+    const v = [];
+    for (let i = led.length - 1; i >= 0; i--) { v.unshift(bal); bal -= led[i][3]; }
+    return `<div class="card"><h2>${t('chart_balance')}</h2>${FX.line([{ v }], { w: 360, h: 120 })}</div>`;
+  }
+  function goalsCard(c) {
+    const gs = c.goals || [];
+    return `<div class="card"><h2>🎯 ${t('goals_title')}</h2>${gs.length ? gs.map((g) => { const d = X.GOALS[g.k]; return `<div class="goalrow"><div class="row"><b style="flex:1">${t('goal_' + g.k)}</b><span class="mut sm">${t('goal_reward', { xp: d.xp })}</span></div><div class="bar acc"><i style="width:${Math.round((g.p / d.n) * 100)}%"></i></div><div class="mut sm">${t('goal_progress', { p: g.p, n: d.n })}</div></div>`; }).join('') : '<span class="mut">-</span>'}<p class="mut sm">${t('goals_info')}</p></div>`;
+  }
+  function achCard(c) {
+    const have = c.ach || {};
+    return `<div class="card wide"><h2>🏅 ${t('ach_title')} · ${Object.keys(have).length}/${X.ACH.length}</h2><div class="medals">${X.ACH.map((k) => `<div class="medal ${have[k] ? 'on' : ''}" title="${esc(t(k + '_d'))}"><span class="mi">${have[k] ? '🏅' : '🔒'}</span><b>${t(k)}</b><span class="mut sm">${t(k + '_d')}</span></div>`).join('')}</div></div>`;
+  }
+  function legendsCard() {
+    const L = legends();
+    return `<div class="card"><h2>🏛 ${t('legends_title')}</h2>${L.length ? L.slice().reverse().map((l) => `<div class="legrow"><b>${esc(l.name)}</b> <span class="mut sm">${esc(l.club)} · ${l.year}</span><div class="sm">${t('career_line', { seasons: l.seasons, titles: l.titles, cups: l.cups, euros: l.euros, ach: l.ach })} · ${t('legacy')} <b>${l.legacy}</b></div></div>`).join('') : `<span class="mut">${t('legends_none')}</span>`}</div>`;
+  }
+  function dressingCard(club) {
+    const sq = Game.players(UI.G, club), tm = X.teamMood(UI.G, club), un = sq.filter((p) => X.mood(p) < 35).length;
+    return `<div class="card"><h2>${t('dressing_room')}</h2><div class="row"><span class="mood big ${moodCls(tm)}" style="flex:1"><i style="width:${Math.round(tm)}%"></i></span><b>${t(X.moodLabel(tm))}</b></div>${un ? `<p class="bad sm">${t('recap_mood', { n: un })}</p>` : ''}<p class="mut sm">${t('dr_info')}</p></div>`;
+  }
+  function academyCard(club) {
+    const G = UI.G, ac = (club.acad || []).map((id) => G.players[id]).filter(Boolean).sort((a, b) => b.pot - a.pot);
+    return `<div class="card"><h2>${t('academy')}</h2>${ac.length ? tbl(['', t('sq_name'), t('sq_age'), t('sq_ovr'), t('sq_pot'), ''], ac.map((p) => `<tr><td>${posTag(p.pos)}</td><td>${starTag(p)}${plink(p)}</td><td>${p.age}</td><td>${ovTag(p.ovr)}</td><td><b>${p.pot}</b></td><td><button class="btn sm pri" data-act="promote:${p.id}">${t('promote')}</button></td></tr>`)) : `<span class="mut">${t('acad_empty')}</span>`}<p class="mut sm">${t('academy_info')}</p></div>`;
+  }
+  function tacticHint(f, c, club) {
+    const opp = G_opp(f, c.club);
+    if (!opp) return '';
+    const st = opp.style || 'bal', mine = c.lineup.tactic;
+    const edge = BEATS[mine] === st ? 1 : BEATS[st] === mine ? -1 : 0;
+    return `<p class="sm" style="text-align:center;margin:4px 0"><span class="chip">${t('opp_style', { style: t('style_' + st) })}</span> ${edge ? `<span class="${edge > 0 ? 'good' : 'bad'}">${t(edge > 0 ? 'edge_good' : 'edge_bad')}</span>` : ''}<br><span class="mut">${t('style_tip_' + st)}</span></p>`;
+  }
+  function G_opp(f, id) { const o = f.h === id ? f.a : f.h; return UI.G.clubs[o]; }
+
+  // ---------- round recap ----------
+  function snapshotBefore() {
+    const G = UI.G, snap = {};
+    for (const co2 of G.coaches) if (co2.club) { const cl = G.clubs[co2.club]; snap[co2.id] = { pos: Game.standings(G, cl.div).indexOf(cl.id) + 1, div: cl.div }; }
+    return snap;
+  }
+  function buildRecap(before) {
+    const G = UI.G, c = co(), club = myClub();
+    if (!club || !G.wk || !before || !before[c.id]) return null;
+    const wk = G.wk, m = wk.matches.find((x) => x.res && (x.h === club.id || x.a === club.id));
+    if (!m) return { none: true };
+    const home = m.h === club.id, r = m.res;
+    const gf = home ? r.hg : r.ag, ga = home ? r.ag : r.hg;
+    const pts = gf > ga ? 3 : gf === ga ? 1 : 0;
+    const side = home ? 'h' : 'a';
+    const evs = r.ev || [];
+    const st = Game.standings(G, club.div), pos = st.indexOf(club.id) + 1;
+    const lg = wk.matches.filter((x) => x.res && x.div === club.div && x.k === 'L');
+    const best = lg.slice().sort((a, b) => Math.abs(b.res.hg - b.res.ag) - Math.abs(a.res.hg - a.res.ag))[0];
+    const un = Game.players(G, club).filter((p) => X.mood(p) < 25).length;
+    return { m, home, gf, ga, pts, goals: evs.filter((e) => e[1] === 'g'), inj: evs.filter((e) => e[1] === 'i' && e[2] === side), red: evs.filter((e) => e[1] === 'r' && e[2] === side), before: before[c.id].pos, pos, league: m.k === 'L', best: best && best !== m ? best : null, un, derby: !!m.derby, st: st.length };
+  }
+  function showRecap(R2) {
+    if (!R2) return;
+    const G = UI.G, club = myClub();
+    if (R2.none) { $('#modal').innerHTML = `<div class="ovl"><div class="dlg recap"><h3>${t('recap_title')}</h3><p class="mut">${t('recap_none')}</p><div class="row end"><button class="btn pri" data-act="m-cancel">${t('close')}</button></div></div></div>`; return; }
+    const hc = G.clubs[R2.m.h], ac = G.clubs[R2.m.a];
+    const cls = R2.pts === 3 ? 'win' : R2.pts === 1 ? 'draw' : 'loss';
+    const diff = R2.before - R2.pos;
+    const zone = R2.league ? (R2.pos <= 2 && club.div > 0 ? `<span class="good">▲ ${t('recap_zone_up')}</span>` : R2.pos > R2.st - 2 && club.div < CFG.DIVS - 1 ? `<span class="bad">▼ ${t('recap_zone_down')}</span>` : '') : '';
+    $('#modal').innerHTML = `<div class="ovl"><div class="dlg recap ${cls}"><div class="resbanner ${cls}">${t('res_' + (cls === 'win' ? 'win' : cls === 'draw' ? 'draw' : 'loss'))}${R2.derby ? ` · ${t('derby')}` : ''}</div>
+      <div class="vs"><span>${badge(hc, 30)} ${esc(hc.name)}</span><span class="score">${R2.m.res.hg} - ${R2.m.res.ag}</span><span>${badge(ac, 30)} ${esc(ac.name)}</span></div>
+      ${R2.goals.length ? `<h2>⚽ ${t('recap_scorers')}</h2><div class="sm">${R2.goals.map((e) => `${e[0]}' ${esc(e[3])}`).join(' · ')}</div>` : ''}
+      ${R2.inj.length ? `<p class="sm warn">🩹 ${t('recap_injured')}: ${R2.inj.map((e) => esc(e[3])).join(', ')}</p>` : ''}
+      ${R2.red.length ? `<p class="sm bad">🟥 ${t('recap_red')}: ${R2.red.map((e) => esc(e[3])).join(', ')}</p>` : ''}
+      ${R2.league ? `<h2>${t('recap_table')}</h2><div class="row"><b style="font-size:1.4rem">${R2.pos}º</b><span class="${diff > 0 ? 'good' : diff < 0 ? 'bad' : 'mut'}">${diff > 0 ? '▲' + diff : diff < 0 ? '▼' + -diff : '='}</span> ${zone}${R2.pos === 1 ? ` <span class="good">🏆 ${t('recap_leader')}</span>` : ''}</div>` : ''}
+      ${R2.best ? `<p class="sm mut">${t('recap_best')}: ${ctag(R2.best.h, 14)} ${R2.best.res.hg}-${R2.best.res.ag} ${ctag(R2.best.a, 14)}</p>` : ''}
+      ${R2.un ? `<p class="sm bad">${t('recap_mood', { n: R2.un })}</p>` : ''}
+      <div class="row end"><button class="btn pri" data-act="m-cancel">${t('close')}</button></div></div></div>`;
+    UI.mok = null;
+    FX.play(R2.pts === 3 ? 'goal' : 'whistle');
+  }
+
+  function mrow(p, c) {
+    const G = UI.G;
+    return `<tr><td>${starTag(p)}${plink(p)}${hotTag(p)}</td><td>${posTag(p.pos)}</td><td>${p.age}</td><td>${ovTag(p.ovr)}</td><td class="mut">${potCell(p)}</td><td>${p.club ? ctag(p.club, 16) : t('free_agent')}</td><td class="r">${p.club ? money(A.askPrice(G, c, p)) : '-'}</td>
+      <td class="act">${watchBtn(p)}${scoutBtn(p)}<button class="btn sm pri" data-act="${p.club ? 'buy' : 'sign'}:${p.id}">${p.club ? t('buy') : t('sign')}</button></td></tr>`;
+  }
+  const mhead = () => [t('sq_name'), t('sq_pos'), t('sq_age'), t('sq_ovr'), t('sq_pot'), t('club'), '>' + t('asking_price'), ''];
+  function scoutView(c, club) {
+    const G = UI.G, gems = (c.gems || []).map((id) => G.players[id]).filter((p) => p && p.club && !G.clubs[p.club].human);
+    return `<div class="card" style="margin-bottom:14px"><p>${t('scout_info')}</p><button class="btn pri" data-act="scoutrep">🔎 ${t('scout_order', { cost: CFG.scoutCost[club.div] })}</button></div>
+      <div class="card"><h2>${t('gems_title')}</h2>${gems.length ? tbl(mhead(), gems.map((p) => mrow(p, c)), 'mkt') : `<span class="mut">${t('gems_none')}</span>`}</div>`;
+  }
+  function watchView(c) {
+    const G = UI.G, ps = (c.watch || []).map((id) => G.players[id]).filter((p) => p && p.club && !G.clubs[p.club].human);
+    return `<div class="card">${ps.length ? tbl(mhead(), ps.map((p) => mrow(p, c)), 'mkt') : `<span class="mut">${t('watch_empty')}</span>`}</div>`;
+  }
+  function overView() {
+    const S = UI.G.over, b = X.bonusFor(S.legacy);
+    return `<div class="wrap"><div class="hero"><h1>🏛 ${t('career_end')}</h1></div><div class="grid"><div class="card hl"><h2>${esc(S.name)}</h2><p>${t('career_line', { seasons: S.seasons, titles: S.titles, cups: S.cups, euros: S.euros, ach: S.ach })}</p><p class="big">${t('legacy')}: ${S.legacy}</p><p class="good">${t('bonus_info', { rep: b.rep, xp: b.xp })}</p><button class="btn pri" data-act="newcareer">${t('new_career')}</button></div>${legendsCard()}</div></div>`;
+  }
+  function bonusOpt() {
+    const l = legends().slice().reverse().find((x) => !x.used);
+    if (!l) return '';
+    const b = X.bonusFor(l.legacy);
+    return `<label class="row" style="margin:8px 0"><input type="checkbox" id="usebonus" checked> ${t('use_bonus', { rep: b.rep, xp: b.xp })}</label>`;
   }
 
   // ---------- events ----------
@@ -696,6 +917,8 @@
       if (v) onClick({ target: { closest: () => ({ dataset: { act: v + ':' + k.slice(4) } }) } });
       return;
     }
+    if (k === 'sound') { SF.Fx.setSound(el.value === '1'); SF.Fx.play('ding'); return render(); }
+    if (k === 'recap') { localStorage.setItem(RECAPK, el.checked ? '1' : '0'); return; }
     if (k === 'theme') { localStorage.setItem(THEMEK, el.value); return render(); }
     if (k === 'live-tac') { const L = UI.live; L.mt.setTactic(L.side, el.value); return; }
     const c = co();
@@ -718,6 +941,7 @@
   function onClick(e) {
     const el = e.target.closest('[data-act]');
     if (!el) return;
+    if (e.preventDefault && el.tagName === 'A') e.preventDefault();
     const [act, arg] = el.dataset.act.split(':');
     const G = UI.G;
     if (act === 'm-cancel') { closeModal(); return popups(); }
@@ -735,11 +959,11 @@
       case 'reneg': { const r = A.renegotiate(G, c, +arg); return res(r, r.ok ? t('ok_renegotiated', { saved: r.saved }) : ''); }
       case 'loanin': {
         const [pid, n] = arg.split('-').map(Number), p = G.players[pid];
-        return modal(`<h3>${starTag(p)}${esc(p.n)} ${posTag(p.pos)} ${ovTag(p.ovr)}</h3><p class="mut">${ctag(p.club, 16)} · ${t('loan_seasons_n', { n })} · ${t('cost')}: <b>${money(A.loanInFee(G, c, p, n))}</b> + ${t('sq_wage')} ${money(p.wage)}</p>`, () => { const r = A.loanIn(G, c, pid, n); return res(r, r.ok ? t('ok_loan_in', { name: p.n }) : ''); });
+        return modal(`<h3>${starTag(p)}${plink(p)} ${posTag(p.pos)} ${ovTag(p.ovr)}</h3><p class="mut">${ctag(p.club, 16)} · ${t('loan_seasons_n', { n })} · ${t('cost')}: <b>${money(A.loanInFee(G, c, p, n))}</b> + ${t('sq_wage')} ${money(p.wage)}</p>`, () => { const r = A.loanIn(G, c, pid, n); return res(r, r.ok ? t('ok_loan_in', { name: p.n }) : ''); });
       }
       case 'loanout': {
         const p = G.players[+arg];
-        return modal(`<h3>${starTag(p)}${esc(p.n)} ${ovTag(p.ovr)}</h3><p>${t('loan_out_q', { name: esc(p.n) })}</p><label>${t('loan_seasons')}</label><select name="n"><option value="1">${t('loan_seasons_n', { n: 1 })} · ${money(A.loanOutFee(G, c, p, 1))}</option><option value="2">${t('loan_seasons_n', { n: 2 })} · ${money(A.loanOutFee(G, c, p, 2))}</option></select>`, (f) => { const r = A.loanOut(G, c, p.id, +f.n); return res(r, r.ok ? t('ok_loan_out', { fee: r.fee }) : ''); });
+        return modal(`<h3>${starTag(p)}${plink(p)} ${ovTag(p.ovr)}</h3><p>${t('loan_out_q', { name: esc(p.n) })}</p><label>${t('loan_seasons')}</label><select name="n"><option value="1">${t('loan_seasons_n', { n: 1 })} · ${money(A.loanOutFee(G, c, p, 1))}</option><option value="2">${t('loan_seasons_n', { n: 2 })} · ${money(A.loanOutFee(G, c, p, 2))}</option></select>`, (f) => { const r = A.loanOut(G, c, p.id, +f.n); return res(r, r.ok ? t('ok_loan_out', { fee: r.fee }) : ''); });
       }
       case 'vac-start': return res(A.setVacation(G, c, +arg), t('ok_done'));
       case 'vac-stop': return res(A.setVacation(G, c, 0));
@@ -756,7 +980,7 @@
       case 'sim-week': return playWeek(false);
       case 'sim-season': return simSeason();
       case 'next-season': Game.newSeason(G); save(); UI.tab = 'home'; return render();
-      case 'live-toggle': { const L = UI.live; L.paused = !L.paused; if (!L.paused) liveStartTimer(); else clearInterval(L.timer); return liveTickRender(); }
+      case 'live-toggle': { const L = UI.live; if (L.paused && L.mt.min === 0) SF.Fx.play('whistle'); L.ht = false; L.paused = !L.paused; if (!L.paused) liveStartTimer(); else clearInterval(L.timer); return liveTickRender(); }
       case 'live-speed': { const L = UI.live; L.speed = L.speed === 1 ? 2 : L.speed === 2 ? 4 : 1; if (!L.paused) liveStartTimer(); return liveTickRender(); }
       case 'live-skip': return liveSkip();
       case 'live-continue': return liveContinue();
@@ -799,12 +1023,21 @@
       }
       case 'buy': {
         const p = G.players[+arg], ask = A.askPrice(G, c, p);
-        return modal(`<h3>${esc(p.n)} ${posTag(p.pos)} ${ovTag(p.ovr)}</h3><p class="mut">${ctag(p.club, 16)} · ${t('asking_price')}: ${money(ask)}</p><label>${t('offer_fee')}</label><input name="fee" type="number" value="${ask}">`, (f) => {
+        return modal(`<h3>${esc(p.n)} ${posTag(p.pos)} ${ovTag(p.ovr)}</h3><p class="mut">${ctag(p.club, 16)} · ${t('asking_price')}: ${money(ask)}</p>${p.hot ? '<p class="sm warn">🔥 ' + t('hot_info', { n: p.hot.left }) + '</p>' : ''}<p class="sm mut">${t('clause_info', { fee: E.clause(p) })}</p><label>${t('offer_fee')}</label><input name="fee" type="number" value="${ask}">`, (f) => {
           const r = A.buy(G, c, p.id, +f.fee);
           if (r.ok) { toast(t('ok_bought', { name: p.n, fee: r.fee })); save(); render(); return true; }
           toast(errMsg(r), true); return false;
         }, t('send_offer'));
       }
+      case 'pl': return sheet(+arg);
+      case 'wt': { const r = A.watch(G, c, +arg); if (!r.ok) { toast(errMsg(r), true); return; } save(); render(); if ($('#modal .sheet')) sheet(+arg); return; }
+      case 'scout': { const r = A.scoutPlayer(G, c, +arg); if (!r.ok) { toast(errMsg(r), true); return; } toast(t('ok_done')); save(); render(); if ($('#modal .sheet')) sheet(+arg); return; }
+      case 'scoutrep': { UI.tr = 'scout'; return res(A.scoutReport(G, c), t('ok_done')); }
+      case 'capt': { const r = A.setCaptain(G, c, +arg); if (!r.ok) { toast(errMsg(r), true); return; } save(); render(); if ($('#modal .sheet')) sheet(+arg); return; }
+      case 'promote': { closeModal(); return res(A.promote(G, c, +arg), t('ok_done')); }
+      case 'retire': return modal(`<p>${t('retire_confirm')}</p>`, () => { const r = A.retire(G, c); const L = legends(); L.push(r.summary); saveLegends(L); UI.ci = 0; UI.tab = 'home'; save(); render(); });
+      case 'newcareer': localStorage.removeItem(SAVE); UI.G = null; UI.setup = null; return render();
+      case 'snd': SF.Fx.setSound(!SF.Fx.soundOn()); SF.Fx.play('ding'); return render();
       case 'sign': { const p = G.players[+arg]; const r = A.signFree(G, c, p.id); return res(r, r.ok ? t('ok_bought', { name: p.n, fee: r.cost }) : ''); }
     }
   }

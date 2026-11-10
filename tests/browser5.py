@@ -3,7 +3,7 @@ errs=[]
 with sync_playwright() as p:
     b=p.chromium.launch(); pg=b.new_page(viewport={'width':1200,'height':900})
     pg.on('pageerror', lambda e: errs.append(str(e)))
-    pg.goto('http://localhost:8765/index.html'); pg.wait_for_selector('.hero')
+    pg.add_init_script("try{localStorage.setItem('suifoot.recap','0')}catch(e){}"); pg.goto('http://localhost:8765/index.html'); pg.wait_for_selector('.hero')
     pg.select_option('#sc0', index=13); pg.click('[data-act=setup-start]'); pg.wait_for_selector('header.top')
     pg.evaluate("""()=>{const SF=window.SF,G=SF.UI.G,c=G.coaches[0],club=G.clubs[c.club];
       const p=SF.Game.players(G,club)[5]; const buyer=G.clubIds.find(id=>!G.clubs[id].human);

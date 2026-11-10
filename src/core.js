@@ -18,6 +18,7 @@
     euPartic: 40000, euWin: 30000, euDraw: 10000, euQF: 80000, euSF: 120000, euFinal: 180000, euWinner: 700000, // winner = 2x the division-1 champion prize
     euGate: 1.5, // european gate multiplier (full stadium, premium ticket)
     starOvr: 80, starValue: 1.5, starWage: 1.35, starFlair: 0.5, starFree: 3, starPenalty: 0.03, // max 3 stars in XI (~27%)
+    scoutCost: [24000, 12000, 6000, 3000], scoutOne: [8000, 4000, 2000, 1000], derbyGate: 1.3, hotPremium: 1.1, watchMax: 15,
     loanFee: 0.07, loanOutFee: 0.05, loanMaxIn: 3,
     SQUAD_MIN: 16,
     SQUAD_MAX: 26,
