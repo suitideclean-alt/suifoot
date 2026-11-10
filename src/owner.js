@@ -9,7 +9,7 @@
 
   const OC = (CFG.owner = {
     W: CFG.TOTAL_WEEKS,   // economy weeks per season
-    late: 8,              // weeks of unpaid wages that give just cause
+    late: 3,              // matchdays of unpaid wages that give just cause
     exitPct: 0.5,         // coach exit clause default, share of the salary still owed
     capWeeks: CFG.TOTAL_WEEKS, // underperformance cap: 12 months = one season of salary
     mutualLo: 0.4, mutualHi: 0.6,
@@ -149,7 +149,7 @@
   O.salaryFor = (club, rep) => Math.max(200, Math.round((CFG.tvWeekly[club.div] * 0.06 * (0.8 + (rep / 100) * 0.8)) / 10) * 10);
   O.newContract = function (club, rep, years) {
     const w = O.salaryFor(club, rep), y = years || OC.years;
-    return { club: club.id, years: y, left: y * OC.W, wage: w, bonus: { title: w * OC.bonus.title, promo: w * OC.bonus.promo, euro: w * OC.bonus.euro }, share: OC.share, exit: null, brk: null, cap: false, mitigate: true, late: 0 };
+    return { club: club.id, years: y, left: y * OC.W, wage: w, bonus: { title: w * OC.bonus.title, promo: w * OC.bonus.promo, euro: w * OC.bonus.euro }, share: OC.share, win: Math.round(w * 0.5 / 10) * 10, draw: 0, exit: null, brk: null, cap: false, mitigate: true, late: 0 };
   };
   O.remaining = (co) => (co.contract ? co.contract.wage * Math.max(0, co.contract.left) : 0);
   O.exitFee = (co) => (co.contract ? Math.round(co.contract.exit != null ? co.contract.exit : O.remaining(co) * OC.exitPct) : 0);
@@ -241,12 +241,14 @@
   // ---------- profit share on sales ----------
   O.onJoin = function (G, p) { p.j = { s: G.season, v: E.value(p) }; };
   O.saleShare = function (G, club, p, fee) {
-    const co = SF.Game.humanOf(G, club.id), c = co && co.contract;
-    if (!c || !c.share || ROLE(co) !== 'coach') return 0;
+    const co = SF.Game.humanOf(G, club.id), ai = !!(club.owner && club.ac);
+    const c = ai ? club.ac.contract : co && ROLE(co) === 'coach' ? co.contract : null;
+    if (!c || !c.share) return 0;
     const base = p.j && G.season - p.j.s >= 1 ? p.j.v : p.hg ? 0 : null;
     if (base == null) return 0;
     const amt = Math.round(Math.max(0, fee - base) * c.share);
     if (amt <= 0 || B.bal(G, club.id) < amt) return 0;
+    if (ai) { B.debit(G, club.id, amt, 'coach_share'); return amt; }
     O.openWallet(G, co.id);
     B.transfer(G, club.id, O.wallet(co.id), amt, 'coach_share');
     return amt;
@@ -296,6 +298,8 @@
     c.wage = O.acWage(club, cand, opts);
     c.bonus = { title: c.wage * OC.bonus.title, promo: c.wage * OC.bonus.promo, euro: c.wage * OC.bonus.euro };
     c.brk = opts.brk ? Math.round(opts.brk) : null;
+    if (opts.win != null && opts.win !== '') c.win = Math.max(0, Math.round(+opts.win) || 0);
+    if (opts.draw != null && opts.draw !== '') c.draw = Math.max(0, Math.round(+opts.draw) || 0);
     c.exit = opts.exit != null && opts.exit !== '' ? Math.round(opts.exit) : null;
     c.cap = !!opts.cap; c.mitigate = opts.mitigate !== false;
     return { id: 'a' + cand.id, ai: true, name: cand.name, club: club.id, age: cand.age, rep: cand.rep, sk: Object.assign({}, cand.sk), style: cand.style, tactic: cand.style, board: 60, contract: c };
@@ -339,7 +343,7 @@
     const c = O.newContract(club, ac.rep, years);
     c.wage = Math.round(Math.max(c.wage, ac.contract.wage) / 10) * 10;
     c.bonus = { title: c.wage * OC.bonus.title, promo: c.wage * OC.bonus.promo, euro: c.wage * OC.bonus.euro };
-    c.brk = ac.contract.brk; c.cap = ac.contract.cap; c.mitigate = ac.contract.mitigate;
+    c.win = ac.contract.win; c.draw = ac.contract.draw; c.brk = ac.contract.brk; c.cap = ac.contract.cap; c.mitigate = ac.contract.mitigate;
     ac.contract = c;
     SF.Game.news(G, 'n_ac_renewed', { name: ac.name }, co.id);
     return { ok: true };
@@ -364,6 +368,7 @@
       const pos = ['GK', 'DF', 'MF', 'FW'].find((x) => have.filter((p) => p.pos === x).length < posNeed(x)) || (club.squad.length < CFG.SQUAD_MIN ? ['DF', 'MF', 'FW', 'GK'][g % 4] : null);
       if (!pos || club.squad.length >= CFG.SQUAD_MAX) return;
       const pool = A().search(G, em, { free: true, pos, limit: 40 }).sort((a, b) => E.wage(a) - E.wage(b)).slice(0, 8).sort((a, b) => b.ovr - a.ovr);
+      if (!pool.length) { SF.World.newFreeAgent(G, 36, 58, pos); pool.push(G.players[G.free[G.free.length - 1]]); } // nobody on the market for that position: the assistant finds a youngster
       const f = pool[0];
       if (!f || !A().signFree(G, em, f.id).ok) return;
     }
@@ -430,6 +435,7 @@
     else {
       const c = ac.contract;
       if (B.bal(G, club.id) >= c.wage) { B.debit(G, club.id, c.wage, 'coach_pay'); c.late = 0; } else c.late++;
+      payMatchBonus(G, club, co, c, true);
       c.left--;
       if (c.late >= OC.late) { // wages unpaid for weeks: he walks away with just cause and the club owes the rest
         owe(G, club.id, ac, Math.round(O.remaining(ac)), Math.min(Math.max(c.left, 4), 56), false, 0);
@@ -460,6 +466,13 @@
     if (club.pos === 1) pay(c.bonus.title);
     if (club.nextDiv < club.div) pay(c.bonus.promo);
     if (G.eu.winner === club.id || (G.eu.q.includes(club.id) && G.eu.reach[club.id] >= 2)) pay(c.bonus.euro);
+    if (ac.rep >= 50 && club.pos <= 3 && R.chance(0.25)) { // a bigger club wants him: it pays the break clause, or a year of salary
+      const fee = O.poachFee(ac);
+      B.credit(G, club.id, fee, 'coach_comp');
+      SF.Game.news(G, 'n_ac_poached', { name: ac.name, amt: fee }, co.id);
+      club.ac = null; O.sync(G, co);
+      return;
+    }
     ac.rep = util.clamp(ac.rep + (club.pos <= club.target ? 2 : -2) + (club.nextDiv < club.div ? 2 : 0), 5, 99);
     ac.age++;
   };
@@ -474,6 +487,17 @@
     O.sync(G, co);
   };
 
+  /** match bonus: paid for the match played this game week (win or draw), from the club to the coach */
+  function matchPts(G, club) {
+    if (!G.wk || !G.wk.matches) return null;
+    return G.wk.matches.some((x) => x.h === club.id || x.a === club.id) ? club.lastPts : null;
+  }
+  function payMatchBonus(G, club, co, c, ai) {
+    const pts = matchPts(G, club), amt = pts === 3 ? c.win || 0 : pts === 1 ? c.draw || 0 : 0;
+    if (amt <= 0 || B.bal(G, club.id) < amt) return;
+    if (ai) B.debit(G, club.id, amt, 'coach_bonus'); else B.transfer(G, club.id, O.wallet(co.id), amt, 'coach_bonus');
+  }
+
   // ---------- weekly tick ----------
   O.weekly = function (G) {
     for (const co of G.coaches) {
@@ -485,6 +509,7 @@
       const club = G.clubs[c.club];
       if (B.bal(G, club.id) >= c.wage) { B.transfer(G, club.id, O.wallet(co.id), c.wage, 'coach_pay'); c.late = 0; }
       else c.late++;
+      payMatchBonus(G, club, co, c, false);
       c.left--;
     }
     for (const co of O.ownerClubs(G)) O.acWeekly(G, co);

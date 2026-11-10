@@ -524,6 +524,7 @@
       <div class="row"><span>${t('ct_salary')}</span><b>${money(ct.wage)}</b></div>
       <div class="row"><span>${t('ct_left')}</span><b>${(Math.max(0, ct.left) / CFG.owner.W).toFixed(1)}</b></div>
       <p class="mut sm">${t('ct_bonus', { a: money(ct.bonus.title), b: money(ct.bonus.promo), c: money(ct.bonus.euro) })}</p>
+      <p class="mut sm">${t('ct_matchbonus', { a: money(ct.win || 0), b: money(ct.draw || 0) })}</p>
       <p class="mut sm">${t('ct_share', { n: Math.round(ct.share * 100) })} · ${t('ct_exit', { fee: money(O.exitFee(c)) })}</p>
       ${ct.late > 0 ? `<p class="bad">${t('ct_late', { n: ct.late })}</p>` : ''}
       <button class="btn" data-act="mutual">${t('ct_mutual')}</button>`;
@@ -561,6 +562,7 @@
       <div class="row"><span>${t('ct_salary')}</span><b>${money(ct.wage)}</b></div>
       <div class="row"><span>${t('ct_left')}</span><b>${(Math.max(0, ct.left) / CFG.owner.W).toFixed(1)}</b></div>
       <p class="mut sm">${t('ct_bonus', { a: money(ct.bonus.title), b: money(ct.bonus.promo), c: money(ct.bonus.euro) })}</p>
+      <p class="mut sm">${t('ct_matchbonus', { a: money(ct.win || 0), b: money(ct.draw || 0) })}</p>
       <p class="mut sm">${t('ct_exit', { fee: money(O.exitFee(ac)) })}${ct.brk != null ? ' · ' + t('ac_brk').split(' (')[0] + ': ' + money(ct.brk) : ''}</p>
       ${ct.left <= 8 ? `<p class="warn">${t('ac_expiring', { n: Math.max(0, ct.left) })}</p>` : ''}${ct.late > 0 ? `<p class="bad">${t('ac_late', { n: ct.late })}</p>` : ''}
       <div class="row"><button class="btn" data-act="acrenew">${t('ac_renew')}</button> <button class="btn" data-act="acmutual">${t('ct_mutual')}</button> <button class="btn dng" data-act="acfire">${t('ac_fire')}</button></div></div>`;
@@ -1084,10 +1086,12 @@
         const yn = (n, v) => `<select name="${n}"><option value="1" ${v ? 'selected' : ''}>${t('yes')}</option><option value="0" ${v ? '' : 'selected'}>${t('no')}</option></select>`;
         return modal(`<h3>${esc(k.name)}</h3><p>${t('ac_hire_q', { name: k.name, amt: money(SF.Owner.salaryFor(club, k.rep)) })}</p>
           <label>${t('ac_years')}</label><select name="years">${[1, 2, 3, 4].map((n) => `<option ${n === 3 ? 'selected' : ''}>${n}</option>`).join('')}</select>
+          <label>${t('ac_win')}</label><input name="win" type="number" min="0" step="10" value="${Math.round(SF.Owner.salaryFor(club, k.rep) * 0.5 / 10) * 10}">
+          <label>${t('ac_draw')}</label><input name="draw" type="number" min="0" step="10" value="0">
           <label>${t('ac_brk')}</label><input name="brk" type="number" min="0" step="1000" value="">
           <label>${t('ac_exit')}</label><input name="exit" type="number" min="0" step="1000" value="">
           <label>${t('ac_cap')}</label>${yn('cap', false)}<label>${t('ac_mit')}</label>${yn('mit', true)}`,
-          (f) => res(SF.Owner.hire(G, c, arg, { years: +f.years, brk: +f.brk || 0, exit: f.exit, cap: f.cap === '1', mitigate: f.mit === '1' }), t('ok_done')), t('ac_hire'));
+          (f) => res(SF.Owner.hire(G, c, arg, { years: +f.years, win: f.win, draw: f.draw, brk: +f.brk || 0, exit: f.exit, cap: f.cap === '1', mitigate: f.mit === '1' }), t('ok_done')), t('ac_hire'));
       }
       case 'acfire': { const ac = myClub().ac; return modal(`<p>${t('ac_fire_q', { name: ac.name, amt: SF.Owner.fireCost(G, c) })}</p>`, () => res(SF.Owner.fire(G, c), t('ok_done'))); }
       case 'acmutual': { const ac = myClub().ac; return modal(`<p>${t('ac_mutual_q', { name: ac.name, amt: SF.Owner.mutualOffer(G, ac) })}</p>`, () => res(SF.Owner.mutualAc(G, c), t('ok_done'))); }

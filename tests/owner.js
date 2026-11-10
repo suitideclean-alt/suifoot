@@ -5,6 +5,7 @@ function t(name, fn) { try { fn(); pass++; console.log('  ok  ' + name); } catch
 const eq = (a, b, m) => { if (a !== b) throw new Error((m || '') + ` expected ${b} got ${a}`); };
 const truthy = (a, m) => { if (!a) throw new Error(m || 'expected truthy'); };
 const { Game, Actions: A, Bank: B, Owner: O, CFG } = SF;
+const E_value = (p) => SF.Econ.value(p);
 const conserved = (G) => eq(B.supply(G), B.totalBalances(G), 'money conserved');
 
 function setup(role, seed) {
@@ -86,6 +87,7 @@ t('owner-only actions (stadium, facilities, debt) always need approval for a coa
 
 t('salary is paid weekly from the club to the coach and money is conserved', () => {
   const { G, co, club } = setup('coach');
+  co.contract.win = 0;
   const w0 = O.walletBal(G, co.id), left0 = co.contract.left;
   Game.playWeekAuto(G); Game.playWeekAuto(G);
   eq(O.walletBal(G, co.id) - w0, co.contract.wage * 2, 'two weeks of salary');
@@ -135,7 +137,7 @@ t('quitting without just cause: pays the exit clause, cannot sign for 8 weeks', 
   eq(co.ban, 0, 'ban ends after 8 economy weeks'); conserved(G);
 });
 
-t('late wages for 8 weeks give the coach just cause: he leaves, the club owes the rest', () => {
+t('late wages for 3 matchdays give the coach just cause: he leaves, the club owes the rest', () => {
   const { G, co, club } = setup('coach');
   for (let i = 0; i < CFG.owner.late; i++) { co.contract.late++; }
   eq(O.justCauseCoach(co), true);
@@ -275,11 +277,11 @@ t('owner role: an approved request is carried out by the coach and only once', (
   eq(G.approvals.find((a) => a.id === ap.id).status, 'used');
 });
 
-t('owner role: unpaid wages for 8 weeks let the coach walk with just cause', () => {
+t('owner role: unpaid wages for 3 matchdays let the coach walk with just cause', () => {
   const { G, co, club } = ownerSetup();
   B.credit(G, club.id, -B.bal(G, club.id) - 5000, 'bailout'); // push the club into debt
   const name = club.ac.name;
-  for (let i = 0; i < 9 && club.ac; i++) { B.debit(G, club.id, Math.max(0, B.bal(G, club.id) + 5000), 'tax'); O.acWeekly(G, co); }
+  for (let i = 0; i < 4 && club.ac; i++) { B.debit(G, club.id, Math.max(0, B.bal(G, club.id) + 5000), 'tax'); O.acWeekly(G, co); }
   eq(club.ac, null, 'coach left');
   truthy((G.owed || []).some((x) => x.ai && x.name === name), 'club owes the rest');
 });
@@ -302,11 +304,42 @@ t('owner role: 6 seasons with a human owner, money conserved, requests answered'
       Game.playWeekAuto(G);
       for (const ap of O.openFor(G, club.id)) if (G.week % 2 === 0) O.decide(G, co, ap.id, ap.cost < B.bal(G, club.id) * 0.2);
       if (!club.ac && G.week % 5 === 0) O.hire(G, co, O.market(G).sort((a, b) => b.rep - a.rep)[0].id, {});
-      if (G.week === 5) truthy(club.squad.length >= CFG.SQUAD_MIN, 'squad legal in week 5 of season ' + G.season + ': ' + club.squad.length);
+      if (G.week === 5) truthy(club.squad.length >= CFG.SQUAD_MIN, 'squad legal in week 5 of season ' + G.season + ': ' + club.squad.length + ' bal ' + Math.round(B.bal(G, club.id)) + ' ac ' + !!club.ac);
     }
     if (G.phase === 'seasonEnd') Game.newSeason(G);
     conserved(G);
   }
+});
+
+t('match bonuses: a win pays the win bonus, a draw the draw bonus, a defeat nothing (human coach and computer coach)', () => {
+  const { G, co, club } = setup('coach');
+  co.contract.win = 700; co.contract.draw = 200;
+  const w0 = O.walletBal(G, co.id);
+  G.wk = { matches: [{ h: club.id, a: 'x' }] };
+  club.lastPts = 3; O.weekly(G); const afterWin = O.walletBal(G, co.id);
+  club.lastPts = 1; O.weekly(G); const afterDraw = O.walletBal(G, co.id);
+  club.lastPts = 0; O.weekly(G); const afterLoss = O.walletBal(G, co.id);
+  eq(afterWin - w0, co.contract.wage + 700); eq(afterDraw - afterWin, co.contract.wage + 200); eq(afterLoss - afterDraw, co.contract.wage);
+  G.wk = { matches: [] }; club.lastPts = 3; O.weekly(G); eq(O.walletBal(G, co.id) - afterLoss, co.contract.wage, 'no match this week, no bonus');
+  conserved(G);
+  const o = ownerSetup(); const ac = o.club.ac; ac.contract.win = 900; ac.contract.late = 0;
+  o.G.wk = { matches: [{ h: o.club.id, a: 'x' }] }; o.club.lastPts = 3;
+  const b0 = B.bal(o.G, o.club.id), flow0 = o.G.bank.flows.coach_bonus || 0;
+  O.acWeekly(o.G, o.co);
+  eq(flow0 - (o.G.bank.flows.coach_bonus || 0), 900); conserved(o.G);
+});
+
+t('computer coach: profit share on a homegrown sale and poaching pays the club', () => {
+  const { G, co, club } = ownerSetup(21);
+  const p = G.players[club.squad[0]]; p.hg = 1; delete p.j;
+  const fee = Math.round(E_value(p) * 3);
+  const f0 = G.bank.flows.coach_share || 0;
+  const amt = O.saleShare(G, club, p, fee);
+  truthy(amt > 0 && f0 - (G.bank.flows.coach_share || 0) === amt, 'share paid');
+  club.ac.rep = 80; club.pos = 1; club.nextDiv = club.div;
+  let left = false;
+  for (let i = 0; i < 60 && !left; i++) { club.ac = club.ac || null; if (!club.ac) break; O.acSeasonEnd(G, co, club); left = !club.ac; if (!left) club.ac.contract.left += 0; }
+  truthy(left, 'eventually poached'); truthy((G.bank.flows.coach_comp || 0) !== 0, 'club received compensation'); conserved(G);
 });
 
 console.log(`\n${pass} passed, ${fail} failed`);
