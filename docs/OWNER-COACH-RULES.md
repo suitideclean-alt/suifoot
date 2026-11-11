@@ -55,3 +55,12 @@ A smart contract cannot judge "just cause". On Sui only objective triggers are e
 
 ## Sources
 Mills & Reeve (managerial sackings), Lawyer Monthly (sacking and mitigation), Moore Barlow (remedies for sacked managers), Clarke Willmott (settlement agreements), Farleys (manager compensation), Garrigues and Record (Portuguese sports labour law, Lei 54/2017), Withers and Nirin Bar (FIFA RSTP reform). A secondary source reports that wages more than 60 days late give just cause; check with a lawyer before relying on this outside the game.
+
+## v0.7 — Owner vs coach separation
+
+**Owner tab** (office, business, team, manager): the owner is a spectator and businessperson. Sees P&L, mood, squad, suggestions, approves or declines the coach's requests. Does **not** touch tactics, lineup, training or skills.
+**Coach tab** (your coach, objectives, limits, chat, job centre): everything about managing the coach — contract (wage, win/draw bonus, title/promotion/European bonuses, clause), objectives and prizes, spending limits, chat, hire/fire/renew.
+**Job centre**: unemployed coaches and the top active ones, with CVs. Approaching a coach under contract means paying his club the clause (negotiation) plus his terms.
+**Finance (owner)**: no wage cuts or loans (the coach's job; loans are requested by the coach and approved by the owner). The owner keeps ticket prices, stadium and facilities, unless a **manager** is hired (computer, less effective than an attentive owner, costs a wage).
+**Auto-advance**: the owner never has to press OK each matchday; it runs until a request, event or the end of the season.
+Deferred: club purchase price by division and squad value.

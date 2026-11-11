@@ -76,6 +76,7 @@
     });
     if (o.bonus && G.coaches[0]) { G.coaches[0].rep = Math.min(100, G.coaches[0].rep + (o.bonus.rep || 0)); G.coaches[0].xp += o.bonus.xp || 0; }
     Game.startSeason(G);
+    SF.Owner.initNpcCoaches(G);
     SF.Owner.seasonStart(G);
     for (const c of G.coaches) if (c.role === 'owner') SF.Owner.autoHire(G, c);
     for (const c of G.coaches) Game.news(G, 'n_welcome', { club: G.clubs[c.club].name }, c.id);
@@ -101,6 +102,7 @@
     if (!G.eu) { G.eu = null; if (G.divs) setupEuro(G, true); G.eu.idle = 1; }
     if (!G.tq) G.tq = [];
     if (G.divs) { SF.Extras.pairRivals(G); for (const co of G.coaches) { co.goals = co.goals || []; co.ach = co.ach || {}; co.watch = co.watch || []; if (co.club) { SF.Extras.fillGoals(G, co); SF.Extras.autoCaptain(G, G.clubs[co.club]); } } }
+    SF.Owner.initNpcCoaches(G);
     return G;
   };
 
@@ -743,6 +745,7 @@
     G.hall.push(hall);
     G.summary = summary;
     G.phase = 'seasonEnd';
+    SF.Owner.npcSeasonEnd(G);
     SF.Actions.seasonEndCareer(G);
   }
   function addPrize(sm, id, amt, kind, x) {

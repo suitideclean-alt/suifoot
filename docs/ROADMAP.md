@@ -87,3 +87,6 @@ The owner role is playable: computer coach, hire/fire/renew, limits editor, requ
 
 ## v0.6.0 status
 Wallet login: connect any Sui wallet (Wallet Standard, no library) at the setup screen or in the header. One save slot per address on this device; a guest game is adopted by the first wallet that connects. Nothing is signed or sent on chain yet: the address only identifies the player. Next on chain: signed login proof checked by a server, then the Move package (see docs/SUI-RESEARCH.md).
+
+## v0.7.0
+Owner/coach tabs reorganised, job centre with CVs and clause negotiation, NPC coaches for every club, manager (computer finance), auto-advance, loans via coach request, owner no longer controls tactics/skills.

@@ -348,7 +348,7 @@ t('owner as manager: objectives judged at season end, P&L recorded, chat answers
   eq(O.chat(G, co, 'status').ok, true);
   const last = club.chat[club.chat.length - 1]; eq(last.k, 'ch_status'); truthy(last.p.pos >= 1 && last.p.pos <= 12, 'real position');
   O.chat(G, co, 'save'); eq(club.stance, 'save'); eq(club.chat[club.chat.length - 1].k, 'ch_ok_save');
-  O.chat(G, co, 'att'); eq(club.ac.tactic, 'att'); eq(co.lineup.tactic, 'att');
+  eq(O.chat(G, co, 'att').ok, false, 'the owner cannot dictate tactics');
   eq(O.chat(G, co, 'nonsense').ok, false);
   const squad0 = club.squad.length;
   let g = 0; while (G.phase === 'play' && g++ < 60) Game.playWeekAuto(G);
@@ -358,6 +358,46 @@ t('owner as manager: objectives judged at season end, P&L recorded, chat answers
   const rep0 = club.ac ? club.ac.rep : 0;
   O.fire(G, co); eq(O.chat(G, co, 'status').err, 'no_coach');
   conserved(G);
+});
+
+t('job market: every other club has a coach with a CV, stars can be approached, the club must be paid the clause', () => {
+  const { G, co, club } = ownerSetup(23);
+  const others = G.clubIds.map((id) => G.clubs[id]).filter((c) => !c.human);
+  truthy(others.every((c) => c.ac && c.ac.contract && c.ac.hist), 'every club has a coach');
+  const top = O.employed(G, 6); eq(top.length, 6); truthy(top[0].ac.rep >= top[5].ac.rep, 'sorted by reputation');
+  O.fire(G, co);
+  const tgt = top[0], ac = tgt.ac, need = O.compNeeded(ac);
+  eq(O.hireFrom(G, co, tgt.id, { comp: need * 0.5 }).err, 'comp_refused');
+  eq(O.hireFrom(G, co, tgt.id, { comp: Math.round(need * 0.9) }).err, 'comp_counter');
+  const b0 = B.bal(G, club.id), t0 = B.bal(G, tgt.id);
+  const r = O.hireFrom(G, co, tgt.id, { comp: need }); truthy(r.ok, 'accepted at the clause');
+  eq(club.ac.name, ac.name); truthy(tgt.ac && tgt.ac.name !== ac.name, 'the other club hired a replacement');
+  eq(B.bal(G, tgt.id) - t0 >= need - 1, true, 'clause paid to the other club'); eq(b0 - B.bal(G, club.id) >= need - 1, true);
+  conserved(G);
+  for (let s = 0; s < 3; s++) { let g = 0; while (G.phase === 'play' && g++ < 60) Game.playWeekAuto(G); if (G.phase === 'seasonEnd') Game.newSeason(G); }
+  truthy(others.every((c) => c.ac), 'market stays populated after 3 seasons'); truthy(others.some((c) => c.ac.hist.length >= 2), 'CVs grow');
+});
+
+t('manager: sets the ticket price near the best, costs a wage, can be fired; owner can approve the coach loan request', () => {
+  const { G, co, club } = ownerSetup(29);
+  const m = O.mgrPool(G).slice().sort((a, b) => b.rep - a.rep)[0];
+  truthy(O.hireManager(G, co, m.id).ok); eq(O.hireManager(G, co, 'x').err, 'has_mgr');
+  club.price = 9;
+  const f0 = G.bank.flows.mgr_pay || 0;
+  G.week = 1; O.mgrWeekly(G, co, club);
+  truthy(club.price !== 9, 'manager changed the price'); truthy((G.bank.flows.mgr_pay || 0) < f0, 'wage paid');
+  const r = O.fireManager(G, co); truthy(r.ok); eq(club.mgr, null); conserved(G);
+  const o = ownerSetup(31); B.credit(o.G, o.club.id, -B.bal(o.G, o.club.id) - 20000, 'bailout');
+  o.G.week = 4; O.acWeekly(o.G, o.co);
+  const rq = O.openFor(o.G, o.club.id).find((a) => a.kind === 'loan'); truthy(rq, 'coach asks for a loan when in the red');
+  O.decide(o.G, o.co, rq.id, true); o.G.week = 5; O.acWeekly(o.G, o.co);
+  truthy(o.G.bank.loans.some((l) => l.club === o.club.id), 'loan taken after approval'); conserved(o.G);
+});
+
+t('auto-advance stops at a request or at the end of the season', () => {
+  const { G, co, club } = ownerSetup(37);
+  const n = O.autoPlay(G, 60); truthy(n >= 1);
+  truthy(G.phase === 'seasonEnd' || O.openFor(G, club.id).length > 0, 'stopped for a reason');
 });
 
 console.log(`\n${pass} passed, ${fail} failed`);

@@ -257,16 +257,22 @@
 
   // ---------- owner mode: a computer coach works for the human owner ----------
   const { R } = SF;
-  const OWNER_ACT = ['buy', 'sign', 'renew'];
+  const OWNER_ACT = ['buy', 'sign', 'renew', 'loan'];
   const STYLES = ['att', 'bal', 'def'];
   const posNeed = (pos) => (pos === 'GK' ? 2 : pos === 'DF' ? 5 : pos === 'MF' ? 5 : 3);
 
-  function genCoach(G) {
-    const rep = util.clamp(Math.round(R.gauss(42, 22)), 6, 96);
+  function genCoach(G, repOv) {
+    const rep = repOv != null ? repOv : util.clamp(Math.round(R.gauss(42, 22)), 6, 96);
     const base = rep / 100 * 5, sk = {};
     for (const k of ['train', 'tact', 'neg', 'youth']) sk[k] = util.clamp(Math.round(base + R.gauss(0, 1)), 0, 5);
-    return { id: 'k' + (G.nextCm = (G.nextCm || 0) + 1), name: SF.World.playerName(), age: R.int(38, 66), rep, sk, style: R.pick(STYLES) };
+    return { id: 'k' + (G.nextCm = (G.nextCm || 0) + 1), name: SF.World.playerName(), age: R.int(38, 66), rep, sk, style: R.pick(STYLES), hist: [], titles: 0 };
   }
+  /** a coach without a club goes back to the pool, with his CV */
+  function toMarket(G, ac, drep) {
+    O.market(G);
+    G.cm.push({ id: 'k' + (G.nextCm = (G.nextCm || 0) + 1), name: ac.name, age: ac.age, rep: util.clamp(ac.rep + (drep || 0), 5, 99), sk: ac.sk, style: ac.style, hist: ac.hist || [], titles: ac.titles || 0 });
+  }
+  O.toMarket = toMarket;
   /** the pool of coaches looking for a job; refreshed each season */
   O.market = function (G, refresh) {
     if (!G.cm || refresh) {
@@ -287,6 +293,7 @@
   /** mirror the coach's skills onto the owner object, which is what the match engine, training and scouting read */
   O.sync = function (G, co) {
     const club = G.clubs[co.club], ac = club && club.ac;
+    if (ac && !ac.hist) { ac.hist = []; ac.titles = 0; }
     co.sk = ac ? Object.assign({}, ac.sk) : { train: 0, tact: 0, neg: 0, youth: 0 };
     co.rep = ac ? ac.rep : 8;
     co.lineup.auto = true; co.lineup.tactic = ac ? ac.tactic : 'bal';
@@ -298,11 +305,13 @@
     c.wage = O.acWage(club, cand, opts);
     c.bonus = { title: c.wage * OC.bonus.title, promo: c.wage * OC.bonus.promo, euro: c.wage * OC.bonus.euro };
     c.brk = opts.brk ? Math.round(opts.brk) : null;
+    if (opts.poach) { c.wage = Math.round(c.wage * 1.1 / 10) * 10; }
+    for (const k of ['title', 'promo', 'euro']) c.bonus[k] = opts[k] != null && opts[k] !== '' ? Math.max(0, Math.round(+opts[k]) || 0) : c.wage * OC.bonus[k];
     if (opts.win != null && opts.win !== '') c.win = Math.max(0, Math.round(+opts.win) || 0);
     if (opts.draw != null && opts.draw !== '') c.draw = Math.max(0, Math.round(+opts.draw) || 0);
     c.exit = opts.exit != null && opts.exit !== '' ? Math.round(opts.exit) : null;
     c.cap = !!opts.cap; c.mitigate = opts.mitigate !== false;
-    return { id: 'a' + cand.id, ai: true, name: cand.name, club: club.id, age: cand.age, rep: cand.rep, sk: Object.assign({}, cand.sk), style: cand.style, tactic: cand.style, board: 60, contract: c };
+    return { id: 'a' + cand.id, ai: true, name: cand.name, club: club.id, age: cand.age, rep: cand.rep, sk: Object.assign({}, cand.sk), style: cand.style, tactic: cand.style, board: 60, contract: c, hist: (cand.hist || []).slice(), titles: cand.titles || 0 };
   }
   O.hire = function (G, co, candId, opts) {
     const club = G.clubs[co.club];
@@ -323,7 +332,7 @@
     if (!club || ROLE(co) !== 'owner' || club.owner !== co.id) return { ok: false, err: 'owner_only' };
     if (!ac) return { ok: false, err: 'no_coach' };
     const r = O.terminateByClub(G, ac);
-    G.cm.push({ id: 'k' + (G.nextCm = (G.nextCm || 0) + 1), name: ac.name, age: ac.age, rep: Math.max(5, ac.rep - 2), sk: ac.sk, style: ac.style });
+    toMarket(G, ac, -2);
     club.ac = null;
     O.sync(G, co);
     SF.Game.news(G, 'n_ac_fired', { name: ac.name, amt: r.owed }, co.id);
@@ -333,26 +342,23 @@
     const club = G.clubs[co.club], ac = club && club.ac;
     if (!ac || club.owner !== co.id) return { ok: false, err: 'owner_only' };
     const r = O.mutual(G, ac);
-    club.ac = null; O.sync(G, co);
+    toMarket(G, ac, 0); club.ac = null; O.sync(G, co);
     SF.Game.news(G, 'n_ac_mutual', { name: ac.name, amt: r.offer }, co.id);
     return { ok: true, owed: r.offer };
   };
-  O.renewCoach = function (G, co, years) {
+  O.renewCoach = function (G, co, years, opts) {
+    opts = opts || {};
     const club = G.clubs[co.club], ac = club && club.ac;
     if (!ac || club.owner !== co.id) return { ok: false, err: 'owner_only' };
     const c = O.newContract(club, ac.rep, years);
     c.wage = Math.round(Math.max(c.wage, ac.contract.wage) / 10) * 10;
     c.bonus = { title: c.wage * OC.bonus.title, promo: c.wage * OC.bonus.promo, euro: c.wage * OC.bonus.euro };
-    c.win = ac.contract.win; c.draw = ac.contract.draw; c.brk = ac.contract.brk; c.cap = ac.contract.cap; c.mitigate = ac.contract.mitigate;
+    c.win = ac.contract.win; c.draw = ac.contract.draw; c.bonus = Object.assign({}, ac.contract.bonus); c.brk = ac.contract.brk; c.cap = ac.contract.cap; c.mitigate = ac.contract.mitigate;
+    if (opts.win !== undefined && opts.win !== '') c.win = Math.max(0, Math.round(+opts.win) || 0);
+    if (opts.draw !== undefined && opts.draw !== '') c.draw = Math.max(0, Math.round(+opts.draw) || 0);
+    for (const k of ['title', 'promo', 'euro']) if (opts[k] !== undefined && opts[k] !== '') c.bonus[k] = Math.max(0, Math.round(+opts[k]) || 0);
     ac.contract = c;
     SF.Game.news(G, 'n_ac_renewed', { name: ac.name }, co.id);
-    return { ok: true };
-  };
-  O.setTactic = function (G, co, tactic) {
-    const club = G.clubs[co.club];
-    if (!club || ROLE(co) !== 'owner' || club.owner !== co.id || !STYLES.includes(tactic)) return { ok: false, err: 'owner_only' };
-    if (club.ac) club.ac.tactic = tactic;
-    O.sync(G, co);
     return { ok: true };
   };
 
@@ -380,13 +386,21 @@
     for (const ap of (G.approvals || [])) {
       if (ap.club !== club.id || ap.coach !== co.id || ap.status !== 'ok' || !OWNER_ACT.includes(ap.kind)) continue;
       const pid = +ap.key, p = G.players[pid];
-      if (!p) { ap.status = 'exp'; continue; }
+      if (ap.kind !== 'loan' && !p) { ap.status = 'exp'; continue; }
       let r;
-      if (ap.kind === 'buy') r = A().buy(G, act, pid, ap.cost);
+      if (ap.kind === 'loan') r = A().takeLoan(G, act, ap.cost, 2);
+      else if (ap.kind === 'buy') r = A().buy(G, act, pid, ap.cost);
       else if (ap.kind === 'sign') r = A().signFree(G, act, pid);
       else r = A().renew(G, act, pid, 2);
       if (r.ok || (r.err && r.err !== 'needs_approval')) ap.status = r.ok ? 'used' : 'exp';
     }
+    // 1b) debt is the coach's to manage: he asks for a loan when the club is in the red, and repays when there is cash
+    const bal0 = B.bal(G, club.id), debt = B.debtOf(G, club.id), lim = B.creditLimit(G, club.id);
+    if (bal0 < 0 && lim > 0 && G.week % 4 === 0 && !(G.approvals || []).some((a) => a.club === club.id && a.kind === 'loan' && (a.status === 'open' || a.status === 'ok'))) {
+      const amt = Math.round(Math.min(lim / 2, O.wageBill(G, club) * 8) / 1000) * 1000;
+      if (amt > 0) A().takeLoan(G, act, amt, 2);
+    }
+    if (debt > 0 && bal0 > debt * 1.5 + O.policy(G, club).reserve) for (const l of G.bank.loans.filter((x) => x.club === club.id)) A().repayLoan(G, act, l.id);
     // 2) fill gaps in the squad (free agents, inside the limits)
     legalSquad(G, club, act);
     // 3) every second week look for an upgrade among free agents; every sixth week aim at a better player and ask if it is above the limits
@@ -441,12 +455,12 @@
       if (c.late >= OC.late) { // wages unpaid for weeks: he walks away with just cause and the club owes the rest
         owe(G, club.id, ac, Math.round(O.remaining(ac)), Math.min(Math.max(c.left, 4), 56), false, 0);
         SF.Game.news(G, 'n_ac_quit', { name: ac.name }, co.id);
-        club.ac = null; O.sync(G, co); return;
+        toMarket(G, ac, -3); club.ac = null; O.sync(G, co); return;
       }
       if (c.left === 8) SF.Game.news(G, 'n_ac_expiring', { name: ac.name }, co.id);
       if (c.left <= 0) { // contract over: he leaves unless the owner renewed it
         SF.Game.news(G, 'n_ac_left', { name: ac.name }, co.id);
-        G.cm.push({ id: 'k' + (G.nextCm = (G.nextCm || 0) + 1), name: ac.name, age: ac.age, rep: ac.rep, sk: ac.sk, style: ac.style });
+        toMarket(G, ac, 0);
         club.ac = null; O.sync(G, co); return;
       }
     }
@@ -463,6 +477,8 @@
     const ac = club.ac;
     plSnapshot(G, club, true);
     if (!ac) return;
+    ac.hist.push({ s: G.season, club: club.id, d: club.div, pos: club.pos, tp: club.target });
+    if (club.pos === 1) ac.titles++;
     judgeObjectives(G, co, club, ac);
     const c = ac.contract;
     const pay = (amt) => { amt = Math.min(Math.round(amt), Math.max(0, B.bal(G, club.id))); if (amt > 0) B.debit(G, club.id, amt, 'coach_bonus'); };
@@ -517,7 +533,7 @@
   }
 
   const STANCES = ['save', 'normal', 'ambition', 'youth'];
-  const CHAT_Q = ['status', 'money', 'squad', 'plans', 'save', 'normal', 'ambition', 'youth', 'att', 'bal', 'def'];
+  const CHAT_Q = ['status', 'money', 'squad', 'plans', 'save', 'normal', 'ambition', 'youth'];
   O.chatQuestions = CHAT_Q;
   /** the owner says something; the coach answers from the real state. Replies are stored as keys so the language can change later. */
   O.chat = function (G, co, q) {
@@ -541,12 +557,125 @@
       k = 'ch_plans_' + (club.stance || 'normal'); p = { n: O.openFor(G, club.id).length };
     } else if (STANCES.includes(q)) {
       club.stance = q; k = 'ch_ok_' + q;
-    } else { // att / bal / def: tactic
-      ac.tactic = q; O.sync(G, co); k = 'ch_ok_tac';
     }
     log.push({ k, p, s: G.season, w: G.week });
     if (log.length > 30) log.splice(0, log.length - 30);
     return { ok: true };
+  };
+
+  // ---------- coaches of the other clubs, the job centre and approaching a coach under contract ----------
+  const repFor = (club) => util.clamp(Math.round(20 + (3 - club.div) * 14 + R.gauss(0, 10)), 8, 92);
+  function npcCoach(G, club, fromMarket) {
+    O.market(G);
+    let cand = null;
+    if (fromMarket && G.cm.length) {
+      const want = repFor(club);
+      cand = G.cm.slice().sort((a, b) => Math.abs(a.rep - want) - Math.abs(b.rep - want))[0];
+      G.cm.splice(G.cm.indexOf(cand), 1);
+    }
+    if (!cand) cand = genCoach(G, repFor(club));
+    const ac = makeAc(club, cand, { years: R.int(1, 3) });
+    ac.contract.left = R.int(OC.W, ac.contract.years * OC.W);
+    ac.npc = true;
+    return ac;
+  }
+  /** every club the player does not run has a coach with a CV, so there is a real job market */
+  O.initNpcCoaches = function (G) {
+    for (const id of G.clubIds) { const club = G.clubs[id]; if (!club.human && !club.ac) club.ac = npcCoach(G, club, false); }
+  };
+  O.npcSeasonEnd = function (G) {
+    for (const id of G.clubIds) {
+      const club = G.clubs[id];
+      if (club.human) continue;
+      if (!club.ac) { club.ac = npcCoach(G, club, true); continue; }
+      const ac = club.ac;
+      if (!ac.hist) { ac.hist = []; ac.titles = 0; }
+      ac.hist.push({ s: G.season, club: id, d: club.div, pos: club.pos, tp: club.target });
+      if (club.pos === 1) ac.titles++;
+      ac.rep = util.clamp(ac.rep + (club.pos <= club.target ? 2 : -2) + (club.nextDiv < club.div ? 2 : 0), 5, 99);
+      ac.age++; ac.contract.left -= OC.W;
+      if (ac.contract.left <= 0 || (club.pos > club.target + 3 && R.chance(0.4))) { toMarket(G, ac, 0); club.ac = npcCoach(G, club, true); }
+    }
+  };
+  /** the coaches that stand out, in a job */
+  O.employed = (G, n) => G.clubIds.map((id) => G.clubs[id]).filter((c) => !c.human && c.ac).sort((a, b) => b.ac.rep - a.ac.rep).slice(0, n || 6);
+  O.compNeeded = (ac) => O.poachFee(ac);
+  /** the owner approaches a coach who works for another club: the club wants at least his break clause (or a year of salary) */
+  O.hireFrom = function (G, co, clubId, opts) {
+    opts = opts || {};
+    const mine = G.clubs[co.club], tgt = G.clubs[clubId], ac = tgt && tgt.ac;
+    if (!mine || ROLE(co) !== 'owner' || mine.owner !== co.id) return { ok: false, err: 'owner_only' };
+    if (mine.ac) return { ok: false, err: 'has_coach' };
+    if (!ac || tgt.human || tgt === mine) return { ok: false, err: 'gone' };
+    const need = O.compNeeded(ac), offer = Math.round(opts.comp != null && opts.comp !== '' ? +opts.comp : need);
+    if (!(offer >= need * 0.8)) return { ok: false, err: 'comp_refused', max: need };
+    if (offer < need) return { ok: false, err: 'comp_counter', max: need };
+    if (B.bal(G, mine.id) < offer) return { ok: false, err: 'no_funds', cost: offer };
+    B.transfer(G, mine.id, tgt.id, offer, 'coach_comp');
+    const cand = { id: ac.id.slice(1), name: ac.name, age: ac.age, rep: ac.rep, sk: ac.sk, style: ac.style, hist: ac.hist, titles: ac.titles };
+    tgt.ac = npcCoach(G, tgt, true);
+    mine.ac = makeAc(mine, cand, Object.assign({}, opts, { poach: true }));
+    O.sync(G, co);
+    SF.Game.news(G, 'n_ac_hired', { name: ac.name }, co.id);
+    return { ok: true, paid: offer };
+  };
+
+  // ---------- the manager: runs the money side (ticket price, stadium, facilities), less sharply than an owner who is on top of it ----------
+  O.mgrPool = function (G) {
+    if (!G.mgrs || G.mgrSeason !== G.season) {
+      G.mgrSeason = G.season; G.mgrs = [];
+      for (let i = 0; i < 4; i++) G.mgrs.push({ id: 'm' + (G.nextMgr = (G.nextMgr || 0) + 1), name: SF.World.playerName(), age: R.int(35, 62), rep: util.clamp(Math.round(R.gauss(45, 22)), 10, 95) });
+    }
+    return G.mgrs;
+  };
+  O.mgrWage = (club, rep) => Math.max(100, Math.round((O.salaryFor(club, rep) * 0.5) / 10) * 10);
+  O.mgrEff = (m) => 0.35 + 0.5 * (m.rep / 100);
+  O.hireManager = function (G, co, id) {
+    const club = G.clubs[co.club];
+    if (!club || ROLE(co) !== 'owner' || club.owner !== co.id) return { ok: false, err: 'owner_only' };
+    if (club.mgr) return { ok: false, err: 'has_mgr' };
+    const pool = O.mgrPool(G), i = pool.findIndex((x) => x.id === id);
+    if (i < 0) return { ok: false, err: 'gone' };
+    const m = pool.splice(i, 1)[0];
+    club.mgr = { name: m.name, age: m.age, rep: m.rep, wage: O.mgrWage(club, m.rep) };
+    return { ok: true };
+  };
+  O.fireManager = function (G, co) {
+    const club = G.clubs[co.club];
+    if (!club || ROLE(co) !== 'owner' || club.owner !== co.id || !club.mgr) return { ok: false, err: 'owner_only' };
+    const sev = Math.min(club.mgr.wage * 4, Math.max(0, B.bal(G, club.id)));
+    if (sev > 0) B.debit(G, club.id, sev, 'mgr_pay');
+    O.mgrPool(G).push({ id: 'm' + (G.nextMgr = (G.nextMgr || 0) + 1), name: club.mgr.name, age: club.mgr.age, rep: club.mgr.rep });
+    club.mgr = null;
+    return { ok: true, paid: sev };
+  };
+  O.mgrWeekly = function (G, co, club) {
+    const m = club.mgr;
+    if (!m) return;
+    if (B.bal(G, club.id) >= m.wage) B.debit(G, club.id, m.wage, 'mgr_pay');
+    const e = O.mgrEff(m), A_ = A(), bal = B.bal(G, club.id), reserve = O.policy(G, club).reserve;
+    if (G.week % 4 === 1) { // ticket price: near the best, off by more the weaker the manager
+      const best = A_.bestPrice(G, club), err = (1 - e) * 0.35;
+      A_.setPrice(G, co, best * (1 + R.range(-err, err)));
+    }
+    if (G.week % 8 === 4 && !club.build && SF.Game.attendance(club) >= club.cap * 0.95 && R.chance(e)) {
+      const cost = A_.stadiumCost(G, club, 1);
+      if (cost <= (bal - reserve) * 0.6) A_.expandStadium(G, co, 1);
+    }
+    if (G.week % 12 === 6 && R.chance(e * 0.5)) {
+      const key = club.facility.youth <= club.facility.train ? 'youth' : 'train';
+      if (club.facility[key] < 5 && A_.facilityCost(club, key) <= (bal - reserve) * 0.5) A_.upgradeFacility(G, co, key);
+    }
+  };
+
+  /** play weeks until something needs the owner: a request, the end of the season */
+  O.autoPlay = function (G, max) {
+    let n = 0;
+    while (G.phase === 'play' && n < (max || 60)) {
+      SF.Game.playWeekAuto(G); n++;
+      if (O.ownerClubs(G).some((co) => O.openFor(G, co.club).length)) break;
+    }
+    return n;
   };
 
   /** a new club owner starts with a coach that fits the club */
@@ -587,6 +716,7 @@
     for (const co of O.ownerClubs(G)) {
       O.acWeekly(G, co);
       const cl = G.clubs[co.club];
+      if (cl) O.mgrWeekly(G, co, cl);
       if (cl) { (cl.fh = cl.fh || []).push(Math.round(B.bal(G, cl.id))); if (cl.fh.length > 120) cl.fh.shift(); }
     }
     // pay-offs in instalments (mitigation: what he earns elsewhere reduces the instalment)

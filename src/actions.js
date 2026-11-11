@@ -466,6 +466,7 @@
     const comp = coach.club ? SF.Owner.poachFee(coach) : 0;
     if (comp && B.bal(G, club.id) < comp) return no('no_funds', { cost: comp });
     if (coach.club) { if (comp) B.transfer(G, club.id, coach.club, comp, 'coach_comp'); G.clubs[coach.club].human = 0; coach.rep = Math.max(0, coach.rep - 2); }
+    if (club.ac) { SF.Owner.toMarket(G, club.ac, 0); club.ac = null; }
     coach.contract = SF.Owner.newContract(club, coach.rep);
     club.human = coach.id;
     coach.club = club.id;

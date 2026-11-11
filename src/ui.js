@@ -217,7 +217,8 @@
     return `<div class="card hl"><h2>${t('next_match')}</h2>${body}<div class="row" style="justify-content:center;margin-top:8px">
       ${canPlay && !(c.vac > 0) && SF.Owner.role(c) !== 'owner' ? `<button class="btn pri" data-act="play-live">${t('play_live')}</button>` : ''}
       ${c.vac > 0 ? `<button class="btn pri" data-act="vac-run">🏖 ${t('vac_run')}</button>` : ''}
-      <button class="btn ${SF.Owner.role(c) === 'owner' ? 'pri' : ''}" data-act="sim-week">${f.none || true ? t('sim_week') : ''}</button>
+      ${SF.Owner.role(c) === 'owner' ? `<button class="btn pri" data-act="auto">${t('auto_btn')}</button>` : ''}
+      <button class="btn" data-act="sim-week">${f.none || true ? t('sim_week') : ''}</button>
       <button class="btn" data-act="sim-season">${t('sim_season')}</button></div></div>`;
   }
   const euLabel = (s) => (s < 6 ? t('eu_md_n', { n: s + 1 }) : t(['eu_qf', 'eu_sf', 'eu_final'][s - 6]));
@@ -306,7 +307,7 @@
       <td class="r">${money(p.wage)}</td><td>${t('yr_n', { n: p.ct })}</td><td class="r">${mc(E.value(p))}</td><td>${p.g}/${p.ap}</td><td>${moodChip(p)}</td><td>${statusOf(p)}</td>
       <td class="act">${p.loan ? '' : own ? `<button class="btn sm" data-act="untouch:${p.id}">${club.policy && club.policy.untouchable.includes(p.id) ? t('untouch_unset') : t('untouch_set')}</button>` : `<select class="actsel" data-chg="act:${p.id}"><option value="">${t('actions')}</option><option value="${p.listed ? 'unlist' : 'list'}">${p.listed ? t('unlist') : t('list_sale')}</option><option value="renew">${t('renew')}</option><option value="reneg">${t('renegotiate')}</option><option value="loanout">${t('loan_out_btn')}</option><option value="capt">${t('make_captain')}</option><option value="sellnow">${t('sell_now')}</option><option value="release">${t('release')}</option></select>`}</td></tr>`);
     return `<div class="card"><div class="row">${own ? `<span class="mut sm">${t('owner_squad_note')}</span>` : ''}<label ${own ? 'style="display:none"' : ''}>${t('formation')} <select data-chg="form">${Object.keys(Game.FORMS).map((f) => `<option ${L.form === f ? 'selected' : ''}>${f}</option>`).join('')}</select></label>
-      <label>${t('tactic')} <select data-chg="tactic">${['def', 'bal', 'att'].map((k) => `<option value="${k}" ${L.tactic === k ? 'selected' : ''}>${t('tac_' + k)}</option>`).join('')}</select></label>
+      <label ${own ? 'style="display:none"' : ''}>${t('tactic')} <select data-chg="tactic">${['def', 'bal', 'att'].map((k) => `<option value="${k}" ${L.tactic === k ? 'selected' : ''}>${t('tac_' + k)}</option>`).join('')}</select></label>
       <label ${own ? 'style="display:none"' : ''}><input type="checkbox" data-chg="auto" ${L.auto || c.vac > 0 ? 'checked' : ''} ${c.vac > 0 ? 'disabled' : ''}> ${t('auto_pick')}</label>
       <span class="${nxi === 11 ? 'good' : 'warn'}">${t('xi_count', { n: nxi })}</span>
       <span class="${sxi > CFG.starFree ? 'bad' : sxi ? 'star' : 'mut'}">★ ${t('stars_xi', { n: sxi, max: CFG.starFree })}</span></div>
@@ -443,7 +444,10 @@
     const inc = Object.entries(r.inc).map(([k, v]) => line(k, v, '')).join('');
     const out = Object.entries(r.out).map(([k, v]) => line(k, v, v === r.out.wages && r.ratio > 0.62 ? 'red' : 'yel')).join('');
     const ic = ['✅', '💡', '⚠️', '🚨'];
-    const tips = r.tips.map((tp) => {
+    const ownR = SF.Owner.role(c) === 'owner';
+    let list = ownR ? r.tips.filter((tp) => !['players', 'market', 'loan'].includes(tp.act)) : r.tips;
+    if (!list.length) list = [{ k: 'finance_ok', sev: 0, x: {}, act: null }];
+    const tips = list.map((tp) => {
       let acts = '';
       if (tp.act === 'price') acts = `<button class="btn sm pri" data-act="setprice:${tp.price}">${t('tip_set_price', { best: tp.price })}</button>`;
       else if (tp.act === 'stadium') acts = `<button class="btn sm pri" data-act="expand:1" ${club.build ? 'disabled' : ''}>${t('tip_expand')} · ${mc(A.stadiumCost(G, club, 1))}</button>`;
@@ -489,9 +493,10 @@
         <div class="row"><span>${t('ticket_price')}:</span><button class="btn sm" data-act="price:-0.1">−</button><b>${club.price.toFixed(1)}</b><button class="btn sm" data-act="price:0.1">+</button></div>
         <p>${club.build ? `<span class="warn">${t('building', { seats: club.build.seats, left: club.build.left })}</span>` : steps}</p>
         <h2 style="margin-top:14px">${t('facilities')}</h2>${fac('youth')}${fac('train')}</div>
-      <div class="card"><h2>${t('loans')}</h2><p class="mut">${t('credit_limit')}: ${money(lim)}</p>
+      ${SF.Owner.role(c) === 'owner' ? `<div class="card"><p class="mut">${t('fin_owner_note')}</p></div>` : ''}
+      ${SF.Owner.role(c) === 'owner' ? '' : `<div class="card"><h2>${t('loans')}</h2><p class="mut">${t('credit_limit')}: ${money(lim)}</p>
         ${loans.length ? tbl(['', '>' + t('loan_weekly'), '>' + t('loan_total'), ''], loans.map((l) => `<tr><td>#${l.id}</td><td class="r">${money(l.weekly)}</td><td class="r">${money(l.due)}</td><td><button class="btn sm" data-act="repay:${l.id}">${t('repay_early')} · ${mc(B.earlyRepayCost(l))}</button></td></tr>`)) : `<p class="mut">${t('no_loans')}</p>`}
-        <button class="btn" data-act="loan" ${lim <= 0 ? 'disabled' : ''}>${t('take_loan')}</button></div>
+        <button class="btn" data-act="loan" ${lim <= 0 ? 'disabled' : ''}>${t('take_loan')}</button></div>`}
       <div class="card"><h2>${t('ledger')}</h2>${tbl(['', '', '>'], led.map((e) => `<tr><td class="mut sm">${e[0]}·${e[1]}</td><td>${kl(e[2])}</td><td class="r ${e[3] >= 0 ? 'good' : 'bad'}">${e[3] >= 0 ? '+' : ''}${money(e[3])}</td></tr>`))}</div>
       <div class="card wide"><h2>${t('token_title')}</h2><p>${t('token_note')}</p><p class="mut sm">${t('supply')}: ${money(B.supply(G))} SFOOT</p></div></div>`;
   }
@@ -573,9 +578,9 @@
     const G = UI.G, c = co(), club = myClub(), O = SF.Owner;
     if (!club) return `<div class="card"><p class="mut">-</p></div>`;
     if (O.role(c) !== 'owner') return `<div class="grid">${cashCard(c, club, t('own_note_both'))}</div>`;
-    const sub = UI.ot || 'office';
-    const bar = `<div class="sub">${['office', 'business', 'team', 'goals', 'chat', 'limits', 'market'].map((k) => `<button class="${sub === k ? 'on' : ''}" data-act="ot:${k}">${t('ot_' + k)}</button>`).join('')}</div>`;
-    const fn = { limits: ownerLimits, market: ownerMarket, business: ownerBusiness, team: ownerTeam, goals: ownerGoals, chat: ownerChat }[sub] || ownerOffice;
+    const sub = ['office', 'business', 'team', 'manager'].includes(UI.ot) ? UI.ot : 'office';
+    const bar = `<div class="sub">${['office', 'business', 'team', 'manager'].map((k) => `<button class="${sub === k ? 'on' : ''}" data-act="ot:${k}">${t('ot_' + k)}</button>`).join('')}</div>`;
+    const fn = { business: ownerBusiness, team: ownerTeam, manager: ownerManager }[sub] || ownerOffice;
     return bar + fn(c, club);
   }
 
@@ -585,6 +590,7 @@
     const sq = Game.players(G, club), unhappy = sq.filter((p) => SF.Extras.mood(p) < 40).length;
     const r = A.financeReport(G, c), bal = B.bal(G, club.id);
     if (!club.ac) tips.push(t('sg_nocoach'));
+    if (bal < 0) tips.push(t('sg_debt'));
     else if (club.ac.contract.left <= 8) tips.push(t('sg_expiring'));
     if (open) tips.push(t('sg_requests', { n: open }));
     if (!club.obj || club.obj.pos == null) tips.push(t('sg_noobj'));
@@ -641,17 +647,47 @@
     return `<div class="grid"><div class="card"><h2>${t('chat_title')}</h2><p class="mut sm">${t('chat_note')}</p>
       <div class="chat">${log.length ? log.map(bub).join('') : `<span class="mut">${t('chat_empty')}</span>`}</div></div>
       <div class="card"><h3 class="sm mut">${t('chat_ask')}</h3><div class="row wrapb">${['status', 'money', 'squad', 'plans'].map(btn).join(' ')}</div>
-      <h3 class="sm mut" style="margin-top:12px">${t('chat_say')}</h3><div class="row wrapb">${['save', 'normal', 'ambition', 'youth', 'att', 'bal', 'def'].map(btn).join(' ')}</div></div></div>`;
+      <h3 class="sm mut" style="margin-top:12px">${t('chat_say')}</h3><div class="row wrapb">${['save', 'normal', 'ambition', 'youth'].map(btn).join(' ')}</div></div></div>`;
   }
-  function ownerOffice(c, club) {
+
+  const collectHire = (f) => ({ years: +f.years, win: f.win, draw: f.draw, title: f.title, promo: f.promo, euro: f.euro, brk: +f.brk || 0, exit: f.exit, cap: f.cap === '1', mitigate: f.mit === '1', comp: f.comp });
+  const hireFields = (club, rep, mult) => {
+    const O = SF.Owner, w = Math.round((O.salaryFor(club, rep) * (mult || 1)) / 10) * 10;
+    const yn = (n, v) => `<select name="${n}"><option value="1" ${v ? 'selected' : ''}>${t('yes')}</option><option value="0" ${v ? '' : 'selected'}>${t('no')}</option></select>`;
+    const num = (n, lab, v, st) => `<label>${lab}</label><input name="${n}" type="number" min="0" step="${st || 10}" value="${v}">`;
+    return `<label>${t('ac_years')}</label><select name="years">${[1, 2, 3, 4].map((n) => `<option ${n === 3 ? 'selected' : ''}>${n}</option>`).join('')}</select>
+      ${num('win', t('ac_win'), Math.round((w * 0.5) / 10) * 10)}${num('draw', t('ac_draw'), 0)}${num('title', t('ac_bonus_title'), w * CFG.owner.bonus.title, 100)}${num('promo', t('ac_bonus_promo'), w * CFG.owner.bonus.promo, 100)}${num('euro', t('ac_bonus_euro'), w * CFG.owner.bonus.euro, 100)}
+      ${num('brk', t('ac_brk'), '', 1000)}${num('exit', t('ac_exit'), '', 1000)}<label>${t('ac_cap')}</label>${yn('cap', false)}<label>${t('ac_mit')}</label>${yn('mit', true)}`;
+  };
+  function cvModal(a, clubId) {
+    const dd = (a.hist || []).slice().reverse().slice(0, 8);
+    $('#modal').innerHTML = `<div class="ovl"><div class="dlg"><h3>${esc(a.name)}</h3><p class="mut sm">${t('ac_age', { n: a.age })} · ${t('ac_rep')} ${a.rep} · ${t('jc_titles')}: ${a.titles || 0}${clubId ? ' · ' + ctag(clubId, 14) : ''}</p>
+      ${['train', 'tact', 'neg', 'youth'].map((k) => `<div class="row sm"><span>${t('sk_' + k)}</span><span>${dots(a.sk[k])}</span></div>`).join('')}
+      <h3 class="sm mut" style="margin-top:10px">${t('jc_cv')}</h3>${dd.length ? tbl([t('season'), t('club'), '', '#'], dd.map((h) => `<tr><td>${h.s}</td><td>${ctag(h.club, 14)}</td><td class="mut sm">${divName(h.d)}</td><td class="r ${h.pos <= h.tp ? 'good' : 'bad'}">${h.pos} / ${h.tp}</td></tr>`)) : `<span class="mut">${t('jc_cv_none')}</span>`}
+      <div class="row end"><button class="btn" data-act="m-cancel">${t('cancel')}</button></div></div></div>`;
+  }
+  function jobCenter(c, club) {
+    const G = UI.G, O = SF.Owner, sk = (a) => ['train', 'tact', 'neg', 'youth'].map((k) => a.sk[k]).join(' · ');
+    const top = O.employed(G, 6).map((cl) => { const a = cl.ac; return `<tr><td><b>${esc(a.name)}</b></td><td>${ctag(cl.id, 14)} <span class="mut sm">${divName(cl.div)}</span></td><td>${a.rep}</td><td class="mut sm">${sk(a)}</td><td>${a.titles || 0}</td><td><button class="btn sm" data-act="cvc:${cl.id}">${t('jc_cv')}</button> ${club.ac ? '' : `<button class="btn sm pri" data-act="approach:${cl.id}">${t('jc_approach')}</button>`}</td></tr>`; });
+    const free = O.market(G).slice().sort((a, b) => b.rep - a.rep).map((k) => `<tr><td><b>${esc(k.name)}</b></td><td>${t('ac_age', { n: k.age })}</td><td>${k.rep}</td><td class="mut sm">${sk(k)}</td><td class="r">${money(O.salaryFor(club, k.rep))}</td><td><button class="btn sm" data-act="cvf:${k.id}">${t('jc_cv')}</button> ${club.ac ? '' : `<button class="btn sm pri" data-act="hire:${k.id}">${t('ac_hire')}</button>`}</td></tr>`);
+    const hd = [t('sq_name'), t('club'), t('ac_rep'), ['train', 'tact', 'neg', 'youth'].map((s) => t('sk_' + s).slice(0, 3)).join(' · '), t('jc_titles'), ''];
+    return `<div class="grid"><div class="card wide"><h2>${t('jc_title')}</h2><p class="mut sm">${t('jc_note')}</p>${club.ac ? `<p class="warn">${t('err_has_coach')}</p>` : ''}</div>
+      <div class="card wide"><h2>${t('jc_top')}</h2>${tbl(hd, top)}</div>
+      <div class="card wide"><h2>${t('jc_free')}</h2>${tbl([t('sq_name'), t('sq_age'), t('ac_rep'), hd[3], '>' + t('ct_salary'), ''], free)}</div></div>`;
+  }
+  function coachDesk(c, club) {
+    if (!club) return `<div class="card">${t('unemployed')}</div>`;
+    const sub = ['coach', 'goals', 'limits', 'chat', 'jobs'].includes(UI.ct) ? UI.ct : 'coach';
+    const labels = { coach: t('ac_title'), goals: t('ot_goals'), limits: t('ot_limits'), chat: t('ot_chat'), jobs: t('ct_jobs') };
+    const bar = `<div class="sub">${Object.keys(labels).map((k) => `<button class="${sub === k ? 'on' : ''}" data-act="ct:${k}">${labels[k]}</button>`).join('')}</div>`;
+    const fn = { goals: ownerGoals, limits: ownerLimits, chat: ownerChat, jobs: jobCenter }[sub] || ownerCoachPage;
+    return bar + fn(c, club);
+  }
+  function ownerCoachPage(c, club) {
     const G = UI.G, O = SF.Owner, ac = club.ac, ct = ac && ac.contract;
-    const open = O.openFor(G, club.id);
-    const inbox = `<div class="card ${open.length ? 'hl' : ''}"><h2>${t('rq_open_title')}</h2>${open.length ? open.map((a) => `<div class="row"><span>${esc(t('ap_' + a.kind))} <b>${esc(a.name || '')}</b>${a.cost ? ' · ' + money(a.cost) : ''} <span class="mut sm">(${esc(t('why_' + a.why))})</span></span><span><button class="btn pri" data-act="apy:${a.id}">${t('rq_approve')}</button> <button class="btn" data-act="apn:${a.id}">${t('rq_decline')}</button></span></div>`).join('') : `<span class="mut">${t('rq_none')}</span>`}
-      <h3 class="sm mut" style="margin-top:12px">${t('rq_title')}</h3>${O.mine(G, c.id).filter((a) => a.status !== 'open').slice(0, 6).map((a) => `<div class="row sm"><span>${esc(t('ap_' + a.kind))} ${esc(a.name || '')}${a.cost ? ' · ' + money(a.cost) : ''}</span>${rqStatus(a)}</div>`).join('') || `<span class="mut sm">-</span>`}</div>`;
-    const coachCard = !ac ? `<div class="card"><h2>${t('ac_title')}</h2><p class="warn">${t('ac_none')}</p><button class="btn pri" data-act="ot:market">${t('ot_market')}</button></div>` : `<div class="card"><h2>${t('ac_title')}</h2>
+    const coachFull = !ac ? `<div class="card"><h2>${t('ac_title')}</h2><p class="warn">${t('ac_none')}</p><button class="btn pri" data-act="ct:jobs">${t('ct_jobs')}</button></div>` : `<div class="card"><h2>${t('ac_title')}</h2>
       <div class="row"><b>${esc(ac.name)}</b><span class="mut">${t('ac_age', { n: ac.age })} · ${t('ac_rep')} ${ac.rep}</span></div>
       ${['train', 'tact', 'neg', 'youth'].map((k) => `<div class="row sm"><span>${t('sk_' + k)}</span><span>${dots(ac.sk[k])}</span></div>`).join('')}
-      <div class="row"><span>${t('tactic')}</span><select data-chg="tactic">${['def', 'bal', 'att'].map((k) => `<option value="${k}" ${ac.tactic === k ? 'selected' : ''}>${t('tac_' + k)}</option>`).join('')}</select></div>
       <div class="row"><span>${t('ct_salary')}</span><b>${money(ct.wage)}</b></div>
       <div class="row"><span>${t('ct_left')}</span><b>${(Math.max(0, ct.left) / CFG.owner.W).toFixed(1)}</b></div>
       <p class="mut sm">${t('ct_bonus', { a: money(ct.bonus.title), b: money(ct.bonus.promo), c: money(ct.bonus.euro) })}</p>
@@ -659,6 +695,42 @@
       <p class="mut sm">${t('ct_exit', { fee: money(O.exitFee(ac)) })}${ct.brk != null ? ' · ' + t('ac_brk').split(' (')[0] + ': ' + money(ct.brk) : ''}</p>
       ${ct.left <= 8 ? `<p class="warn">${t('ac_expiring', { n: Math.max(0, ct.left) })}</p>` : ''}${ct.late > 0 ? `<p class="bad">${t('ac_late', { n: ct.late })}</p>` : ''}
       <div class="row"><button class="btn" data-act="acrenew">${t('ac_renew')}</button> <button class="btn" data-act="acmutual">${t('ct_mutual')}</button> <button class="btn dng" data-act="acfire">${t('ac_fire')}</button></div></div>`;
+
+    return `<div class="grid">${coachFull}</div>`;
+  }
+  function ownerManager(c, club) {
+    const G = UI.G, O = SF.Owner, m = club.mgr;
+    const card = m ? `<div class="card hl"><h2>${t('mg_title')}</h2><div class="row"><b>${esc(m.name)}</b><span class="mut">${t('ac_age', { n: m.age })} · ${t('ac_rep')} ${m.rep}</span></div>
+      <div class="row"><span>${t('mg_eff')}</span><b>${Math.round(O.mgrEff(m) * 100)}%</b></div><div class="row"><span>${t('ct_salary')}</span><b>${money(m.wage)}</b></div>
+      <button class="btn dng" data-act="mgfire">${t('mg_fire')}</button></div>`
+      : `<div class="card"><h2>${t('mg_title')}</h2><p class="mut">${t('mg_none')}</p></div>`;
+    const pool = m ? '' : `<div class="card"><h2>${t('jc_free')}</h2>${tbl([t('sq_name'), t('sq_age'), t('ac_rep'), t('mg_eff'), '>' + t('ct_salary'), ''], O.mgrPool(G).map((x) => `<tr><td><b>${esc(x.name)}</b></td><td>${x.age}</td><td>${x.rep}</td><td>${Math.round(O.mgrEff(x) * 100)}%</td><td class="r">${money(O.mgrWage(club, x.rep))}</td><td><button class="btn sm pri" data-act="mghire:${x.id}">${t('ac_hire')}</button></td></tr>`))}</div>`;
+    return `<div class="grid"><div class="card"><p>${t('mg_note')}</p></div>${card}${pool}</div>`;
+  }
+  function ownerOffice(c, club) {
+    const G = UI.G, O = SF.Owner, ac = club.ac, ct = ac && ac.contract;
+    const open = O.openFor(G, club.id);
+    const inbox = `<div class="card ${open.length ? 'hl' : ''}"><h2>${t('rq_open_title')}</h2>${open.length ? open.map((a) => `<div class="row"><span>${esc(t('ap_' + a.kind))} <b>${esc(a.name || '')}</b>${a.cost ? ' · ' + money(a.cost) : ''} <span class="mut sm">(${esc(t('why_' + a.why))})</span></span><span><button class="btn pri" data-act="apy:${a.id}">${t('rq_approve')}</button> <button class="btn" data-act="apn:${a.id}">${t('rq_decline')}</button></span></div>`).join('') : `<span class="mut">${t('rq_none')}</span>`}
+      <h3 class="sm mut" style="margin-top:12px">${t('rq_title')}</h3>${O.mine(G, c.id).filter((a) => a.status !== 'open').slice(0, 6).map((a) => `<div class="row sm"><span>${esc(t('ap_' + a.kind))} ${esc(a.name || '')}${a.cost ? ' · ' + money(a.cost) : ''}</span>${rqStatus(a)}</div>`).join('') || `<span class="mut sm">-</span>`}</div>`;
+    const coachCard = `<div class="card"><h2>${t('ac_title')}</h2>${ac ? `<div class="row"><b>${esc(ac.name)}</b><span class="mut">${t('ac_rep')} ${ac.rep} · ${t('ct_left')} ${(Math.max(0, ct.left) / CFG.owner.W).toFixed(1)}</span></div>` : `<p class="warn">${t('ac_none')}</p>`}<button class="btn" data-act="tab:coach">${t('of_coach_open')}</button></div>`;
+    const tips = `<div class="card"><h2>${t('sg_title')}</h2>${ownerTips(c, club).map((x) => `<p class="sm">• ${x}</p>`).join('')}</div>`;
+    return `<div class="grid">${tips}${inbox}${coachCard}${cashCard(c, club, t('own_note_owner'))}</div>`;
+  }
+  function ownerLimits(c, club) {
+    const G = UI.G, O = SF.Owner, pol = O.policy(G, club);
+    const f = (k, step, lk) => `<div class="line"><label>${t('lim_' + (lk || k))}</label><input type="number" id="pol-${k}" min="0" step="${step || 1000}" value="${k === 'minSalePct' ? Math.round(pol[k] * 100) : pol[k]}"></div>`;
+    const un = pol.untouchable.map((id) => G.players[id]).filter(Boolean);
+    return `<div class="grid"><div class="card"><h2>${t('lim_title')}</h2><p class="mut sm">${t('lim_note')}</p>
+      ${f('budget')}${f('maxFee')}${f('maxWage', 10)}${f('wageCap', 100)}${f('minSalePct', 5, 'minSale')}${f('maxLoans', 1)}${f('reserve')}
+      <p class="mut sm">${t('lim_spent', { amt: pol.spent })}</p><button class="btn pri" data-act="pol-save">${t('lim_save')}</button></div>
+      <div class="card"><h2>${t('lim_untouch')}</h2>${un.length ? un.map((p) => `<div class="row"><span>${posTag(p.pos)} ${plink(p)} ${ovTag(p.ovr)}</span><button class="btn sm" data-act="untouch:${p.id}">${t('untouch_unset')}</button></div>`).join('') : `<span class="mut">${t('lim_untouch_none')}</span>`}</div></div>`;
+  }
+  function ownerOffice(c, club) {
+    const G = UI.G, O = SF.Owner, ac = club.ac, ct = ac && ac.contract;
+    const open = O.openFor(G, club.id);
+    const inbox = `<div class="card ${open.length ? 'hl' : ''}"><h2>${t('rq_open_title')}</h2>${open.length ? open.map((a) => `<div class="row"><span>${esc(t('ap_' + a.kind))} <b>${esc(a.name || '')}</b>${a.cost ? ' · ' + money(a.cost) : ''} <span class="mut sm">(${esc(t('why_' + a.why))})</span></span><span><button class="btn pri" data-act="apy:${a.id}">${t('rq_approve')}</button> <button class="btn" data-act="apn:${a.id}">${t('rq_decline')}</button></span></div>`).join('') : `<span class="mut">${t('rq_none')}</span>`}
+      <h3 class="sm mut" style="margin-top:12px">${t('rq_title')}</h3>${O.mine(G, c.id).filter((a) => a.status !== 'open').slice(0, 6).map((a) => `<div class="row sm"><span>${esc(t('ap_' + a.kind))} ${esc(a.name || '')}${a.cost ? ' · ' + money(a.cost) : ''}</span>${rqStatus(a)}</div>`).join('') || `<span class="mut sm">-</span>`}</div>`;
+    const coachCard = `<div class="card"><h2>${t('ac_title')}</h2>${ac ? `<div class="row"><b>${esc(ac.name)}</b><span class="mut">${t('ac_rep')} ${ac.rep} · ${t('ct_left')} ${(Math.max(0, ct.left) / CFG.owner.W).toFixed(1)}</span></div>` : `<p class="warn">${t('ac_none')}</p>`}<button class="btn" data-act="tab:coach">${t('of_coach_open')}</button></div>`;
     const tips = `<div class="card"><h2>${t('sg_title')}</h2>${ownerTips(c, club).map((x) => `<p class="sm">• ${x}</p>`).join('')}</div>`;
     return `<div class="grid">${tips}${inbox}${coachCard}${cashCard(c, club, t('own_note_owner'))}</div>`;
   }
@@ -679,6 +751,7 @@
   }
   function coachView() {
     const G = UI.G, c = co(), club = myClub();
+    if (SF.Owner.role(c) === 'owner') return coachDesk(c, club);
     const lvl = Game.level(c.xp), pts = Game.freePoints(c);
     const cur = 60 * (lvl - 1) * (lvl - 1), nxt = 60 * lvl * lvl;
     const pct = Math.round(((c.xp - cur) / (nxt - cur)) * 100);
@@ -778,7 +851,7 @@
   }
   function finishWeek(before) {
     Game.endWeek(UI.G);
-    const rc = before && recapOn() ? buildRecap(before) : null;
+    const rc = before && recapOn() && SF.Owner.role(co()) !== 'owner' ? buildRecap(before) : null;
     save();
     UI.tab = 'home';
     render();
@@ -786,9 +859,18 @@
   }
   function simSeason() {
     const G = UI.G;
+    if (SF.Owner.role(co()) === 'owner') return autoAdvance();
     let g = 0;
     while (G.phase === 'play' && g++ < 40) Game.playWeekAuto(G);
     save(); UI.tab = 'home'; render();
+  }
+  /** owner: play on without pressing OK each matchday; stops when a request needs an answer or the season ends */
+  function autoAdvance() {
+    const G = UI.G;
+    SF.Owner.autoPlay(G, 60);
+    save(); render();
+    const c = co();
+    if (G.phase === 'play' && myClub() && SF.Owner.openFor(G, myClub().id).length) toast(t('auto_stop_req'));
   }
 
   // ---------- live match ----------
@@ -1178,22 +1260,34 @@
         const g = (k) => $('#pol-' + k).value;
         return res(SF.Owner.setPolicy(G, c, { budget: g('budget'), maxFee: g('maxFee'), maxWage: g('maxWage'), wageCap: g('wageCap'), minSalePct: g('minSalePct') / 100, maxLoans: g('maxLoans'), reserve: g('reserve') }), t('ok_done'));
       }
+      case 'ct': UI.ct = arg; return render();
+      case 'auto': return autoAdvance();
+      case 'cvc': return cvModal(G.clubs[arg].ac, arg);
+      case 'cvf': return cvModal(SF.Owner.market(G).find((x) => x.id === arg));
+      case 'mghire': return res(SF.Owner.hireManager(G, c, arg), t('ok_done'));
+      case 'mgfire': return modal(`<p>${t('mg_fire_q')}</p>`, () => res(SF.Owner.fireManager(G, c), t('ok_done')));
+      case 'approach': {
+        const tgt = G.clubs[arg], ac = tgt && tgt.ac, club = myClub();
+        if (!ac) return;
+        const need = SF.Owner.compNeeded(ac);
+        return modal(`<h3>${esc(ac.name)}</h3><p class="mut sm">${ctag(tgt.id, 16)}</p><p>${t('jc_comp_note', { amt: need })}</p>
+          <label>${t('jc_comp')}</label><input name="comp" type="number" min="0" step="1000" value="${need}">${hireFields(club, ac.rep, 1.1)}`,
+          (f) => res(SF.Owner.hireFrom(G, c, tgt.id, collectHire(f)), t('ok_done')), t('ac_hire'));
+      }
       case 'hire': {
         const k = SF.Owner.market(G).find((x) => x.id === arg), club = myClub();
         if (!k) return;
-        const yn = (n, v) => `<select name="${n}"><option value="1" ${v ? 'selected' : ''}>${t('yes')}</option><option value="0" ${v ? '' : 'selected'}>${t('no')}</option></select>`;
-        return modal(`<h3>${esc(k.name)}</h3><p>${t('ac_hire_q', { name: k.name, amt: money(SF.Owner.salaryFor(club, k.rep)) })}</p>
-          <label>${t('ac_years')}</label><select name="years">${[1, 2, 3, 4].map((n) => `<option ${n === 3 ? 'selected' : ''}>${n}</option>`).join('')}</select>
-          <label>${t('ac_win')}</label><input name="win" type="number" min="0" step="10" value="${Math.round(SF.Owner.salaryFor(club, k.rep) * 0.5 / 10) * 10}">
-          <label>${t('ac_draw')}</label><input name="draw" type="number" min="0" step="10" value="0">
-          <label>${t('ac_brk')}</label><input name="brk" type="number" min="0" step="1000" value="">
-          <label>${t('ac_exit')}</label><input name="exit" type="number" min="0" step="1000" value="">
-          <label>${t('ac_cap')}</label>${yn('cap', false)}<label>${t('ac_mit')}</label>${yn('mit', true)}`,
-          (f) => res(SF.Owner.hire(G, c, arg, { years: +f.years, win: f.win, draw: f.draw, brk: +f.brk || 0, exit: f.exit, cap: f.cap === '1', mitigate: f.mit === '1' }), t('ok_done')), t('ac_hire'));
+        return modal(`<h3>${esc(k.name)}</h3><p>${t('ac_hire_q', { name: k.name, amt: money(SF.Owner.salaryFor(club, k.rep)) })}</p>${hireFields(club, k.rep, 1)}`,
+          (f) => res(SF.Owner.hire(G, c, arg, collectHire(f)), t('ok_done')), t('ac_hire'));
       }
       case 'acfire': { const ac = myClub().ac; return modal(`<p>${t('ac_fire_q', { name: ac.name, amt: SF.Owner.fireCost(G, c) })}</p>`, () => res(SF.Owner.fire(G, c), t('ok_done'))); }
       case 'acmutual': { const ac = myClub().ac; return modal(`<p>${t('ac_mutual_q', { name: ac.name, amt: SF.Owner.mutualOffer(G, ac) })}</p>`, () => res(SF.Owner.mutualAc(G, c), t('ok_done'))); }
-      case 'acrenew': return modal(`<p>${t('ac_renew_q')}</p><select name="years">${[1, 2, 3, 4].map((n) => `<option ${n === 3 ? 'selected' : ''}>${n}</option>`).join('')}</select>`, (f) => res(SF.Owner.renewCoach(G, c, +f.years), t('ok_done')));
+      case 'acrenew': {
+        const ct = myClub().ac.contract, num = (n, lab, v) => `<label>${lab}</label><input name="${n}" type="number" min="0" step="10" value="${v}">`;
+        return modal(`<p>${t('ac_renew_q')}</p><select name="years">${[1, 2, 3, 4].map((n) => `<option ${n === 3 ? 'selected' : ''}>${n}</option>`).join('')}</select>
+          ${num('win', t('ac_win'), ct.win || 0)}${num('draw', t('ac_draw'), ct.draw || 0)}${num('title', t('ac_bonus_title'), ct.bonus.title)}${num('promo', t('ac_bonus_promo'), ct.bonus.promo)}${num('euro', t('ac_bonus_euro'), ct.bonus.euro)}`,
+          (f) => res(SF.Owner.renewCoach(G, c, +f.years, { win: f.win, draw: f.draw, title: f.title, promo: f.promo, euro: f.euro }), t('ok_done')));
+      }
       case 'withdraw': return res(SF.Owner.withdraw(G, c, $('#own-amt').value), t('ok_done'));
       case 'invest': return res(SF.Owner.invest(G, c, $('#own-amt').value), t('ok_done'));
       case 'oacc': { const r = A.acceptOffer(G, c, +arg); return res(r, r.ok ? t('ok_sold', { fee: r.fee }) : ''); }
