@@ -73,4 +73,8 @@ Deferred: club purchase price by division and squad value.
   - he becomes unemployed and keeps receiving his wage until the end of the season **or until the club balance runs out**, whichever comes first;
   - match bonuses and prizes stop at the exit.
 - **Escrow (decided):** when the contract is signed, the wage owed to the coach is locked on-chain in an escrow tied to the contract. Each matchday releases that week's wage to the coach. If the owner disappears, the coach exits for just cause and the escrow keeps paying until the end of the season or until it is empty. The owner cannot withdraw escrowed funds; any rest goes back to the club when the contract ends. The escrow is topped up at each season renewal and when the contract is renewed. Wage bonuses (win/draw, title, promotion, Europe) are paid from the club balance, not from escrow.
-- Open points: value of N (suggested 3 matchdays), what happens to the club afterwards (computer coach takes over, or goes on sale).
+- **N (decided):** the coach may leave for just cause after the owner has been inactive for at least 3 matchdays **and** 7 real days. Inactive = no signed action by the owner (approve/decline, limits, tickets, stadium, contract). Opening the app does not count.
+- **Club after the coach leaves (decided):**
+  1. Immediately a computer coach takes over so the league never has unplayed games. He works with tighter limits and the club loses prestige for each matchday of absence, so being absent always costs the owner.
+  2. If the owner is still absent after M = 10 more matchdays, the club is put on sale at a base price. Another player may buy it; the proceeds go to the absent owner minus what is owed (wages, loans).
+  3. If the owner returns before the sale completes, he gets the club back and decides about the computer coach.
