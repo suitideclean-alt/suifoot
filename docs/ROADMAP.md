@@ -90,3 +90,6 @@ Wallet login: connect any Sui wallet (Wallet Standard, no library) at the setup 
 
 ## v0.7.0
 Owner/coach tabs reorganised, job centre with CVs and clause negotiation, NPC coaches for every club, manager (computer finance), auto-advance, loans via coach request, owner no longer controls tactics/skills.
+
+## v0.8.0
+Owner business layer: sponsors, merchandising, memberships, events, investment lines, stadium projects, partner club, fair play, investors and bonds, data pages (forecast, comparison, efficiency), owner reputation with six axes and styles, hall of fame with badges and ranking. Owner pages reorganised into eight clear sections.

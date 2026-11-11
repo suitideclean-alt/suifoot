@@ -127,6 +127,7 @@
     const club = G.clubs[ap.club];
     if (club.owner !== ownerCo.id) return { ok: false, err: 'owner_only' };
     ap.status = yes ? 'ok' : 'no'; ap.ttl = OC.tokenWeeks;
+    if (SF.Boss) SF.Boss.track(G, ownerCo, yes ? 'approve' : 'decline');
     SF.Game.news(G, yes ? 'n_approval_ok' : 'n_approval_no', { kind: ap.kind, name: ap.name }, ap.coach);
     return { ok: true };
   };
@@ -306,6 +307,7 @@
     c.bonus = { title: c.wage * OC.bonus.title, promo: c.wage * OC.bonus.promo, euro: c.wage * OC.bonus.euro };
     c.brk = opts.brk ? Math.round(opts.brk) : null;
     if (opts.poach) { c.wage = Math.round(c.wage * 1.1 / 10) * 10; }
+    if (club.boss && club.boss.wm) c.wage = Math.round(c.wage * club.boss.wm / 10) * 10;
     for (const k of ['title', 'promo', 'euro']) c.bonus[k] = opts[k] != null && opts[k] !== '' ? Math.max(0, Math.round(+opts[k]) || 0) : c.wage * OC.bonus[k];
     if (opts.win != null && opts.win !== '') c.win = Math.max(0, Math.round(+opts.win) || 0);
     if (opts.draw != null && opts.draw !== '') c.draw = Math.max(0, Math.round(+opts.draw) || 0);
@@ -321,6 +323,7 @@
     if (i < 0) return { ok: false, err: 'gone' };
     const cand = m.splice(i, 1)[0];
     club.ac = makeAc(club, cand, opts);
+    if (SF.Boss) SF.Boss.track(G, co, 'contract', { win: club.ac.contract.win || 0, wage: club.ac.contract.wage });
     O.sync(G, co);
     SF.Game.news(G, 'n_ac_hired', { name: cand.name }, co.id);
     return { ok: true };
@@ -332,6 +335,7 @@
     if (!club || ROLE(co) !== 'owner' || club.owner !== co.id) return { ok: false, err: 'owner_only' };
     if (!ac) return { ok: false, err: 'no_coach' };
     const r = O.terminateByClub(G, ac);
+    if (SF.Boss) { const lo = (club.objHist || [])[(club.objHist || []).length - 1]; SF.Boss.track(G, co, 'fire', { metObj: !!(lo && lo.ok) }); }
     toMarket(G, ac, -2);
     club.ac = null;
     O.sync(G, co);
@@ -342,6 +346,7 @@
     const club = G.clubs[co.club], ac = club && club.ac;
     if (!ac || club.owner !== co.id) return { ok: false, err: 'owner_only' };
     const r = O.mutual(G, ac);
+    if (SF.Boss) SF.Boss.track(G, co, 'mutual');
     toMarket(G, ac, 0); club.ac = null; O.sync(G, co);
     SF.Game.news(G, 'n_ac_mutual', { name: ac.name, amt: r.offer }, co.id);
     return { ok: true, owed: r.offer };
@@ -358,6 +363,7 @@
     if (opts.draw !== undefined && opts.draw !== '') c.draw = Math.max(0, Math.round(+opts.draw) || 0);
     for (const k of ['title', 'promo', 'euro']) if (opts[k] !== undefined && opts[k] !== '') c.bonus[k] = Math.max(0, Math.round(+opts[k]) || 0);
     ac.contract = c;
+    if (SF.Boss) { SF.Boss.review(G, co, club, ac); SF.Boss.track(G, co, 'contract', { win: c.win || 0, wage: c.wage }); }
     SF.Game.news(G, 'n_ac_renewed', { name: ac.name }, co.id);
     return { ok: true };
   };
@@ -449,7 +455,7 @@
     if (!ac) { if (G.week % 4 === 1) SF.Game.news(G, 'n_ac_vacant', {}, co.id); }
     else {
       const c = ac.contract;
-      if (B.bal(G, club.id) >= c.wage) { B.debit(G, club.id, c.wage, 'coach_pay'); c.late = 0; } else c.late++;
+      if (B.bal(G, club.id) >= c.wage) { B.debit(G, club.id, c.wage, 'coach_pay'); c.late = 0; } else { c.late++; if (SF.Boss) SF.Boss.track(G, co, 'late'); }
       payMatchBonus(G, club, co, c, true);
       c.left--;
       if (c.late >= OC.late) { // wages unpaid for weeks: he walks away with just cause and the club owes the rest
@@ -460,6 +466,7 @@
       if (c.left === 8) SF.Game.news(G, 'n_ac_expiring', { name: ac.name }, co.id);
       if (c.left <= 0) { // contract over: he leaves unless the owner renewed it
         SF.Game.news(G, 'n_ac_left', { name: ac.name }, co.id);
+        if (SF.Boss) SF.Boss.review(G, co, club, ac);
         toMarket(G, ac, 0);
         club.ac = null; O.sync(G, co); return;
       }
@@ -514,7 +521,10 @@
     const club = G.clubs[co.club];
     if (!club || ROLE(co) !== 'owner' || club.owner !== co.id) return { ok: false, err: 'owner_only' };
     club.obj = club.obj || {};
-    if (o.pos != null && +o.pos >= 1) { club.obj.pos = util.clamp(Math.round(+o.pos), 1, 12); club.target = club.obj.pos; }
+    if (o.pos != null && +o.pos >= 1) {
+      club.obj.pos = util.clamp(Math.round(+o.pos), 1, 12); club.target = club.obj.pos;
+      if (SF.Boss) { const rk = SF.Game.standings(G, club.div).slice().sort((a, b) => SF.Game.strength(G, G.clubs[b]) - SF.Game.strength(G, G.clubs[a])).indexOf(club.id) + 1; SF.Boss.track(G, co, 'obj', { gap: rk - club.obj.pos }); }
+    }
     if (o.profit != null && o.profit !== '' && isFinite(+o.profit)) club.obj.profit = Math.round(+o.profit);
     if (o.cup != null) club.obj.cup = !!o.cup;
     return { ok: true };
@@ -693,6 +703,7 @@
     if (!G.wk || !G.wk.matches) return null;
     return G.wk.matches.some((x) => x.h === club.id || x.a === club.id) ? club.lastPts : null;
   }
+  O.matchPts = matchPts;
   function payMatchBonus(G, club, co, c, ai) {
     const pts = matchPts(G, club), amt = pts === 3 ? c.win || 0 : pts === 1 ? c.draw || 0 : 0;
     if (amt <= 0 || B.bal(G, club.id) < amt) return;

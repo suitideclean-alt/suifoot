@@ -27,26 +27,28 @@ with sync_playwright() as p:
         ok(wk > 3 or pg.evaluate(G + ".phase") != 'play', name + ': auto-advance moved several weeks (week ' + str(wk) + ')')
         # owner tab
         pg.click('nav.tabs >> text=Owner'); pg.wait_for_timeout(300)
-        ok(pg.locator('.sub >> text=Manager').count() == 1 and pg.locator('.sub >> text=Limits').count() == 0, name + ': Owner tab has Office, Business, Team, Manager only')
+        ok(pg.locator('.sub >> text=Commercial').count() == 1 and pg.locator('.sub >> text=Limits').count() == 0, name + ': Owner tab has the business sections, no coach limits')
         ok(pg.locator('select[data-chg="tactic"]').count() == 0, name + ': owner cannot touch tactics')
         pg.evaluate("""() => { const G = SF.UI.G, co = G.coaches[0], club = G.clubs[co.club];
           SF.Owner.request(G, club, Object.assign({}, co, {role:'coach'}), 'buy', '1', {cost: 50000, name: 'Test Star'}, 'fee'); }""")
         pg.click('nav.tabs >> text=Squad'); pg.click('nav.tabs >> text=Owner'); pg.wait_for_timeout(300)
         ok(pg.locator('button:has-text("Approve")').count() == 1, name + ': request with Approve/Decline')
         pg.click('button:has-text("Approve")'); pg.wait_for_timeout(300)
-        pg.click('.sub >> text=Business'); pg.wait_for_timeout(300)
-        ok(pg.locator('text=Profit and loss by season').count() == 1, name + ': business tab')
+        pg.click('.sub >> text=Finance'); pg.wait_for_timeout(300)
+        ok(pg.locator('text=Profit and loss by season').count() == 1, name + ': finance section')
         pg.click('.sub >> text=Team'); pg.wait_for_timeout(300)
         ok(pg.locator('text=Average mood').count() == 1, name + ': team tab')
         # manager
-        pg.click('.sub >> text=Manager'); pg.wait_for_timeout(300)
+        pg.click('.sub >> text=Club'); pg.wait_for_timeout(300)
         pg.locator('button:has-text("Hire")').first.click(); pg.wait_for_timeout(300)
         ok(pg.evaluate(G + ".clubs[" + G + ".coaches[0].club].mgr") is not None, name + ': manager hired')
         pg.screenshot(path=f'/tmp/logos/b10_manager_{name}.png')
         # finance for owner: no loans, no wage tips
         pg.click('nav.tabs >> text=Finance'); pg.wait_for_timeout(300)
         txt = pg.inner_text('body')
-        ok('Take a loan' not in txt and 'Cut wage' not in txt and pg.locator('text=ticket price').count() >= 1, name + ': finance has no loans or wage controls, keeps ticket price')
+        ok('Take a loan' not in txt and 'Cut wage' not in txt, name + ': finance tab has no loans or wage controls')
+        pg.click('nav.tabs >> text=Owner'); pg.click('.sub >> text=Commercial'); pg.wait_for_timeout(200)
+        ok(pg.locator('button[data-act="price:0.1"]').count() == 1, name + ': ticket price stays with the owner (Commercial)')
         # coach desk
         pg.click('nav.tabs >> text=Coach'); pg.wait_for_timeout(300)
         ok(pg.locator('.sub >> text=Job centre').count() == 1 and pg.locator('text=Fire coach').count() == 1, name + ': coach desk with contract and fire button')

@@ -78,3 +78,14 @@ Deferred: club purchase price by division and squad value.
   1. Immediately a computer coach takes over so the league never has unplayed games. He works with tighter limits and the club loses prestige for each matchday of absence, so being absent always costs the owner.
   2. If the owner is still absent after M = 10 more matchdays, the club is put on sale at a base price. Another player may buy it; the proceeds go to the absent owner minus what is owed (wages, loans).
   3. If the owner returns before the sale completes, he gets the club back and decides about the computer coach.
+
+## v0.8 — Owner business layer (src/boss.js, src/ui-owner.js)
+Owner tab sections: **Summary** (KPIs, requests, suggestions), **Finance** (flows, cash forecast, fair play, investors, bonds, history), **Data** (value over time, efficiency, comparison with the division, squad return, moods), **Commercial** (sponsor deals, merch price + special kit, memberships, events, ticket price), **Club** (weekly investment lines, stadium + projects, facilities, partner club, manager), **Team**, **Reputation**, **Hall of fame**.
+- Sponsors: fixed / performance / naming rights, offers renewed each season; no deal pays 10% less.
+- Pricing (tickets, merch, memberships) trades income for supporter mood (0–100), which moves attendance and fan growth.
+- Lines (0–3): academy (potential), marketing (sponsor, merch, fans), community (mood). Projects (0–2): roof, floodlights, museum, medical centre; one at a time, attendance −8% during works.
+- Fair play: deficit above 10% of last season income (stadium/academy/facilities/community exempt) is fined 30% of the excess.
+- Financing: investors up to 40% (sold at 85% of value, profit share, buy-back at 115%), bonds up to 30% of value at 8% per season.
+- Owner reputation: six axes (honesty, freedom, motivator, patience, ambition, stability) → style and score; coaches ask up to 20% more (or 10% less) and sponsors pay ±8% depending on it.
+- Hall of fame: ranking by net worth, growth, reputation with 47 computer owners; badges; coach reviews at contract end. `SF.Boss.profile` is the compact public profile for the future chain/server version.
+- Finance tab for the owner shows only the ledger; stadium, tickets and facilities moved into Commercial and Club.

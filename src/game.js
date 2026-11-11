@@ -78,6 +78,7 @@
     Game.startSeason(G);
     SF.Owner.initNpcCoaches(G);
     SF.Owner.seasonStart(G);
+    if (SF.Boss) SF.Boss.seasonStart(G);
     for (const c of G.coaches) if (c.role === 'owner') SF.Owner.autoHire(G, c);
     for (const c of G.coaches) Game.news(G, 'n_welcome', { club: G.clubs[c.club].name }, c.id);
     return G;
@@ -103,6 +104,7 @@
     if (!G.tq) G.tq = [];
     if (G.divs) { SF.Extras.pairRivals(G); for (const co of G.coaches) { co.goals = co.goals || []; co.ach = co.ach || {}; co.watch = co.watch || []; if (co.club) { SF.Extras.fillGoals(G, co); SF.Extras.autoCaptain(G, G.clubs[co.club]); } } }
     SF.Owner.initNpcCoaches(G);
+    if (SF.Boss) SF.Boss.migrate(G);
     return G;
   };
 
@@ -354,7 +356,7 @@
     const avgPts = f.length ? util.avg(f) : 1.3;
     const mood = 0.8 + 0.1 * avgPts;
     const priceF = Math.pow(CFG.refPrice[club.div] / club.price, 1.1);
-    return Math.min(club.cap, Math.round(club.fans * mood * priceF));
+    return Math.min(club.cap, Math.round(club.fans * mood * priceF * (SF.Boss ? SF.Boss.attMult(club) : 1)));
   }
   Game.attendance = attendance;
 
@@ -383,7 +385,7 @@
         ev.push([e.min, 'r', e.side, p.n, '']);
         if (G.clubs[p.club] && G.clubs[p.club].human) Game.news(G, 'n_red', { name: p.n }, G.clubs[p.club].human);
       } else if (e.t === 'inj') {
-        p.inj = Math.max(p.inj, e.n); p._f = 1;
+        p.inj = Math.max(p.inj, Math.max(1, Math.round(e.n * (SF.Boss && G.clubs[p.club] ? SF.Boss.injMult(G.clubs[p.club]) : 1)))); p._f = 1;
         ev.push([e.min, 'i', e.side, p.n, e.n]);
         if (G.clubs[p.club] && G.clubs[p.club].human) Game.news(G, 'n_injured', { name: p.n, n: e.n }, G.clubs[p.club].human);
       } else if (e.t === 'sub') ev.push([e.min, 's', e.side, nm(e.pid), nm(e.pid2)]);
@@ -453,8 +455,10 @@
     B.debit(G, club.id, wages, 'wages');
     Game.income(G, club.id, CFG.tvWeekly[club.div], 'tv');
     const co = Game.humanOf(G, club.id);
-    Game.income(G, club.id, CFG.sponsorWeekly[club.div] * Math.sqrt(club.fans / CFG.fans[club.div]) * (co ? Game.repSponsor(co.rep) : 1), 'sponsor');
+    const spBase = CFG.sponsorWeekly[club.div] * Math.sqrt(club.fans / CFG.fans[club.div]) * (co ? Game.repSponsor(co.rep) : 1);
+    Game.income(G, club.id, SF.Boss ? SF.Boss.sponsor(G, club, spBase) : spBase, 'sponsor');
     B.debit(G, club.id, club.cap * CFG.upkeepPerSeat, 'upkeep');
+    if (SF.Boss) SF.Boss.econ(G, club);
     B.payLoans(G, club.id);
     if (club.build) {
       club.build.left--;
@@ -746,6 +750,7 @@
     G.summary = summary;
     G.phase = 'seasonEnd';
     SF.Owner.npcSeasonEnd(G);
+    if (SF.Boss) SF.Boss.seasonEnd(G);
     SF.Actions.seasonEndCareer(G);
   }
   function addPrize(sm, id, amt, kind, x) {
@@ -853,6 +858,7 @@
     G.season++;
     Game.startSeason(G);
     SF.Owner.seasonStart(G);
+    if (SF.Boss) SF.Boss.seasonStart(G);
     for (const co of G.coaches) { if (co.club) { co.board = Math.max(co.board, 45); co.jobWeeks = Math.max(co.jobWeeks, 0); } }
     for (const id of G.clubIds) {
       const cl = G.clubs[id];

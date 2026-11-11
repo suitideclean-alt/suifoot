@@ -329,3 +329,21 @@ body{background:radial-gradient(1200px 500px at 50% -120px,hsl(var(--h) 80% 55% 
 .bub.me{align-self:flex-end;background:var(--acc);color:var(--onacc)}
 .wrapb{flex-wrap:wrap}
 .pill.wl{cursor:pointer;border:1px solid var(--line)}.pill.wl.on{font-family:ui-monospace,monospace}.mono{font-family:ui-monospace,monospace;word-break:break-all}
+
+/* ---- v0.8 owner pages ---- */
+.pagehead{margin:2px 0 12px}.pagehead h2{margin:0 0 2px;font-size:1.25rem}.pagehead p{margin:0}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+.kpi{background:var(--bg2);border:1px solid var(--line);border-radius:var(--r);padding:10px 14px;display:flex;flex-direction:column;gap:2px;box-shadow:var(--shadow);min-width:0}
+.kpi .kl{font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--mut)}
+.kpi b{font-size:1.35rem;line-height:1.2;overflow-wrap:anywhere}.kpi .ks{font-size:.78rem;color:var(--mut)}
+.secbar{background:transparent;border:0;border-bottom:2px solid var(--line);border-radius:0;box-shadow:none;padding:14px 2px 6px}.secbar h3{margin:0;font-size:1.05rem}.secbar p{margin:2px 0 0}
+.seg{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}
+.seg button{flex:1;min-width:64px;border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:7px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:1px;color:inherit}
+.seg button span{font-size:.72rem;color:var(--mut)}
+.seg button.on{background:var(--acc);border-color:var(--acc);color:var(--onacc)}.seg button.on span{color:var(--onacc);opacity:.85}
+.chip{display:inline-block;border:1px solid var(--line);border-radius:99px;padding:1px 9px;font-size:.78rem;margin:2px 3px 2px 0;background:var(--bg)}
+.chip.ok{border-color:var(--grn);color:var(--grn)}.chip.no{border-color:var(--red);color:var(--red)}
+.axis{margin-bottom:12px}.axis .row{justify-content:space-between}
+.dot{display:inline-block;min-width:18px;padding:0 5px;border-radius:99px;background:var(--red);color:#fff;font-size:.72rem;line-height:18px;text-align:center}
+tr.me td{background:rgba(77,162,255,.12)}
+.bar.yel>i{background:var(--yel)}.bar.red>i{background:var(--red)}
