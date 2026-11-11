@@ -64,3 +64,12 @@ Mills & Reeve (managerial sackings), Lawyer Monthly (sacking and mitigation), Mo
 **Finance (owner)**: no wage cuts or loans (the coach's job; loans are requested by the coach and approved by the owner). The owner keeps ticket prices, stadium and facilities, unless a **manager** is hired (computer, less effective than an attentive owner, costs a wage).
 **Auto-advance**: the owner never has to press OK each matchday; it runs until a request, event or the end of the season.
 Deferred: club purchase price by division and squad value.
+
+## Owner absent (multiplayer / on-chain spec)
+- The calendar belongs to the server; matchdays run on fixed dates, nobody has to press advance.
+- Coach requests that the owner does not answer expire after 1 game week and count as declined; the coach keeps working inside the limits already set.
+- If the owner stays inactive for N weeks (to be defined), the coach may **leave the club for just cause**:
+  - no penalty to the coach (reputation and points untouched, no clause paid);
+  - he becomes unemployed and keeps receiving his wage until the end of the season **or until the club balance runs out**, whichever comes first;
+  - match bonuses and prizes stop at the exit.
+- Open points: value of N, what happens to the club afterwards (computer coach takes over, or goes on sale), and whether the wage owed is escrowed on-chain when the contract is signed.
