@@ -72,4 +72,5 @@ Deferred: club purchase price by division and squad value.
   - no penalty to the coach (reputation and points untouched, no clause paid);
   - he becomes unemployed and keeps receiving his wage until the end of the season **or until the club balance runs out**, whichever comes first;
   - match bonuses and prizes stop at the exit.
-- Open points: value of N, what happens to the club afterwards (computer coach takes over, or goes on sale), and whether the wage owed is escrowed on-chain when the contract is signed.
+- **Escrow (decided):** when the contract is signed, the wage owed to the coach is locked on-chain in an escrow tied to the contract. Each matchday releases that week's wage to the coach. If the owner disappears, the coach exits for just cause and the escrow keeps paying until the end of the season or until it is empty. The owner cannot withdraw escrowed funds; any rest goes back to the club when the contract ends. The escrow is topped up at each season renewal and when the contract is renewed. Wage bonuses (win/draw, title, promotion, Europe) are paid from the club balance, not from escrow.
+- Open points: value of N (suggested 3 matchdays), what happens to the club afterwards (computer coach takes over, or goes on sale).
