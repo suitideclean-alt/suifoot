@@ -73,14 +73,20 @@
   /** 0..1: how far the owner has let the club stagnate (sits on cash, does not reinvest). Drives fans, gate, sponsors, merch and squad morale down.
    *  Kept in club.nz so it also covers the 'both' role (owner + coach), which has no business layer. */
   Bo.neglect = (club) => (club && club.nz && club.nz.neg ? util.clamp(club.nz.neg / 100, 0, 1) : 0);
+  /** 0..1: the club is in the red (scaled to its size): supporters, sponsors, gate and morale suffer. Combined with neglect. */
+  Bo.stress = (club) => Math.max(Bo.neglect(club), club && club.nz && club.nz.red ? club.nz.red : 0);
   Bo.neglectOn = (G, club) => {
     if (!club || !club.human || !club.owner) return false;
     const co = humanOf(G, club);
     return !!co && (co.role === 'owner' || co.role === 'both');
   };
   Bo.neglectTick = function (G, club) {
+    if (club && club.human && club.owner !== undefined) {
+      const z0 = club.nz || (club.nz = { neg: 0, invR: 0, invPrev: 0, wk: 0, warned: 0 });
+      z0.red = util.clamp(-B.bal(G, club.id) / (unit(club) * 32), 0, 0.5); // capped so that debt hurts without a death spiral
+    }
     if (!Bo.neglectOn(G, club)) return;
-    const z = club.nz || (club.nz = { neg: 0, invR: 0, invPrev: 0, wk: 0, warned: 0 });
+    const z = club.nz;
     const sf = G.bank.sf[club.id] || {};
     let inv = 0;
     for (const k of INVEST) inv += Math.abs(Math.min(0, sf[k] || 0));
@@ -103,7 +109,7 @@
     const avg = f.length ? util.avg(f) : 1.3;
     const ratio = club.price / CFG.refPrice[club.div];
     let t = 55 + (avg - 1.3) * 18 + util.clamp(-(ratio - 1) * 25, -12, 10);
-    t += BC.merchSup[b.merch] + BC.memberSup[b.member] + b.lines.comm * 5 + Bo.pe(b.proj.museum) * BC.proj.museum.sup - 30 * Bo.neglect(club);
+    t += BC.merchSup[b.merch] + BC.memberSup[b.member] + b.lines.comm * 5 + Bo.pe(b.proj.museum) * BC.proj.museum.sup - 30 * Bo.stress(club);
     if (b.spon && b.spon.k === 'naming') t -= 8;
     return util.clamp(t, 5, 95);
   };
@@ -111,10 +117,10 @@
   Bo.supParts = function (G, club) {
     const b = club.boss, f = club.form || [], avg = f.length ? util.avg(f) : 1.3, ratio = club.price / CFG.refPrice[club.div];
     return [['results', Math.round((avg - 1.3) * 18)], ['tickets', Math.round(util.clamp(-(ratio - 1) * 25, -12, 10))], ['merch', BC.merchSup[b.merch]], ['members', BC.memberSup[b.member]],
-      ['community', b.lines.comm * 5], ['museum', Bo.pe(b.proj.museum) * BC.proj.museum.sup], ['naming', b.spon && b.spon.k === 'naming' ? -8 : 0], ['neglect', -Math.round(30 * Bo.neglect(club))]].filter((x) => x[1] !== 0);
+      ['community', b.lines.comm * 5], ['museum', Bo.pe(b.proj.museum) * BC.proj.museum.sup], ['naming', b.spon && b.spon.k === 'naming' ? -8 : 0], ['neglect', -Math.round(30 * Bo.neglect(club))], ['debt', -Math.round(30 * Math.max(0, Bo.stress(club) - Bo.neglect(club)))]].filter((x) => x[1] !== 0);
   };
   Bo.attMult = function (club) {
-    const b = club.boss, ng = 1 - 0.3 * Bo.neglect(club);
+    const b = club.boss, ng = 1 - 0.3 * Bo.stress(club);
     if (!b) return ng;
     let m = (0.85 + 0.3 * b.sup / 100) * (1 + BC.proj.roof.gate * Bo.pe(b.proj.roof) + BC.proj.lights.gate * Bo.pe(b.proj.lights));
     if (b.build) m *= 0.92; // works around the ground
@@ -128,7 +134,7 @@
   // ---------- sponsors ----------
   const baseSponsor = (G, club) => {
     const co = humanOf(G, club);
-    return CFG.sponsorWeekly[club.div] * Math.sqrt(club.fans / CFG.fans[club.div]) * (co ? SF.Game.repSponsor(co.rep) : 1) * (1 - 0.4 * Bo.neglect(club));
+    return CFG.sponsorWeekly[club.div] * Math.sqrt(club.fans / CFG.fans[club.div]) * (co ? SF.Game.repSponsor(co.rep) : 1) * (1 - 0.4 * Bo.stress(club));
   };
   Bo.offers = function (G, club) {
     const b = Bo.init(G, club);
@@ -168,8 +174,8 @@
   /** the weekly sponsor income, called from the economy tick in place of the default */
   Bo.sponsor = function (G, club, base) {
     const b = club.boss;
-    if (!b || !Bo.active(G, club)) return base * (1 - 0.4 * Bo.neglect(club));
-    const mk = (1 + 0.06 * b.lines.mkt) * (1 - 0.4 * Bo.neglect(club));
+    if (!b || !Bo.active(G, club)) return base * (1 - 0.4 * Bo.stress(club));
+    const mk = (1 + 0.06 * b.lines.mkt) * (1 - 0.4 * Bo.stress(club));
     return b.spon ? b.spon.w * mk : base * 0.9 * b.sm * mk;
   };
 
@@ -180,7 +186,7 @@
     const b = Bo.init(G, club), u = unit(club), co = humanOf(G, club);
     Bo.refresh(G, co, club);
     b.wk++;
-    const ng = Bo.neglect(club);
+    const ng = Bo.stress(club);
     // investment lines
     const kinds = { acad: 'academy', mkt: 'marketing', comm: 'community' };
     for (const k of LINES) if (b.lines[k] > 0) B.debit(G, club.id, lineCost(club, k, b.lines[k]), kinds[k]);

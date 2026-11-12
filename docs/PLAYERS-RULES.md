@@ -38,3 +38,7 @@ Facility levels go to 50. Cost of a level = the old table up to level 4, then +6
 
 ## Negligência do dono (v0.9.6)
 Dono (roles `owner` e `both`; estado em `club.nz`) com caixa parada (> 16 unidades semanais de TV+patrocínio da divisão) e sem reinvestir (média móvel de gastos em instalações, projetos, estádio, linhas, contratações, kit, eventos, scouting < 4 unidades) sobe `boss.neg` (0–100, +0,6 a +1,2 por semana); reinvestir desce (−2,5/semana; −1 sem caixa parada). Efeitos a 100: bilheteira −30%, patrocínio −40% (ofertas e contrato), merch/sócios −35% (só owner), humor dos adeptos −30, fãs −6%/época, humor do plantel −1,2/semana (a ~25, jogadores pedem saída). Simulação 10 épocas dono passivo: fãs 3,3k→2,6k, saldo época 10 ≈1,2M (antes 2,6M); dono ativo sem alteração.
+
+## Clube no vermelho (v0.9.11) e autonomia de caixa (v0.9.9–10)
+- Clube humano (qualquer papel) com saldo negativo: `nz.red = min(0,5, dívida / (32 × unidade semanal da divisão))`. Em conjunto com a negligência (`Bo.stress = max`) reduz bilheteira (−30%), patrocínio (−40%), merch/sócios (−35%), humor dos adeptos (−30), adeptos por época (−6%) e humor do plantel (−1,2/semana), com os fatores multiplicados por `stress` (máx. 0,5 no caso da dívida).
+- Treinador e dono-treinador: `O.runway` = semanas de caixa ao resultado semanal médio das últimas 10 semanas. < 12 semanas: aviso; < 4 semanas: bloqueia compras, assinaturas, empréstimos de entrada e renovações que agravem a perda. Saldo negativo bloqueia tudo isso. Vender e baixar salários são sempre permitidos.

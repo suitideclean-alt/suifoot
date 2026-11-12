@@ -35,7 +35,7 @@
       if (fair < 0.85) d -= 0.5; else if (fair > 1.1) d += 0.3;
       if (E.isIdol(p)) d += 0.5;
       if (captOk) d += 0.3;
-      if (SF.Boss) d -= 1.2 * SF.Boss.neglect(club); // an owner who sits on cash demoralises the squad
+      if (SF.Boss) d -= 1.2 * SF.Boss.stress(club); // an owner who sits on cash demoralises the squad
       p.mood = util.clamp(Math.round((before + d) * 10) / 10, 0, 100);
       if (before >= 25 && p.mood < 25) Game().news(G, 'n_unhappy', { name: p.n }, club.human);
       if (p.mood < 12 && !p.listed && !p.loan) {

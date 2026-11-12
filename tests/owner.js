@@ -440,5 +440,15 @@ t('the owner+coach is also blocked when cash would last under 4 weeks, and rich 
   SF.Bank.credit(G, club.id, 5000000, 'bailout'); G.players[pid].ct = 1;
   const r = SF.Actions.renew(G, co, pid, 2); truthy(r.ok || ['max_contract', 'unhappy'].includes(r.err), 'rich club free: ' + r.err);
 });
+t('a club in the red loses gate, sponsors and morale; a healthy one does not', () => {
+  const G = Game.newGame({ seed: 81, coaches: [{ name: 'C', role: 'coach' }] }); SF.setG(G);
+  const co = G.coaches[0], club = G.clubs[co.club];
+  for (let i = 0; i < 3; i++) Game.playWeekAuto(G);
+  const Bo = SF.Boss; eq(Bo.stress(club), 0, 'healthy club');
+  SF.Bank.debit(G, club.id, SF.Bank.bal(G, club.id) + 200000, 'fine');
+  Bo.neglectTick(G, club); truthy(Bo.stress(club) > 0.4, 'stress ' + Bo.stress(club));
+  truthy(Bo.attMult(club) < 0.9, 'gate ' + Bo.attMult(club)); truthy(Bo.sponsor(G, club, 1000) < 900, 'sponsor ' + Bo.sponsor(G, club, 1000));
+  SF.Bank.credit(G, club.id, 600000, 'bailout'); Bo.neglectTick(G, club); eq(Bo.stress(club), 0, 'recovers');
+});
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
