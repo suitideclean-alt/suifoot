@@ -46,12 +46,23 @@
     if (p) return B.tdebit(G, O.sfAcc(p.id), cost, kind, club.id);
     return B.debit(G, club.id, cost, kind);
   };
-  /** prizes are paid in SFOOT to the human owner of the club; a club without a human owner burns its prize (it is never minted) */
-  O.prize = function (G, club, amt, memo) {
-    const p = O.payer(G, club);
+  /** prizes are paid in SFOOT. Human owner alone: all to him. Human coach, no human owner: 40% to the coach, 60% to the project treasury.
+   *  Human owner and human coach: split by the coach's contract (prizeShare). No human at all: the prize is never created (burned). */
+  O.prize = function (G, club, amt) {
     amt = Math.round(amt);
-    if (!p || amt <= 0) { G.bank.tburnedPrize = (G.bank.tburnedPrize || 0) + Math.max(0, amt); return 0; }
-    return B.tcredit(G, O.sfAcc(p.id), amt, 'prize', club.id);
+    if (amt <= 0) return 0;
+    const owner = O.payer(G, club), hc = G.coaches.find((c) => c.club === club.id && ROLE(c) === 'coach');
+    if (owner && hc) {
+      const sh = util.clamp(hc.contract && hc.contract.prizeShare != null ? hc.contract.prizeShare : CFG.coachPrize, 0, 1), part = Math.round(amt * sh);
+      B.tcredit(G, O.sfAcc(hc.id), part, 'prize', club.id);
+      B.tcredit(G, O.sfAcc(owner.id), amt - part, 'prize', club.id);
+    } else if (owner) B.tcredit(G, O.sfAcc(owner.id), amt, 'prize', club.id);
+    else if (hc) {
+      const part = Math.round(amt * CFG.coachPrize);
+      B.tcredit(G, O.sfAcc(hc.id), part, 'prize', club.id);
+      G.bank.ttreasury = (G.bank.ttreasury || 0) + (amt - part);
+    } else { G.bank.tburnedPrize = (G.bank.tburnedPrize || 0) + amt; return 0; }
+    return amt;
   };
   O.wageBill = (G, club) => util.sum(club.squad.map((id) => G.players[id].wage));
 

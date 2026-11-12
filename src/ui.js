@@ -178,7 +178,7 @@
     const bal = club ? B.bal(G, club.id) : 0;
     return `<header class="top"><div class="in"><div class="logo">${SF.Fx.logo(34)}<span>Sui<b>Foot</b></span></div>
       <span class="pill">${t('season')} ${G.season}${G.phase === 'seasonEnd' ? '' : ' · ' + t('week') + ' ' + G.week + '/' + G.sched.length}</span>
-      ${club ? `<span class="pill">${badge(club, 16)} ${esc(club.name)}</span><span class="pill ${bal < 0 ? 'neg' : ''}">${t('balance')} <b>${money(bal)}</b> USD</span>${SF.Owner.role(c) !== 'coach' ? `<span class="pill">SFOOT <b>${money(SF.Owner.sfBal(G, c.id))}</b></span>` : ''}${c.vac > 0 ? `<span class="pill vac">🏖 ${t('vac_pill', { n: c.vac })}</span>` : ''}` : ''}
+      ${club ? `<span class="pill">${badge(club, 16)} ${esc(club.name)}</span><span class="pill ${bal < 0 ? 'neg' : ''}">${t('balance')} <b>${money(bal)}</b> USD</span><span class="pill">SFOOT <b>${money(SF.Owner.sfBal(G, c.id))}</b></span>${c.vac > 0 ? `<span class="pill vac">🏖 ${t('vac_pill', { n: c.vac })}</span>` : ''}` : ''}
       <div class="sp"></div>${walletPill()}<button class="sndbtn" data-act="snd" title="${t('sound_label')}">${SF.Fx.soundOn() ? '🔊' : '🔇'}</button>
       ${G.coaches.length > 1 ? `<div class="coachsw">${G.coaches.map((x, i) => `<button class="${i === UI.ci ? 'on' : ''}" data-act="coach:${i}">${esc(x.name)}</button>`).join('')}</div>` : ''}
     </div><nav class="tabs">${tabs.map((k) => `<button class="${UI.tab === k ? 'on' : ''}" data-act="tab:${k}">${t('tab_' + k)}${k === 'owner' && nreq ? ` <b class="badge">${nreq}</b>` : ''}</button>`).join('')}</nav></header>
@@ -490,10 +490,9 @@
   /** the owner's SFOOT: balance, what it paid for and what prizes brought in */
   function sfCard(c, club) {
     const G = UI.G;
-    if (SF.Owner.role(c) === 'coach') return `<div class="card"><h2>SFOOT</h2><p class="mut sm">${t('sf_coach_note')}</p></div>`;
     const ts = (G.bank.tsf && G.bank.tsf[club.id]) || {};
     const rows = Object.keys(ts).filter((k) => ts[k]).sort((a, b) => Math.abs(ts[b]) - Math.abs(ts[a])).map((k) => `<div class="row sm"><span style="flex:1">${SF.I18N.D['k_' + k] ? t('k_' + k) : k}</span><span class="${ts[k] >= 0 ? 'good' : 'bad'}">${ts[k] >= 0 ? '+' : ''}${money(ts[k])}</span></div>`).join('');
-    return `<div class="card"><h2>SFOOT</h2><div class="big">${money(SF.Owner.sfBal(G, c.id))} SFOOT</div><p class="mut sm">${t('sf_note')}</p>${rows || `<p class="mut sm">${t('sf_none')}</p>`}</div>`;
+    return `<div class="card"><h2>SFOOT</h2><div class="big">${money(SF.Owner.sfBal(G, c.id))} SFOOT</div><p class="mut sm">${t(SF.Owner.role(c) === 'coach' ? 'sf_coach_note' : 'sf_note')}</p>${rows || `<p class="mut sm">${t('sf_none')}</p>`}</div>`;
   }
   function financeView() {
     const G = UI.G, c = co(), club = myClub();
@@ -526,7 +525,7 @@
         <button class="btn" data-act="loan" ${lim <= 0 ? 'disabled' : ''}>${t('take_loan')}</button></div>`}
       <div class="card"><h2>${t('ledger')}</h2>${tbl(['', '', '>'], led.map((e) => `<tr><td class="mut sm">${e[0]}·${e[1]}</td><td>${kl(e[2])}</td><td class="r ${e[3] >= 0 ? 'good' : 'bad'}">${e[3] >= 0 ? '+' : ''}${money(e[3])}</td></tr>`))}</div>
       ${sfCard(c, club)}
-      <div class="card wide"><h2>${t('token_title')}</h2><p>${t('token_note')}</p><p class="mut sm">${t('supply')}: ${money(B.supply(G))} USD · ${money(B.tsupply(G))} SFOOT</p></div></div>`;
+      <div class="card wide"><h2>${t('token_title')}</h2><p>${t('token_note')}</p><p class="mut sm">${t('supply')}: ${money(B.supply(G))} USD · ${money(B.tsupply(G))} SFOOT · ${t('treasury')}: ${money(G.bank.ttreasury || 0)} SFOOT</p></div></div>`;
   }
 
   // ---------- coach ----------

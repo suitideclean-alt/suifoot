@@ -47,7 +47,11 @@ Dono (roles `owner` e `both`; estado em `club.nz`) com caixa parada (> 16 unidad
 - **USD** (moeda do jogo, virtual): salários, transferências, renovações, bilheteira, TV, patrocínios, empréstimos, multas. Nunca sai do jogo.
 - **SFOOT** (token real): investimentos (estádio, instalações, projetos, equipamento especial, eventos, programas de academia/marketing/comunidade) e **prémios**. Nunca se converte em USD.
 - Quem paga o investimento em SFOOT é o **dono humano** (papéis `owner` e `both`), a partir da sua conta SFOOT. Num clube com treinador humano e dono computador, o investimento sai do USD do clube (dinheiro virtual do dono computador).
-- Prémios (liga, subida, taça, marcador, Liga dos Campeões): pagos em SFOOT ao dono humano do clube. Clube sem dono humano: o prémio **não é criado** (equivale a queimar).
+- Prémios (liga, subida, taça, marcador, Liga dos Campeões), em SFOOT:
+  - só dono humano: tudo para o dono;
+  - treinador humano sem dono humano: **40% para o treinador** (`CFG.coachPrize`), **60% para a tesouraria do projeto** (não é queimado);
+  - dono humano e treinador humano: repartido pelo contrato (`contract.prizeShare`, por defeito 40%), o resto para o dono;
+  - nenhum humano no clube: o prémio **não é criado** (equivale a queimar).
 - Programa semanal (academia, marketing, comunidade) sem SFOOT suficiente: desliga-se com aviso.
 - Teste: cada dono humano recebe `CFG.startSfoot` (500 000) ao começar; jogos antigos recebem-no ao migrar.
 - Os valores dos prémios ainda são os antigos; a fórmula dos 75 % das entradas fica para a especificação económica.

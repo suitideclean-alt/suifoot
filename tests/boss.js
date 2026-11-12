@@ -202,5 +202,18 @@ t('old saves migrate: SFOOT accounts are created with the starting grant for own
   eq(O.sfBal(g2, g2.coaches[0].id), SF.CFG.startSfoot);
 });
 
+t('prizes: human coach without a human owner gets 40% in SFOOT and the treasury the rest; with a human owner the contract splits it', () => {
+  const G = Game.newGame({ seed: 4, coaches: [{ name: 'C', role: 'coach' }] }); const co = G.coaches[0], club = G.clubs[co.club];
+  const m0 = G.bank.tminted;
+  eq(Game.income(G, club.id, 10000, 'prize'), 10000);
+  eq(O.sfBal(G, co.id), 4000, 'coach 40%'); eq(G.bank.ttreasury, 6000, 'treasury 60%, not burned'); eq(G.bank.tminted - m0, 4000); conserved(G);
+  const npc = G.clubIds.find((id) => !G.clubs[id].human), bp0 = G.bank.tburnedPrize || 0; Game.income(G, npc, 5000, 'prize');
+  eq(G.bank.ttreasury, 6000, 'a club with no human at all burns its prize'); eq(G.bank.tburnedPrize - bp0, 5000);
+  // a human owner on the same club: contract share decides
+  club.owner = 777; G.coaches.push({ id: 777, role: 'owner', club: 0, name: 'Own' }); co.contract = co.contract || {}; co.contract.prizeShare = 0.25;
+  Game.income(G, club.id, 8000, 'prize');
+  eq(O.sfBal(G, co.id), 4000 + 2000, 'coach 25% by contract'); eq(O.sfBal(G, 777), 6000, 'owner the rest'); conserved(G);
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

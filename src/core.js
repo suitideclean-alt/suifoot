@@ -36,6 +36,7 @@
     promoBonus: [0, 90000, 40000, 18000], // bonus for being promoted into division index-1
     upkeepPerSeat: 0.012, // weekly stadium upkeep per seat
     seatCost: 90, // cost to build one seat
+    coachPrize: 0.4, // share of a prize a human coach gets when the club has no human owner (the rest goes to the project treasury)
     startSfoot: 500000, // SFOOT given to a human owner at the start (testnet grant): it pays investments, prizes add to it
     expandStep: 2000,
     expandWeeks: 4,
