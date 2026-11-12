@@ -14,6 +14,8 @@
     capWeeks: CFG.TOTAL_WEEKS, // underperformance cap: 12 months = one season of salary
     mutualLo: 0.4, mutualHi: 0.6,
     share: 0.1,           // coach share of the profit on sales of players he developed
+    runwayMin: 4,         // weeks of cash below which a coach cannot add commitments
+    runwayWarn: 12,       // weeks of cash below which the coach is warned
     ban: 8,               // weeks a coach who quits without just cause cannot sign elsewhere
     years: 3,
     bonus: { title: 12, promo: 10, euro: 8 }, // in weeks of salary
@@ -63,6 +65,23 @@
   };
   O.spent = function (G, club, amt) { O.policy(G, club).spent += Math.max(0, Math.round(amt)); };
 
+  // ---------- runway: how long the club's cash lasts at the current weekly result ----------
+  const RUN_KINDS = new Set(['gate', 'gate_in', 'tv', 'sponsor', 'wages', 'upkeep', 'coach_pay_out', 'academy', 'marketing', 'community']);
+  /** average weekly recurring result over the last weeks, and how many weeks the cash lasts (Infinity if the club earns money) */
+  O.runway = function (G, club, weeks) {
+    weeks = weeks || 10;
+    const led = G.bank.led[club.id] || [], bal = B.bal(G, club.id);
+    const seen = [];
+    let net = 0;
+    for (let i = led.length - 1; i >= 0; i--) {
+      const e = led[i], key = e[0] * 100 + e[1];
+      if (!seen.includes(key)) { if (seen.length >= weeks) break; seen.push(key); }
+      if (RUN_KINDS.has(e[2])) net += e[3];
+    }
+    const per = seen.length ? net / seen.length : 0;
+    return { net: Math.round(per), weeks: per >= 0 ? Infinity : Math.max(0, bal) / -per, bal };
+  };
+
   // ---------- gate: every coach action asks here first ----------
   function violation(G, club, pol, kind, p) {
     const bal = B.bal(G, club.id), wb = O.wageBill(G, club), c = p.cost || 0, pl = p.pid ? G.players[p.pid] : null;
@@ -101,6 +120,12 @@
     if (role === 'owner') return OWNER_ONLY.has(kind) ? null : (FREE.has(kind) ? null : { ok: false, err: 'owner_cant' });
     if (FREE.has(kind)) return null;
     if (B.bal(G, club.id) < 0 && ['buy', 'sign', 'loanin', 'renew'].includes(kind)) return { ok: false, err: 'club_in_red' }; // no new commitments while the club is in the red
+    if (['buy', 'sign', 'loanin', 'renew'].includes(kind) && !co.emerg) {
+      // cash lasts less than 4 weeks at the new weekly result: block (buying and selling for profit keeps the cash up, so it is not affected)
+      const rw = O.runway(G, club), pl = p.pid ? G.players[p.pid] : null;
+      const net2 = rw.net - (kind === 'renew' ? (p.wage || 0) - (pl ? pl.wage : 0) : p.wage || 0);
+      if (net2 < 0 && Math.max(0, rw.bal - (p.cost || 0)) / -net2 < CFG.owner.runwayMin) return { ok: false, err: 'low_runway', weeks: Math.round((Math.max(0, rw.bal - (p.cost || 0)) / -net2) * 10) / 10 };
+    }
     const pol = O.policy(G, club);
     const why = OWNER_ONLY.has(kind) ? 'owner_only' : violation(G, club, pol, kind, p);
     if (!why) return null;

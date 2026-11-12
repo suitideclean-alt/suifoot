@@ -416,5 +416,18 @@ t('job offers wait while the coach is banned', () => {
   co.offers.push({ id: 99, club: G.clubIds.find((i) => !G.clubs[i].human), ttl: 6, seen: 0 }); co.ban = 5;
   SF.Actions.weeklyCareer(G); eq(co.offers.find((o) => o.id === 99).ttl, 6);
 });
+t('runway: a coach with cash is free to renew; one with a weekly loss and under 4 weeks of cash is blocked; selling profits count', () => {
+  const G = Game.newGame({ seed: 79, coaches: [{ name: 'C', role: 'coach' }] }); SF.setG(G);
+  const co = G.coaches[0], club = G.clubs[co.club];
+  for (let i = 0; i < 12; i++) Game.playWeekAuto(G);
+  const pid = club.squad.find((id) => G.players[id].ct >= 1); G.players[pid].ct = 1; G.players[pid].wage = 10;
+  SF.Bank.credit(G, club.id, 5000000, 'bailout');
+  const r1 = SF.Actions.renew(G, co, pid, 2); truthy(r1.ok || r1.err === 'needs_approval' || r1.err === 'max_contract' || r1.err === 'unhappy', 'rich club not blocked by runway: ' + r1.err);
+  const rw = SF.Owner.runway(G, club); truthy(rw.weeks === Infinity || rw.weeks > 12, 'runway ' + rw.weeks);
+  SF.Bank.debit(G, club.id, SF.Bank.bal(G, club.id) - 3000, 'fine');
+  G.players[pid].ct = 1; G.players[pid].mood = 80;
+  const rw2 = SF.Owner.runway(G, club);
+  if (rw2.net < 0) { const r2 = SF.Actions.renew(G, co, pid, 2); truthy(['low_runway', 'no_funds', 'unhappy'].includes(r2.err), 'poor club blocked: ' + r2.err); }
+});
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

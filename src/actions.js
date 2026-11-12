@@ -362,6 +362,10 @@
     if (bal > (wageW * 28) * 0.9 && club.facility.youth < 5) tips.push({ k: 'invest_cash', sev: 0, x: { bal: Math.round(bal) }, act: 'facility' });
     if (g('transfer_out') + g('signing') > totIn * 0.6 && bal < wageW * 8) tips.push({ k: 'overspent', sev: 2, x: {}, act: 'market' });
     if (!tips.length) tips.push({ k: 'finance_ok', sev: 0, x: {}, act: null });
+    if (SF.Owner.role(coach) === 'coach') {
+      const rw = SF.Owner.runway(G, club);
+      if (rw.weeks < CFG.owner.runwayWarn) tips.push({ k: 'runway', sev: rw.weeks < CFG.owner.runwayMin ? 3 : 2, x: { n: Math.round(rw.weeks * 10) / 10, net: Math.abs(rw.net) } });
+    }
     if (SF.Boss && SF.Boss.neglect(club) >= 0.2) tips.push({ k: 'neglect', sev: SF.Boss.neglect(club) >= 0.6 ? 3 : 2, x: { n: Math.round(SF.Boss.neglect(club) * 100) } });
     tips.sort((a, b) => b.sev - a.sev);
     return { inc, out, totIn, totOut, wageW, ratio, att, weeklyIncome, tips, bal, debt };
