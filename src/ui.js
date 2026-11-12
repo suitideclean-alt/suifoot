@@ -611,6 +611,7 @@
     if (unhappy >= 3) tips.push(t('sg_mood', { n: unhappy }));
     if (r && r.ratio > 0.62) tips.push(t('sg_wages', { pct: Math.round(r.ratio * 100) }));
     if (r && bal > r.wageW * 28 * 1.2) tips.push(t('sg_cash'));
+    if (SF.Boss && SF.Boss.neglect(club) >= 0.2) tips.push(t('bt_neglect', { n: Math.round(SF.Boss.neglect(club) * 100) }));
     return tips.length ? tips : [t('sg_ok')];
   }
   function ownerTeam(c, club) {

@@ -40,7 +40,7 @@
   Bo.init = function (G, club) {
     if (!club.boss) {
       club.boss = { sup: 60, lines: { acad: 0, mkt: 0, comm: 0 }, merch: 'normal', member: 'normal', kitLeft: 0, kitUsed: 0, spon: null, offers: [], offerSeason: 0,
-        proj: { roof: 0, lights: 0, museum: 0, med: 0 }, build: null, spent: 0, invest: [], bonds: [], partner: null, evN: 0, val: [], snap: null, wk: 0, neg: 0, invR: 0, invPrev: 0, ffp: { fines: 0 }, nid: 1, wm: 1, sm: 1, late: 0, df: 0, promos: 0, v0: null, log: [] };
+        proj: { roof: 0, lights: 0, museum: 0, med: 0 }, build: null, spent: 0, invest: [], bonds: [], partner: null, evN: 0, val: [], snap: null, wk: 0, ffp: { fines: 0 }, nid: 1, wm: 1, sm: 1, late: 0, df: 0, promos: 0, v0: null, log: [] };
     }
     return club.boss;
   };
@@ -70,22 +70,31 @@
   // ---------- neglect (idle cash without reinvestment) ----------
   /** spending that counts as reinvesting in the club */
   const INVEST = ['facility', 'project', 'stadium', 'academy', 'marketing', 'community', 'signing', 'transfer_out', 'loan_fee_out', 'kit', 'event', 'scout', 'concert'];
-  /** 0..1: how far the owner has let the club stagnate (sits on cash, does not reinvest). Drives fans, gate, sponsors, merch and squad morale down. */
-  Bo.neglect = (club) => (club && club.boss && club.boss.neg ? util.clamp(club.boss.neg / 100, 0, 1) : 0);
-  Bo.neglectTick = function (G, club, b) {
+  /** 0..1: how far the owner has let the club stagnate (sits on cash, does not reinvest). Drives fans, gate, sponsors, merch and squad morale down.
+   *  Kept in club.nz so it also covers the 'both' role (owner + coach), which has no business layer. */
+  Bo.neglect = (club) => (club && club.nz && club.nz.neg ? util.clamp(club.nz.neg / 100, 0, 1) : 0);
+  Bo.neglectOn = (G, club) => {
+    if (!club || !club.human || !club.owner) return false;
+    const co = humanOf(G, club);
+    return !!co && (co.role === 'owner' || co.role === 'both');
+  };
+  Bo.neglectTick = function (G, club) {
+    if (!Bo.neglectOn(G, club)) return;
+    const z = club.nz || (club.nz = { neg: 0, invR: 0, invPrev: 0, wk: 0, warned: 0 });
     const sf = G.bank.sf[club.id] || {};
     let inv = 0;
     for (const k of INVEST) inv += Math.abs(Math.min(0, sf[k] || 0));
-    const delta = inv >= b.invPrev ? inv - b.invPrev : inv; // the season flows are reset every year
-    b.invPrev = inv;
-    b.invR = b.invR * 0.92 + delta;
+    const delta = inv >= z.invPrev ? inv - z.invPrev : inv; // the season flows are reset every year
+    z.invPrev = inv;
+    z.invR = z.invR * 0.92 + delta;
+    z.wk++;
     const u = unit(club), bal = Math.max(0, B.bal(G, club.id));
-    const hoard = bal > u * 16, ok = b.invR >= u * 4;
-    if (b.wk <= 8) return; // grace period at the start of a spell
-    if (hoard && !ok) b.neg = Math.min(100, b.neg + 0.6 + Math.min(0.6, (bal / (u * 16) - 1) * 0.15));
-    else b.neg = Math.max(0, b.neg - (ok ? 2.5 : 1));
-    if (b.neg >= 25 && !b.negWarned) { b.negWarned = 1; SF.Game.news(G, 'n_neglect', {}, humanOf(G, club).id); }
-    if (b.neg < 10) b.negWarned = 0;
+    const hoard = bal > u * 16, ok = z.invR >= u * 4;
+    if (z.wk <= 8) return; // grace period
+    if (hoard && !ok) z.neg = Math.min(100, z.neg + 0.6 + Math.min(0.6, (bal / (u * 16) - 1) * 0.15));
+    else z.neg = Math.max(0, z.neg - (ok ? 2.5 : 1));
+    if (z.neg >= 25 && !z.warned) { z.warned = 1; SF.Game.news(G, 'n_neglect', {}, club.human); }
+    if (z.neg < 10) z.warned = 0;
   };
 
   // ---------- supporters ----------
@@ -105,11 +114,11 @@
       ['community', b.lines.comm * 5], ['museum', Bo.pe(b.proj.museum) * BC.proj.museum.sup], ['naming', b.spon && b.spon.k === 'naming' ? -8 : 0], ['neglect', -Math.round(30 * Bo.neglect(club))]].filter((x) => x[1] !== 0);
   };
   Bo.attMult = function (club) {
-    const b = club.boss;
-    if (!b) return 1;
+    const b = club.boss, ng = 1 - 0.3 * Bo.neglect(club);
+    if (!b) return ng;
     let m = (0.85 + 0.3 * b.sup / 100) * (1 + BC.proj.roof.gate * Bo.pe(b.proj.roof) + BC.proj.lights.gate * Bo.pe(b.proj.lights));
     if (b.build) m *= 0.92; // works around the ground
-    m *= 1 - 0.3 * Bo.neglect(club);
+    m *= ng;
     return m;
   };
   Bo.injMult = (club) => (club.boss ? Math.max(0.5, 1 - BC.proj.med.inj * Bo.pe(club.boss.proj.med)) : 1);
@@ -159,18 +168,18 @@
   /** the weekly sponsor income, called from the economy tick in place of the default */
   Bo.sponsor = function (G, club, base) {
     const b = club.boss;
-    if (!b || !Bo.active(G, club)) return base;
+    if (!b || !Bo.active(G, club)) return base * (1 - 0.4 * Bo.neglect(club));
     const mk = (1 + 0.06 * b.lines.mkt) * (1 - 0.4 * Bo.neglect(club));
     return b.spon ? b.spon.w * mk : base * 0.9 * b.sm * mk;
   };
 
   // ---------- weekly tick ----------
   Bo.econ = function (G, club) {
+    Bo.neglectTick(G, club);
     if (!Bo.active(G, club)) return;
     const b = Bo.init(G, club), u = unit(club), co = humanOf(G, club);
     Bo.refresh(G, co, club);
     b.wk++;
-    Bo.neglectTick(G, club, b);
     const ng = Bo.neglect(club);
     // investment lines
     const kinds = { acad: 'academy', mkt: 'marketing', comm: 'community' };
@@ -467,7 +476,7 @@
       // investors share the profit
       if (net > 0) for (const inv of b.invest) { const div = Math.round(net * inv.pct); if (div > 0) B.debit(G, club.id, div, 'dividend'); }
       // fans follow the supporters' mood, the museum and marketing
-      club.fans = Math.round(club.fans * (1 + (b.sup - 55) / 800 + 0.008 * b.lines.mkt + 0.004 * Bo.pe(b.proj.museum) - 0.06 * Bo.neglect(club)));
+      club.fans = Math.round(club.fans * (1 + (b.sup - 55) / 800 + 0.008 * b.lines.mkt + 0.004 * Bo.pe(b.proj.museum)));
       // partner club develops youngsters
       if (b.partner) {
         const youth = SF.Game.players(G, club).filter((p) => p.age <= 21).sort((a, c2) => a.ovr - c2.ovr).slice(0, 3);

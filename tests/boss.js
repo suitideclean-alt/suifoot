@@ -139,11 +139,20 @@ t('neglect: sitting on cash without reinvesting drags fans, gate, sponsors, merc
   truthy(a.club.boss.sup < b.club.boss.sup, 'supporters ' + a.club.boss.sup + ' vs ' + b.club.boss.sup);
   const m = (x) => ids(x).reduce((s, p) => s + p.mood, 0) / ids(x).length;
   truthy(m(a) < m(b), 'morale ' + m(a) + ' vs ' + m(b));
-  a.club.boss.neg = 100; const att100 = Bo.attMult(a.club); a.club.boss.neg = 0; const att0 = Bo.attMult(a.club);
+  a.club.nz.neg = 100; const att100 = Bo.attMult(a.club); a.club.nz.neg = 0; const att0 = Bo.attMult(a.club);
   truthy(att100 < att0 * 0.75, 'gate ' + att100 + ' vs ' + att0);
-  a.club.boss.neg = 100; const s100 = Bo.sponsor(a.G, a.club, 1000); a.club.boss.neg = 0; const s0 = Bo.sponsor(a.G, a.club, 1000);
+  a.club.nz.neg = 100; const s100 = Bo.sponsor(a.G, a.club, 1000); a.club.nz.neg = 0; const s0 = Bo.sponsor(a.G, a.club, 1000);
   truthy(s100 < s0 * 0.65, 'sponsor ' + s100 + ' vs ' + s0);
   conserved(a.G); conserved(b.G);
+});
+t('neglect also hits the owner+coach role', () => {
+  const G = Game.newGame({ seed: 41, coaches: [{ name: 'B', role: 'both' }] }); SF.setG(G);
+  const co = G.coaches[0], club = G.clubs[co.club]; B.credit(G, club.id, 2000000, 'bailout');
+  let g = 0; while (G.phase === 'play' && g++ < 80) Game.playWeekAuto(G);
+  truthy(Bo.neglect(club) > 0.3, 'both neglect ' + Bo.neglect(club));
+  const a1 = Bo.attMult(club); club.nz.neg = 0; truthy(a1 < Bo.attMult(club), 'gate reduced');
+  eq(Bo.sponsor(G, club, 1000), 1000, 'no neglect, base sponsor'); club.nz.neg = 100; truthy(Bo.sponsor(G, club, 1000) < 650, 'sponsor reduced');
+  conserved(G);
 });
 t('old saves migrate: no boss state yet, it is created', () => {
   const { G, co, club } = setup(5);

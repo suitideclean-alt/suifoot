@@ -822,6 +822,7 @@
       const diff = c.target - c.pos;
       let fl = 1 + 0.01 * util.clamp(diff, -6, 6) + (c.pos === 1 ? 0.04 : 0);
       if (c.div < was) fl += 0.06; if (c.div > was) fl -= 0.06;
+      if (SF.Boss) fl -= 0.06 * SF.Boss.neglect(c); // an owner who does not reinvest loses supporters
       c.fans = Math.round(c.fans * fl);
       const base = CFG.fans[c.div];
       c.fans = Math.round(c.fans + (base - c.fans) * (c.div !== was ? 0.3 : 0.06));
