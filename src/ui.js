@@ -134,13 +134,14 @@
     const S = UI.setup;
     if (!S.roles) S.roles = ['coach', 'coach', 'coach', 'coach'];
     if (!S.list) S.list = previewClubs(S.seed);
-    const opts = (sel) => `<option value="">${t('random_club')}</option>` + [0, 1, 2, 3].map((d) => `<optgroup label="${divName(d)}">${S.list.filter((c) => c.div === d).map((c) => `<option value="${c.id}" ${sel === c.id ? 'selected' : ''}>${esc(c.name)} · ${t('strength')} ${c.str}</option>`).join('')}</optgroup>`).join('');
+    const opts = (sel) => `<option value="">${t('random_club')}</option>` + [3, 2, 1, 0].map((d) => `<optgroup label="${divName(d)}">${S.list.filter((c) => c.div === d).map((c) => `<option value="${c.id}" ${sel === c.id ? 'selected' : ''}>${esc(c.name)} · ${t('strength')} ${c.str}</option>`).join('')}</optgroup>`).join('');
     const has = !!localStorage.getItem(SAVE_());
     return `<div class="wrap"><div class="hero">${SF.Fx.logo(120)}<h1>Sui<b>Foot</b></h1><div class="tagline">${t('app_tagline')}</div><div class="gline"><i>★</i></div>${walletPill(true)}</div>
       <div class="grid"><div class="card form"><h2>${t('setup_title')}</h2>
         <div class="line"><label>${t('language')}</label><select data-chg="lang">${SF.I18N.LANGS.map(([k, n]) => `<option value="${k}" ${SF.I18N.get() === k ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
         <div class="line"><label>${t('coaches_n')}</label><select data-chg="setup-n">${[1, 2, 3, 4].map((n) => `<option ${S.n === n ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
-        ${Array.from({ length: S.n }, (_, i) => `<div class="line"><input type="text" id="sn${i}" maxlength="18" placeholder="${t('coach_name')} ${i + 1}" value="${esc(S.names[i])}"><select id="sc${i}">${opts(S.clubs[i])}</select><select id="sr${i}" title="${t('role_label')}">${['coach', 'both', 'owner'].map((r) => `<option value="${r}" ${S.roles[i] === r ? 'selected' : ''}>${t('role_' + r)}</option>`).join('')}</select></div>`).join('')}
+        ${Array.from({ length: S.n }, (_, i) => `<div class="line"><input type="text" id="sn${i}" maxlength="18" placeholder="${t('coach_name')} ${i + 1}" value="${esc(S.names[i])}"><select id="sc${i}" ${S.roles[i] === 'coach' ? 'disabled' : ''}>${S.roles[i] === 'coach' ? `<option value="">${t('random_club')}</option>` : opts(S.clubs[i])}</select><select id="sr${i}" data-chg="setup-role" title="${t('role_label')}">${['coach', 'both', 'owner'].map((r) => `<option value="${r}" ${S.roles[i] === r ? 'selected' : ''}>${t('role_' + r)}</option>`).join('')}</select></div>`).join('')}
+        <p class="mut sm">${t('setup_roles_note')}</p>
         ${S.n > 1 ? `<p class="mut sm">${t('hotseat_note')}</p>` : ''}
         ${bonusOpt()}
         <div class="row end"><button class="btn pri" data-act="setup-start">${t('start')}</button></div>
@@ -155,7 +156,8 @@
     const used = new Set();
     for (let i = 0; i < S.n; i++) {
       const name = ($('#sn' + i).value || '').trim() || 'Coach ' + (i + 1);
-      let cid = $('#sc' + i).value || null;
+      const rl = $('#sr' + i) ? $('#sr' + i).value : 'coach';
+      let cid = rl === 'coach' ? null : $('#sc' + i).value || null; // a coach is always drawn into division 4; an owner picks and pays for the club
       if (cid && used.has(cid)) cid = null;
       if (cid) used.add(cid);
       coaches.push({ name, clubId: cid, role: $('#sr' + i) ? $('#sr' + i).value : 'coach' });
@@ -1161,6 +1163,7 @@
     if (!k) return;
     const G = UI.G;
     if (k === 'lang') { SF.I18N.set(el.value); localStorage.setItem(LANGK, el.value); return render(); }
+    if (k === 'setup-role') { const S = UI.setup; for (let i = 0; i < S.n; i++) { S.names[i] = $('#sn' + i).value; if (!$('#sc' + i).disabled) S.clubs[i] = $('#sc' + i).value; S.roles[i] = $('#sr' + i).value; if (S.roles[i] === 'coach') S.clubs[i] = ''; } return render(); }
     if (k === 'setup-n') { const S = UI.setup; for (let i = 0; i < S.n; i++) { S.names[i] = $('#sn' + i).value; S.clubs[i] = $('#sc' + i).value; if ($('#sr' + i)) S.roles[i] = $('#sr' + i).value; } S.n = +el.value; return render(); }
     if (k === 'import') {
       const f = el.files[0]; if (!f) return;
