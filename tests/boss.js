@@ -123,6 +123,28 @@ t('a full season: history, badges, ranking with computer owners, public profile'
   conserved(G);
   Game.newSeason(G); eq(club.boss.wk, 0, 'week counter reset'); truthy(Bo.offers(G, club).length === 3, 'new offers');
 });
+t('neglect: sitting on cash without reinvesting drags fans, gate, sponsors, merch and morale down; reinvesting keeps it at zero', () => {
+  const a = setup(31), b = setup(31);
+  // b keeps investing in lines and facilities every week
+  const ids = (x) => x.club.squad.map((i) => x.G.players[i]);
+  Bo.setLine(b.G, b.co, 'acad', 3); Bo.setLine(b.G, b.co, 'mkt', 3); Bo.setLine(b.G, b.co, 'comm', 3);
+  let g = 0;
+  while (a.G.phase === 'play' && g++ < 80) {
+    Game.playWeekAuto(a.G); Game.playWeekAuto(b.G);
+    for (const x of [a, b]) for (const ap of x.G.approvals || []) if (ap.status === 'open') O.decide(x.G, x.co, ap.id, true);
+    if (b.G.week % 5 === 0) { try { SF.Actions.upgradeFacility(b.G, b.co, 'youth'); } catch (e) {} }
+  }
+  const na = Bo.neglect(a.club), nb = Bo.neglect(b.club);
+  truthy(na > 0.3, 'idle owner neglect ' + na); truthy(nb < na, 'investing owner lower ' + nb + ' vs ' + na);
+  truthy(a.club.boss.sup < b.club.boss.sup, 'supporters ' + a.club.boss.sup + ' vs ' + b.club.boss.sup);
+  const m = (x) => ids(x).reduce((s, p) => s + p.mood, 0) / ids(x).length;
+  truthy(m(a) < m(b), 'morale ' + m(a) + ' vs ' + m(b));
+  a.club.boss.neg = 100; const att100 = Bo.attMult(a.club); a.club.boss.neg = 0; const att0 = Bo.attMult(a.club);
+  truthy(att100 < att0 * 0.75, 'gate ' + att100 + ' vs ' + att0);
+  a.club.boss.neg = 100; const s100 = Bo.sponsor(a.G, a.club, 1000); a.club.boss.neg = 0; const s0 = Bo.sponsor(a.G, a.club, 1000);
+  truthy(s100 < s0 * 0.65, 'sponsor ' + s100 + ' vs ' + s0);
+  conserved(a.G); conserved(b.G);
+});
 t('old saves migrate: no boss state yet, it is created', () => {
   const { G, co, club } = setup(5);
   const s = JSON.parse(JSON.stringify(G)); delete s.owners; delete s.coaches[0].own;

@@ -40,7 +40,7 @@
   Bo.init = function (G, club) {
     if (!club.boss) {
       club.boss = { sup: 60, lines: { acad: 0, mkt: 0, comm: 0 }, merch: 'normal', member: 'normal', kitLeft: 0, kitUsed: 0, spon: null, offers: [], offerSeason: 0,
-        proj: { roof: 0, lights: 0, museum: 0, med: 0 }, build: null, spent: 0, invest: [], bonds: [], partner: null, evN: 0, val: [], snap: null, wk: 0, ffp: { fines: 0 }, nid: 1, wm: 1, sm: 1, late: 0, df: 0, promos: 0, v0: null, log: [] };
+        proj: { roof: 0, lights: 0, museum: 0, med: 0 }, build: null, spent: 0, invest: [], bonds: [], partner: null, evN: 0, val: [], snap: null, wk: 0, neg: 0, invR: 0, invPrev: 0, ffp: { fines: 0 }, nid: 1, wm: 1, sm: 1, late: 0, df: 0, promos: 0, v0: null, log: [] };
     }
     return club.boss;
   };
@@ -67,13 +67,34 @@
   Bo.stake = (club) => 1 - (club.boss ? util.sum(club.boss.invest.map((i) => i.pct)) : 0);
   Bo.netWorth = (G, co, club) => Math.round(Bo.value(G, club) * Bo.stake(club) + O.walletBal(G, co.id));
 
+  // ---------- neglect (idle cash without reinvestment) ----------
+  /** spending that counts as reinvesting in the club */
+  const INVEST = ['facility', 'project', 'stadium', 'academy', 'marketing', 'community', 'signing', 'transfer_out', 'loan_fee_out', 'kit', 'event', 'scout', 'concert'];
+  /** 0..1: how far the owner has let the club stagnate (sits on cash, does not reinvest). Drives fans, gate, sponsors, merch and squad morale down. */
+  Bo.neglect = (club) => (club && club.boss && club.boss.neg ? util.clamp(club.boss.neg / 100, 0, 1) : 0);
+  Bo.neglectTick = function (G, club, b) {
+    const sf = G.bank.sf[club.id] || {};
+    let inv = 0;
+    for (const k of INVEST) inv += Math.abs(Math.min(0, sf[k] || 0));
+    const delta = inv >= b.invPrev ? inv - b.invPrev : inv; // the season flows are reset every year
+    b.invPrev = inv;
+    b.invR = b.invR * 0.92 + delta;
+    const u = unit(club), bal = Math.max(0, B.bal(G, club.id));
+    const hoard = bal > u * 16, ok = b.invR >= u * 4;
+    if (b.wk <= 8) return; // grace period at the start of a spell
+    if (hoard && !ok) b.neg = Math.min(100, b.neg + 0.6 + Math.min(0.6, (bal / (u * 16) - 1) * 0.15));
+    else b.neg = Math.max(0, b.neg - (ok ? 2.5 : 1));
+    if (b.neg >= 25 && !b.negWarned) { b.negWarned = 1; SF.Game.news(G, 'n_neglect', {}, humanOf(G, club).id); }
+    if (b.neg < 10) b.negWarned = 0;
+  };
+
   // ---------- supporters ----------
   Bo.supTarget = function (G, club) {
     const b = club.boss, f = club.form || [];
     const avg = f.length ? util.avg(f) : 1.3;
     const ratio = club.price / CFG.refPrice[club.div];
     let t = 55 + (avg - 1.3) * 18 + util.clamp(-(ratio - 1) * 25, -12, 10);
-    t += BC.merchSup[b.merch] + BC.memberSup[b.member] + b.lines.comm * 5 + Bo.pe(b.proj.museum) * BC.proj.museum.sup;
+    t += BC.merchSup[b.merch] + BC.memberSup[b.member] + b.lines.comm * 5 + Bo.pe(b.proj.museum) * BC.proj.museum.sup - 30 * Bo.neglect(club);
     if (b.spon && b.spon.k === 'naming') t -= 8;
     return util.clamp(t, 5, 95);
   };
@@ -81,13 +102,14 @@
   Bo.supParts = function (G, club) {
     const b = club.boss, f = club.form || [], avg = f.length ? util.avg(f) : 1.3, ratio = club.price / CFG.refPrice[club.div];
     return [['results', Math.round((avg - 1.3) * 18)], ['tickets', Math.round(util.clamp(-(ratio - 1) * 25, -12, 10))], ['merch', BC.merchSup[b.merch]], ['members', BC.memberSup[b.member]],
-      ['community', b.lines.comm * 5], ['museum', Bo.pe(b.proj.museum) * BC.proj.museum.sup], ['naming', b.spon && b.spon.k === 'naming' ? -8 : 0]].filter((x) => x[1] !== 0);
+      ['community', b.lines.comm * 5], ['museum', Bo.pe(b.proj.museum) * BC.proj.museum.sup], ['naming', b.spon && b.spon.k === 'naming' ? -8 : 0], ['neglect', -Math.round(30 * Bo.neglect(club))]].filter((x) => x[1] !== 0);
   };
   Bo.attMult = function (club) {
     const b = club.boss;
     if (!b) return 1;
     let m = (0.85 + 0.3 * b.sup / 100) * (1 + BC.proj.roof.gate * Bo.pe(b.proj.roof) + BC.proj.lights.gate * Bo.pe(b.proj.lights));
     if (b.build) m *= 0.92; // works around the ground
+    m *= 1 - 0.3 * Bo.neglect(club);
     return m;
   };
   Bo.injMult = (club) => (club.boss ? Math.max(0.5, 1 - BC.proj.med.inj * Bo.pe(club.boss.proj.med)) : 1);
@@ -97,7 +119,7 @@
   // ---------- sponsors ----------
   const baseSponsor = (G, club) => {
     const co = humanOf(G, club);
-    return CFG.sponsorWeekly[club.div] * Math.sqrt(club.fans / CFG.fans[club.div]) * (co ? SF.Game.repSponsor(co.rep) : 1);
+    return CFG.sponsorWeekly[club.div] * Math.sqrt(club.fans / CFG.fans[club.div]) * (co ? SF.Game.repSponsor(co.rep) : 1) * (1 - 0.4 * Bo.neglect(club));
   };
   Bo.offers = function (G, club) {
     const b = Bo.init(G, club);
@@ -138,7 +160,7 @@
   Bo.sponsor = function (G, club, base) {
     const b = club.boss;
     if (!b || !Bo.active(G, club)) return base;
-    const mk = 1 + 0.06 * b.lines.mkt;
+    const mk = (1 + 0.06 * b.lines.mkt) * (1 - 0.4 * Bo.neglect(club));
     return b.spon ? b.spon.w * mk : base * 0.9 * b.sm * mk;
   };
 
@@ -148,15 +170,17 @@
     const b = Bo.init(G, club), u = unit(club), co = humanOf(G, club);
     Bo.refresh(G, co, club);
     b.wk++;
+    Bo.neglectTick(G, club, b);
+    const ng = Bo.neglect(club);
     // investment lines
     const kinds = { acad: 'academy', mkt: 'marketing', comm: 'community' };
     for (const k of LINES) if (b.lines[k] > 0) B.debit(G, club.id, lineCost(club, k, b.lines[k]), kinds[k]);
     const sq = Math.sqrt(club.fans / CFG.fans[club.div]);
     const f = club.form || [], avg = f.length ? util.avg(f) : 1.3, hype = 0.9 + 0.1 * avg;
     // merchandising and memberships
-    const merch = u * 0.10 * sq * (1 + 0.15 * b.lines.mkt) * BC.merch[b.merch] * hype * (b.kitLeft > 0 ? 1.35 : 1);
+    const merch = u * 0.10 * sq * (1 + 0.15 * b.lines.mkt) * BC.merch[b.merch] * hype * (b.kitLeft > 0 ? 1.35 : 1) * (1 - 0.35 * ng);
     B.credit(G, club.id, Math.round(merch), 'merch');
-    B.credit(G, club.id, Math.round(u * 0.12 * sq * BC.member[b.member]), 'members');
+    B.credit(G, club.id, Math.round(u * 0.12 * sq * BC.member[b.member] * (1 - 0.35 * ng)), 'members');
     if (b.proj.museum) B.credit(G, club.id, Math.round(u * BC.proj.museum.inc * Bo.pe(b.proj.museum)), 'museum');
     if (b.kitLeft > 0) b.kitLeft--;
     // sponsor deal: bonuses for wins, the term runs down
@@ -370,6 +394,7 @@
     if (!b.lines.acad && club.facility.youth >= 3) tips.push({ k: 'acad', sev: 1, x: {} });
     if (b.evN < BC.events.max && b.wk < 12) tips.push({ k: 'event', sev: 0, x: {} });
     if (fc.bal > unit(club) * W * 1.2 && fc.avg > 0) tips.push({ k: 'idle', sev: 1, x: {} });
+    if (Bo.neglect(club) >= 0.2) tips.push({ k: 'neglect', sev: Bo.neglect(club) >= 0.6 ? 3 : 2, x: { n: Math.round(Bo.neglect(club) * 100) } });
     if (own.orep < 40) tips.push({ k: 'orep', sev: 2, x: { n: own.orep } });
     return tips;
   };
@@ -442,7 +467,7 @@
       // investors share the profit
       if (net > 0) for (const inv of b.invest) { const div = Math.round(net * inv.pct); if (div > 0) B.debit(G, club.id, div, 'dividend'); }
       // fans follow the supporters' mood, the museum and marketing
-      club.fans = Math.round(club.fans * (1 + (b.sup - 55) / 800 + 0.008 * b.lines.mkt + 0.004 * Bo.pe(b.proj.museum)));
+      club.fans = Math.round(club.fans * (1 + (b.sup - 55) / 800 + 0.008 * b.lines.mkt + 0.004 * Bo.pe(b.proj.museum) - 0.06 * Bo.neglect(club)));
       // partner club develops youngsters
       if (b.partner) {
         const youth = SF.Game.players(G, club).filter((p) => p.age <= 21).sort((a, c2) => a.ovr - c2.ovr).slice(0, 3);

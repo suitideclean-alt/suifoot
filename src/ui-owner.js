@@ -69,7 +69,7 @@
   function tipList(c, club) {
     const h = H(), G = UI.G, B_ = Bo();
     const ic = ['✅', '💡', '⚠️', '🚨'];
-    const go = { zero: 'finance', endneg: 'finance', ffp: 'finance', sponsor: 'commercial', sup: 'commercial', acad: 'club', event: 'commercial', idle: 'club', orep: 'rep' };
+    const go = { zero: 'finance', endneg: 'finance', ffp: 'finance', sponsor: 'commercial', sup: 'commercial', acad: 'club', event: 'commercial', idle: 'club', neglect: 'club', orep: 'rep' };
     const items = B_.tips(G, club).map((x) => `<div class="tip s${x.sev}"><div class="ic">${ic[x.sev]}</div><div class="body">${t('bt_' + x.k, x.x)}<div class="acts"><button class="btn sm" data-act="ot:${go[x.k]}">${t('os_' + go[x.k])} →</button></div></div></div>`);
     const base = h.ownerTips(c, club).filter((x) => x !== t('sg_ok')).map((x) => `<div class="tip s1"><div class="ic">💡</div><div class="body">${x}</div></div>`);
     const all = items.concat(base);

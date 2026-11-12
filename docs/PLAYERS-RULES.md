@@ -35,3 +35,6 @@ There is no league below division 4. If a human's club ends in the bottom two th
 
 ## Facilities and projects (v0.9.3)
 Facility levels go to 50. Cost of a level = the old table up to level 4, then +6% per level (x division factor). The effect counts fully up to level 5 and then follows a curve that tops out near 8. Stadium projects go to level 10: price 10, 22 units, then +45% per level; the effect counts fully up to level 2 and half after.
+
+## Negligência do dono (v0.9.6)
+Dono (role `owner`) com caixa parada (> 16 unidades semanais de TV+patrocínio da divisão) e sem reinvestir (média móvel de gastos em instalações, projetos, estádio, linhas, contratações, kit, eventos, scouting < 4 unidades) sobe `boss.neg` (0–100, +0,6 a +1,2 por semana); reinvestir desce (−2,5/semana; −1 sem caixa parada). Efeitos a 100: bilheteira −30%, patrocínio −40% (ofertas e contrato), merch/sócios −35%, humor dos adeptos −30, fãs −6%/época, humor do plantel −1,2/semana (a ~25, jogadores pedem saída). Simulação 10 épocas dono passivo: fãs 3,3k→2,6k, saldo época 10 ≈1,2M (antes 2,6M); dono ativo sem alteração.
