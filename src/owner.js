@@ -522,7 +522,7 @@
     if (!club || ROLE(co) !== 'owner' || club.owner !== co.id) return { ok: false, err: 'owner_only' };
     club.obj = club.obj || {};
     if (o.pos != null && +o.pos >= 1) {
-      club.obj.pos = util.clamp(Math.round(+o.pos), 1, 12); club.target = club.obj.pos;
+      club.obj.pos = util.clamp(Math.round(+o.pos), 1, CFG.PER_DIV); club.target = club.obj.pos;
       if (SF.Boss) { const rk = SF.Game.standings(G, club.div).slice().sort((a, b) => SF.Game.strength(G, G.clubs[b]) - SF.Game.strength(G, G.clubs[a])).indexOf(club.id) + 1; SF.Boss.track(G, co, 'obj', { gap: rk - club.obj.pos }); }
     }
     if (o.profit != null && o.profit !== '' && isFinite(+o.profit)) club.obj.profit = Math.round(+o.profit);
@@ -535,7 +535,7 @@
     if (!ob || ob.pos == null) return;
     const pl = (club.pl || [])[club.pl ? club.pl.length - 1 : 0] || { net: 0 };
     const posOk = club.pos <= ob.pos, profitOk = ob.profit == null || pl.net >= ob.profit;
-    const cupOk = !ob.cup || (club.cupRound != null && club.cupRound >= 3);
+    const cupOk = !ob.cup || (club.cupRound != null && club.cupRound >= CFG.CUP_ROUNDS - 3);
     const ok = posOk && profitOk && cupOk;
     (club.objHist = club.objHist || []).push({ s: G.season, pos: club.pos, tp: ob.pos, net: pl.net, tn: ob.profit == null ? null : ob.profit, ok, posOk, profitOk });
     ac.rep = util.clamp(ac.rep + (ok ? 2 : -2), 5, 99);

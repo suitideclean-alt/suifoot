@@ -347,3 +347,8 @@ body{background:radial-gradient(1200px 500px at 50% -120px,hsl(var(--h) 80% 55% 
 .dot{display:inline-block;min-width:18px;padding:0 5px;border-radius:99px;background:var(--red);color:#fff;font-size:.72rem;line-height:18px;text-align:center}
 tr.me td{background:rgba(77,162,255,.12)}
 .bar.yel>i{background:var(--yel)}.bar.red>i{background:var(--red)}
+.pitch{width:100%;height:auto;max-height:260px;border-radius:8px;display:block;margin:8px 0}
+.pitch .ball{transition:cx .25s linear,cy .25s linear}
+.log .y{color:#c9a400}
+.chip.tp-gent{background:#1d6b3a;color:#fff}.chip.tp-hard{background:#8a2a2a;color:#fff}.chip.tp-pro{opacity:.7}
+.cbar{display:inline-block;width:46px;height:6px;background:#0003;border-radius:3px;vertical-align:middle}.cbar i{display:block;height:100%;background:#3aa655;border-radius:3px}.cbar i.yel{background:#d3a800}.cbar i.red{background:#c0392b}

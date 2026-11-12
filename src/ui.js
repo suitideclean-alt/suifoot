@@ -20,11 +20,7 @@
   const co = () => UI.G.coaches[UI.ci];
   const myClub = () => (co().club ? UI.G.clubs[co().club] : null);
   const cname = (id) => (id && UI.G.clubs[id] ? UI.G.clubs[id].name : '-');
-  function badge(c, s) {
-    s = s || 22;
-    const ini = c.name.split(' ')[0].slice(0, 2).toUpperCase();
-    return `<svg class="bdg" width="${s}" height="${s}" viewBox="0 0 24 24"><path d="M3 2h18v10c0 5-4 8.5-9 10C7 20.5 3 17 3 12z" fill="${c.c1}" stroke="${c.c2}" stroke-width="1.6"/><text x="12" y="14.5" text-anchor="middle" font-size="8.5" font-weight="700" fill="${c.c2}">${ini}</text></svg>`;
-  }
+  function badge(c, s) { return SF.Art.logo(c, s || 22); }
   const ctag = (id, s) => { const c = UI.G.clubs[id]; return c ? `${badge(c, s)} ${esc(c.name)}` : '-'; };
   const hueOf = (club) => { const m = club && /hsl\((\d+)/.exec(club.c1); return m ? +m[1] : 215; };
   const starTag = (p) => (E.isStar(p) ? `<span class="star" title="${t('star_label')}">★</span> ` : '');
@@ -45,7 +41,7 @@
     toast(errMsg(r), true); return false;
   }
   function statusOf(p) {
-    if (p.inj > 0) return `<span class="bad">${t('inj_n', { n: p.inj })}</span>`;
+    if (p.inj > 0) return `<span class="bad">${t('inj_n', { n: p.inj })}</span> <span class="sm mut">${t('sev_' + SF.Body.sevOf(p.inj))}</span>`;
     if (p.sus > 0) return `<span class="warn">${t('sus_n', { n: p.sus })}</span>`;
     return `<span class="good">${t('fit')}</span>`;
   }
@@ -291,6 +287,15 @@
     if (L.auto) return Game.pickXI(UI.G, club, L.form);
     return { xi: L.xi, bench: L.bench };
   }
+  const tpChip = (p) => { const k = SF.Body.tp(p); if (k === 'pro') return ''; return `<span class="chip tp-${k}" title="${esc(t('tp_' + k + '_d'))}">${t('tp_' + k)}</span> `; };
+  const condBar = (p) => { const c = SF.Body.cond(p); return `<span class="cbar" title="${t('cond_label')} ${c}%"><i class="${c < 55 ? 'red' : c < 75 ? 'yel' : ''}" style="width:${c}%"></i></span> <span class="sm mut">${c}</span>`; };
+  function trainCard(club, own) {
+    const B_ = SF.Body, mode = B_.mode(club), manual = B_.manual(UI.G, club);
+    return `<div class="card" style="margin-top:14px"><div class="row"><b>${t('train_title')}</b>
+      <select data-chg="train" ${manual ? '' : 'disabled'}>${B_.MODES.map((k) => `<option value="${k}" ${mode === k ? 'selected' : ''}>${t('train_' + k)}</option>`).join('')}</select>
+      <span class="mut sm">${t('cond_avg', { n: B_.avgCond(UI.G, club) })}</span></div>
+      <p class="sm mut" style="margin:6px 0 0">${t('train_' + mode + '_d')}${manual ? '' : ' ' + t('train_auto_note')}</p></div>`;
+  }
   function squadView() {
     const G = UI.G, c = co(), club = myClub();
     if (!club) return `<div class="card">${t('unemployed')}</div>`;
@@ -303,8 +308,8 @@
     const away = A.loanedOut(G, club);
     const rows = sq.map((p) => `<tr>
       <td><select data-chg="role:${p.id}" ${L.auto || c.vac > 0 || own ? 'disabled' : ''}>${['xi', 'bench', 'out'].map((r) => `<option value="${r}" ${role(p) === r ? 'selected' : ''}>${t('role_' + r)}</option>`).join('')}</select></td>
-      <td>${p.id === club.capt ? '<span class="capt" title="' + t('captain') + '">C</span> ' : ''}${starTag(p)}${plink(p)}${tagSmall(p)}${untChip(p)}${p.listed ? ` <span class="chip">${t('listed')}</span>` : ''}${p.loan ? ` <span class="chip loan">${t('loan_from', { club: cname(p.loan.owner) })}</span>` : ''}</td><td>${posTag(p.pos)}</td><td>${p.age}</td><td>${ovTag(p.ovr)}</td><td class="mut">${potCell(p)}</td>
-      <td class="r">${money(p.wage)}</td><td>${t('yr_n', { n: p.ct })}</td><td class="r">${mc(E.value(p))}</td><td>${p.g}/${p.ap}</td><td>${moodChip(p)}</td><td>${statusOf(p)}</td>
+      <td>${SF.Art.face(p, 24)} ${tpChip(p)}${p.id === club.capt ? '<span class="capt" title="' + t('captain') + '">C</span> ' : ''}${starTag(p)}${plink(p)}${tagSmall(p)}${untChip(p)}${p.listed ? ` <span class="chip">${t('listed')}</span>` : ''}${p.loan ? ` <span class="chip loan">${t('loan_from', { club: cname(p.loan.owner) })}</span>` : ''}</td><td>${posTag(p.pos)}</td><td>${p.age}</td><td>${ovTag(p.ovr)}</td><td class="mut">${potCell(p)}</td>
+      <td class="r">${money(p.wage)}</td><td>${t('yr_n', { n: p.ct })}</td><td class="r">${mc(E.value(p))}</td><td>${p.g}/${p.ap}</td><td>${moodChip(p)}</td><td>${condBar(p)}</td><td>${statusOf(p)}</td>
       <td class="act">${p.loan ? '' : own ? `<button class="btn sm" data-act="untouch:${p.id}">${club.policy && club.policy.untouchable.includes(p.id) ? t('untouch_unset') : t('untouch_set')}</button>` : `<select class="actsel" data-chg="act:${p.id}"><option value="">${t('actions')}</option><option value="${p.listed ? 'unlist' : 'list'}">${p.listed ? t('unlist') : t('list_sale')}</option><option value="renew">${t('renew')}</option><option value="reneg">${t('renegotiate')}</option><option value="loanout">${t('loan_out_btn')}</option><option value="capt">${t('make_captain')}</option><option value="sellnow">${t('sell_now')}</option><option value="release">${t('release')}</option></select>`}</td></tr>`);
     return `<div class="card"><div class="row">${own ? `<span class="mut sm">${t('owner_squad_note')}</span>` : ''}<label ${own ? 'style="display:none"' : ''}>${t('formation')} <select data-chg="form">${Object.keys(Game.FORMS).map((f) => `<option ${L.form === f ? 'selected' : ''}>${f}</option>`).join('')}</select></label>
       <label ${own ? 'style="display:none"' : ''}>${t('tactic')} <select data-chg="tactic">${['def', 'bal', 'att'].map((k) => `<option value="${k}" ${L.tactic === k ? 'selected' : ''}>${t('tac_' + k)}</option>`).join('')}</select></label>
@@ -312,7 +317,8 @@
       <span class="${nxi === 11 ? 'good' : 'warn'}">${t('xi_count', { n: nxi })}</span>
       <span class="${sxi > CFG.starFree ? 'bad' : sxi ? 'star' : 'mut'}">★ ${t('stars_xi', { n: sxi, max: CFG.starFree })}</span></div>
       ${sxi > CFG.starFree ? `<p class="bad sm">${t('stars_over')}</p>` : ''}<p class="mut sm" style="margin:6px 0 0">${t('stars_info', { r: CFG.starOvr, max: CFG.starFree })}</p></div>
-      <div class="card" style="margin-top:14px">${tbl([t('sq_status').slice(0, 0) + '', t('sq_name'), t('sq_pos'), t('sq_age'), t('sq_ovr'), t('sq_pot'), '>' + t('sq_wage'), t('sq_ct'), '>' + t('sq_val'), t('sq_goals') + '/' + t('sq_apps'), t('mood_label'), t('sq_status'), ''], rows, 'squad')}</div>
+      ${trainCard(club, own)}
+      <div class="card" style="margin-top:14px">${tbl([t('sq_status').slice(0, 0) + '', t('sq_name'), t('sq_pos'), t('sq_age'), t('sq_ovr'), t('sq_pot'), '>' + t('sq_wage'), t('sq_ct'), '>' + t('sq_val'), t('sq_goals') + '/' + t('sq_apps'), t('mood_label'), t('cond_label'), t('sq_status'), ''], rows, 'squad')}</div>
       <div class="grid" style="margin-top:14px">${dressingCard(club)}${academyCard(club)}</div>
       ${away.length ? `<div class="card" style="margin-top:14px"><h2>${t('loans_out_title')}</h2>${away.map((p) => `<div class="sm">${posTag(p.pos)} ${starTag(p)}${plink(p)} ${ovTag(p.ovr)} · ${t('loan_to', { club: cname(p.club) })} · <span class="mut">${t('loan_left', { n: p.loan.left })}</span></div>`).join('')}</div>` : ''}`;
   }
@@ -328,7 +334,7 @@
       const st = Game.standings(G, div);
       body = tbl(['#', t('club'), '>' + t('col_p'), '>' + t('col_w'), '>' + t('col_d'), '>' + t('col_l'), '>' + t('col_gf'), '>' + t('col_ga'), '>' + t('col_gd'), '>' + t('col_pts')], st.map((id, i) => {
         const x = G.table[id];
-        return `<tr class="${club && id === club.id ? 'me' : ''} ${div > 0 && i < 2 ? 'up' : ''} ${div < 3 && i >= 10 ? 'dn' : ''}"><td>${i + 1}</td><td>${ctag(id, 18)}</td><td class="r">${x.p}</td><td class="r">${x.w}</td><td class="r">${x.d}</td><td class="r">${x.l}</td><td class="r">${x.gf}</td><td class="r">${x.ga}</td><td class="r">${x.gf - x.ga}</td><td class="r"><b>${x.pts}</b></td></tr>`;
+        return `<tr class="${club && id === club.id ? 'me' : ''} ${div > 0 && i < 2 ? 'up' : ''} ${div < 3 && i >= CFG.PER_DIV - 2 ? 'dn' : ''}"><td>${i + 1}</td><td>${ctag(id, 18)}</td><td class="r">${x.p}</td><td class="r">${x.w}</td><td class="r">${x.d}</td><td class="r">${x.l}</td><td class="r">${x.gf}</td><td class="r">${x.ga}</td><td class="r">${x.gf - x.ga}</td><td class="r"><b>${x.pts}</b></td></tr>`;
       }));
     } else if (UI.lg === 'results') {
       const last = G.res.length ? Math.max(...G.res.map((r) => r[0])) : 1;
@@ -511,7 +517,7 @@
     const st = Game.standings(G, cl.div), pos = st.indexOf(id) + 1, tb = G.table[id];
     const best = Game.players(G, cl).sort((a, b) => b.ovr - a.ovr).slice(0, 5);
     const last = cl.hist.length ? cl.hist[cl.hist.length - 1] : null;
-    return `<div class="sm"><p>${divName(cl.div)} · ${t('standing')}: <b>${pos}</b>/12 · ${t('pts')} ${tb.pts} (${tb.w}-${tb.d}-${tb.l})</p>
+    return `<div class="sm"><p>${divName(cl.div)} · ${t('standing')}: <b>${pos}</b>/${CFG.PER_DIV} · ${t('pts')} ${tb.pts} (${tb.w}-${tb.d}-${tb.l})</p>
       <p>${t('club_balance')}: <b>${money(B.bal(G, id))}</b> SFOOT · ${t('strength')}: ${Math.round(Game.strength(G, cl) * 10) / 10}</p>
       <p>${t('capacity')}: ${money(cl.cap)} · ${t('club_fans')}: ${money(cl.fans)} · ${t('club_titles')}: ${cl.title} / ${cl.cups}</p>
       ${last ? `<p>${t('club_last')}: ${divName(last.d)}, #${last.pos}</p>` : ''}
@@ -615,7 +621,7 @@
   function ownerGoals(c, club) {
     const ob = club.obj || {}, hist = (club.objHist || []).slice().reverse();
     return `<div class="grid"><div class="card"><h2>${t('goal_title')}</h2><p class="mut sm">${t('goal_note')}</p>
-      <div class="line"><label>${t('goal_pos')}</label><input type="number" id="obj-pos" min="1" max="12" value="${ob.pos != null ? ob.pos : club.target}"></div>
+      <div class="line"><label>${t('goal_pos')}</label><input type="number" id="obj-pos" min="1" max="${CFG.PER_DIV}" value="${ob.pos != null ? ob.pos : club.target}"></div>
       <div class="line"><label>${t('goal_profit')}</label><input type="number" id="obj-profit" step="1000" value="${ob.profit != null ? ob.profit : ''}"></div>
       <div class="line"><label>${t('goal_cup')}</label><select id="obj-cup"><option value="0">${t('no')}</option><option value="1" ${ob.cup ? 'selected' : ''}>${t('yes')}</option></select></div>
       <button class="btn pri" data-act="obj-save">${t('goal_save')}</button>
@@ -818,7 +824,7 @@
     const G = UI.G;
     if (SF.Owner.role(co()) === 'owner') return autoAdvance();
     let g = 0;
-    while (G.phase === 'play' && g++ < 40) Game.playWeekAuto(G);
+    while (G.phase === 'play' && g++ < 80) Game.playWeekAuto(G);
     save(); UI.tab = 'home'; render();
   }
   /** owner: play on without pressing OK each matchday; stops when a request needs an answer or the season ends */
@@ -832,12 +838,15 @@
 
   // ---------- live match ----------
   const SPEEDS = [260, 110, 35];
+  const R_ = { gauss: (m, sd) => m + sd * (Math.random() + Math.random() + Math.random() - 1.5) * 1.15 }; // cosmetic only, never touches the game RNG
   function name(id) { const p = UI.G.players[id]; return p ? p.n : '?'; }
   function evLine(e) {
     const a = e.pid2 ? name(e.pid2) : '';
     switch (e.t) {
       case 'goal': return `<div class="g">⚽ ${e.min}' ${esc(t('ev_goal', { name: name(e.pid) }))}${a ? ' <span class="mut">(' + esc(t('ev_assist', { name: a })) + ')</span>' : ''}</div>`;
       case 'red': return `<div class="r">🟥 ${e.min}' ${esc(t('ev_red', { name: name(e.pid) }))}</div>`;
+      case 'yellow': return `<div class="y">🟨 ${e.min}' ${esc(t('ev_yellow', { name: name(e.pid) }))}</div>`;
+      case 'pen': return `<div class="g">🎯 ${e.min}' ${esc(t('ev_pen_' + e.r, { name: name(e.pid), foul: name(e.pid2) }))}</div>`;
       case 'inj': return `<div class="i">🩹 ${e.min}' ${esc(t('ev_inj', { name: name(e.pid) }))}</div>`;
       case 'sub': return `<div class="s">🔁 ${e.min}' ${esc(t('ev_sub', { in: name(e.pid), out: name(e.pid2) }))}</div>`;
       case 'shot': return `<div class="sh">${e.r === 'post' ? '🥅' : '🎯'} ${e.min}' ${esc(t('ev_shot_' + e.r, { name: name(e.pid), gk: name(e.pid2) }))}</div>`;
@@ -846,6 +855,38 @@
       default: return '';
     }
   }
+  /** a small top-down pitch: both elevens by sector and the ball where the play is */
+  function pitchSvg(L) {
+    const mt = L.mt, b = L.ball || [50, 50];
+    const rows = (s, left) => {
+      const by = { GK: [], DF: [], MF: [], FW: [] };
+      for (const p of s.xi) by[p.pos].push(p);
+      const xs = { GK: 5, DF: 20, MF: 38, FW: 52 };
+      let out = '';
+      for (const k of ['GK', 'DF', 'MF', 'FW']) {
+        const a = by[k], n = a.length;
+        a.forEach((p, i) => {
+          const x = left ? xs[k] : 100 - xs[k], y = (n === 1 ? 50 : 12 + (76 * i) / (n - 1)) * 0.64;
+          out += `<circle cx="${x}" cy="${y}" r="2.1" fill="${left ? s.col1 : s.col2}" stroke="#fff" stroke-width=".5"><title>${esc(p.n)}</title></circle>`;
+        });
+      }
+      return out;
+    };
+    mt.h.col1 = UI.G.clubs[L.m.h].c1; mt.a.col2 = UI.G.clubs[L.m.a].c1;
+    return `<svg class="pitch" viewBox="0 0 100 64"><rect width="100" height="64" fill="#2f7d3a"/>
+      <g fill="none" stroke="#ffffff88" stroke-width=".5"><rect x="1" y="1" width="98" height="62"/><line x1="50" y1="1" x2="50" y2="63"/><circle cx="50" cy="32" r="8"/><rect x="1" y="19" width="14" height="26"/><rect x="85" y="19" width="14" height="26"/></g>
+      ${rows(mt.h, true)}${rows(mt.a, false)}
+      <circle class="ball" cx="${b[0]}" cy="${b[1] * 0.64}" r="1.7" fill="#fff" stroke="#111" stroke-width=".4"/></svg>`;
+  }
+  function liveBall(L, evs) {
+    const mt = L.mt;
+    let x = 50 + (mt.h.pw.Mp - mt.a.pw.Mp) * 1.4 + R_.gauss(0, 9), y = 50 + R_.gauss(0, 18);
+    for (const e of evs) {
+      if (e.t === 'goal' || e.t === 'shot' || e.t === 'pen') { x = e.side === 'h' ? 88 : 12; y = 50 + R_.gauss(0, 10); }
+      if (e.t === 'pen') { x = e.side === 'h' ? 84 : 16; y = 50; }
+    }
+    L.ball = [Math.max(8, Math.min(92, x)), Math.max(8, Math.min(92, y))];
+  }
   function liveShell() { return '<div class="live" id="live"></div>'; }
   function liveTickRender() {
     const L = UI.live, el = $('#live');
@@ -853,7 +894,7 @@
     const mt = L.mt, G = UI.G, mine = L.side === 'h' ? mt.h : mt.a;
     const hc = G.clubs[L.m.h], ac = G.clubs[L.m.a];
     const lab = mt.done ? (mt.pens ? t('pens') : mt.et ? t('et') : t('ft')) : mt.et ? t('et') + ' ' + mt.min + "'" : mt.min + "'";
-    const xi = (s) => s.xi.map((p) => `<div class="sm">${posTag(p.pos)} ${esc(p.n)} ${ovTag(p.ovr)}</div>`).join('');
+    const xi = (s) => s.xi.map((p) => `<div class="sm">${posTag(p.pos)} ${esc(p.n)} ${ovTag(p.ovr)} <span class="mut">${SF.Body.cond(p)}%</span></div>`).join('');
     const bench = mine.bench.map((p) => `<option value="${p.id}">${t('pos_' + p.pos)} ${esc(p.n)} (${p.ovr})</option>`).join('');
     const out = mine.xi.map((p) => `<option value="${p.id}">${t('pos_' + p.pos)} ${esc(p.n)} (${p.ovr})</option>`).join('');
     const sum = mt.summary();
@@ -861,13 +902,14 @@
       <p style="text-align:center" class="mut">${lab}${mt.pens ? ` · ${mt.pens.h}-${mt.pens.a} ${t('pens_short')}` : ''}</p>
       <div class="dual"><b>${sum.hp}%</b><div class="duo"><i class="l" style="width:${sum.hp}%"></i></div><b>${100 - sum.hp}%</b></div><div class="dlab">${t('possession')}</div>
       <div class="dual"><b>${sum.hs}</b><div class="duo"><i class="l" style="width:${Math.round((sum.hs / Math.max(1, sum.hs + sum.as)) * 100)}%"></i></div><b>${sum.as}</b></div><div class="dlab">${t('shots')}</div>
+      ${pitchSvg(L)}
       ${L.flash ? `<div class="goalbanner ${L.flash.side}">⚽ ${t('goal_banner')}<small>${esc(L.flash.txt)}</small></div>` : ''}
       ${L.ht && L.paused && !L.over ? `<div class="htbox"><b>⏸ ${t('ht')}</b> · ${t('ht_info')}</div>` : ''}
       <div class="row" style="justify-content:center">${L.over ? `<button class="btn pri" data-act="live-continue">${t('continue_btn')}</button>` : `<button class="btn pri" data-act="live-toggle">${L.paused ? t('resume') : t('pause')}</button>
         <button class="btn" data-act="live-speed">${t('speed')} ×${L.speed}</button><button class="btn" data-act="live-skip">${t('skip_end')}</button>`}</div></div>
       <div class="grid" style="margin-top:14px"><div class="card"><div class="log" id="log">${L.log.join('')}</div></div>
       <div class="card"><div class="row"><label>${t('tactic')} <select data-chg="live-tac" ${L.over ? 'disabled' : ''}>${['def', 'bal', 'att'].map((k) => `<option value="${k}" ${mine.tactic === k ? 'selected' : ''}>${t('tac_' + k)}</option>`).join('')}</select></label></div>
-        ${L.paused && !L.over ? `<p class="sm mut">${t('subs_left', { n: 3 - mine.subs })}</p><div class="row"><select id="sub-out">${out}</select><span>→</span><select id="sub-in">${bench}</select><button class="btn sm" data-act="live-sub" ${mine.subs >= 3 ? 'disabled' : ''}>${t('make_sub')}</button></div>` : ''}
+        ${L.paused && !L.over ? `<p class="sm mut">${t('subs_left', { n: CFG.subs - mine.subs })}</p><div class="row"><select id="sub-out">${out}</select><span>→</span><select id="sub-in">${bench}</select><button class="btn sm" data-act="live-sub" ${mine.subs >= CFG.subs ? 'disabled' : ''}>${t('make_sub')}</button></div>` : ''}
         <h3 class="sm mut" style="margin-top:10px">${esc(L.side === 'h' ? hc.name : ac.name)}</h3>${xi(mine)}</div></div>`;
     const lg = $('#log'); if (lg) lg.scrollTop = lg.scrollHeight;
   }
@@ -875,10 +917,11 @@
     const L = UI.live;
     if (!L || L.paused || L.over) return;
     const evs = L.mt.step();
+    liveBall(L, evs);
     for (const e of evs) {
       const l = evLine(e); if (l) L.log.push(l);
       if (e.t === 'goal') {
-        L.flash = { side: e.side, txt: e.min + "' " + name(e.pid) }; SF.Fx.play('goal');
+        L.flash = { side: e.side, txt: e.min + "' " + name(e.pid) + (e.pen ? ' (P)' : '') }; SF.Fx.play('goal');
         setTimeout(() => { if (UI.live === L && L.flash) { L.flash = null; liveTickRender(); } }, 1900);
       } else if (e.t === 'shot' && e.r === 'post') SF.Fx.play('crowd');
     }
@@ -974,11 +1017,11 @@
     if (!own && p.club && !p.acad) acts.push(`<button class="btn sm" data-act="wt:${p.id}">${(c.watch || []).includes(p.id) ? '★ ' + t('watch_off') : '☆ ' + t('watch_on')}</button>`);
     if (club && !pi.exact) acts.push(`<button class="btn sm" data-act="scout:${p.id}">🔎 ${t('scout_btn', { cost: CFG.scoutOne[club.div] })}</button>`);
     const m = X.mood(p);
-    $('#modal').innerHTML = `<div class="ovl"><div class="dlg sheet"><div class="row" style="align-items:flex-start">${pc ? FX.shirt(pc, 54) : ''}<div style="flex:1;min-width:0"><h3 style="margin:0">${starTag(p)}${plink(p)}${club && club.capt === p.id ? ' <span class="capt">C</span>' : ''}</h3>
+    $('#modal').innerHTML = `<div class="ovl"><div class="dlg sheet"><div class="row" style="align-items:flex-start">${SF.Art.face(p, 64, pc)}<div style="flex:1;min-width:0"><h3 style="margin:0">${starTag(p)}${plink(p)}${club && club.capt === p.id ? ' <span class="capt">C</span>' : ''}</h3>
         <div class="mut sm">${posTag(p.pos)} ${p.age} · ${pc ? ctag(pc.id, 14) : t('free_agent')}${p.loan ? ' · ' + t('loan_from', { club: cname(p.loan.owner) }) : ''}</div>
         <div style="margin-top:4px"><span class="chip tg-${tg}">${t('tg_' + tg)}</span>${hotTag(p)}${p.listed ? ` <span class="chip">${t('listed')}</span>` : ''}</div></div>
         <div class="ovbig">${ovTag(p.ovr)}</div></div>
-      <div class="stats">${stat(pi.exact ? t('sq_pot') : '≈ ' + t('sq_pot'), pi.exact ? (p.age < 28 ? p.pot : p.ovr) : `${pi.lo}–${pi.hi}`)}${stat(t('sq_val'), mc(val))}${stat(t('sq_wage'), money(p.wage))}${stat(t('sq_ct'), t('yr_n', { n: p.ct }))}${stat(t('clause'), mc(E.clause(p)))}${stat(t('sq_goals') + '/' + t('sq_apps'), p.g + '/' + p.ap)}</div>
+      <div class="stats">${stat(pi.exact ? t('sq_pot') : '≈ ' + t('sq_pot'), pi.exact ? (p.age < 28 ? p.pot : p.ovr) : `${pi.lo}–${pi.hi}`)}${stat(t('tp_label'), t('tp_' + SF.Body.tp(p)))}${stat(t('cond_label'), SF.Body.cond(p) + '%')}${stat(t('sq_val'), mc(val))}${stat(t('sq_wage'), money(p.wage))}${stat(t('sq_ct'), t('yr_n', { n: p.ct }))}${stat(t('clause'), mc(E.clause(p)))}${stat(t('sq_goals') + '/' + t('sq_apps'), p.g + '/' + p.ap)}</div>
       ${own ? `<div class="row" style="margin:8px 0"><span class="mut sm" style="min-width:90px">${t('mood_label')}: ${t(X.moodLabel(m))}</span><span class="mood big ${moodCls(m)}"><i style="width:${Math.round(m)}%"></i></span></div>` : ''}
       <p class="sm mut">${t('sheet_career', { a: p.apt, g: p.gt })}</p>
       ${vh.length > 1 ? `<h2>${t('sheet_value')}</h2>${FX.line([{ v: vh }], { w: 360, h: 110, labels: (p.vh || []).map((x) => x[0]).concat(['·']) })}` : ''}
@@ -1129,6 +1172,7 @@
     if (k === 'theme') { localStorage.setItem(THEMEK, el.value); return render(); }
     if (k === 'live-tac') { const L = UI.live; L.mt.setTactic(L.side, el.value); return; }
     const c = co();
+    if (k === 'train') return res(SF.Body.setMode(G, c, el.value));
     if (k === 'form') { A.setLineup(G, c, { form: el.value }); save(); return render(); }
     if (k === 'tactic') { if (SF.Owner.role(c) === 'owner') { SF.Owner.setTactic(G, c, el.value); save(); return render(); } A.setLineup(G, c, { tactic: el.value }); save(); return render(); }
     if (k === 'auto') {

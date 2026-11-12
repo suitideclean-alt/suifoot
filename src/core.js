@@ -8,11 +8,12 @@
   // All balance numbers live here so the simulation/tests can tune them.
   SF.CFG = {
     DIVS: 4,
-    PER_DIV: 12,
-    LEAGUE_WEEKS: 22,
-    CUP_AFTER: [3, 7, 11, 15, 19, 22], // a cup round is played after these league matchdays
-    TOTAL_WEEKS: 28, // economy weeks per season (european weeks carry no wages/income ticks)
-    EU_AFTER: [2, 6, 9, 13, 16, 18, 20, 21, 22], // european matchdays (6 group + QF + SF + final) are played after these league matchdays
+    PER_DIV: 18,
+    LEAGUE_WEEKS: 34,
+    CUP_ROUNDS: 7, // preliminary round (16 clubs), then 64, 32, 16, quarter-finals, semi-finals, final
+    CUP_AFTER: [4, 9, 14, 18, 23, 28, 34], // a cup round is played after these league matchdays
+    TOTAL_WEEKS: 41, // economy weeks per season = league matchdays + cup rounds (european weeks carry no wages/income ticks)
+    EU_AFTER: [3, 9, 14, 19, 23, 27, 30, 32, 34], // european matchdays (6 group + QF + SF + final) are played after these league matchdays
     EU_TEAMS: 16, EU_FOREIGN: 12, EU_SLOTS: 4,
     euNat: ['Aurelia', 'Norvik', 'Solmar'],
     euPartic: 40000, euWin: 30000, euDraw: 10000, euQF: 80000, euSF: 120000, euFinal: 180000, euWinner: 700000, // winner = 2x the division-1 champion prize
@@ -47,7 +48,7 @@
     gam: 0.036,
     gamM: 0.036,
     baseAttack: 0.28, // attacking events per minute (both teams)
-    baseGoal: 0.090,
+    baseGoal: 0.084,
   };
 
   let G = null;

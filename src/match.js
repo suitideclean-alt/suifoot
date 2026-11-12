@@ -3,6 +3,7 @@
 (function () {
   const SF = globalThis.SF;
   const { R, CFG, util } = SF;
+  const Body = () => SF.Body;
 
   function sideFrom(G, spec) {
     return {
@@ -12,7 +13,7 @@
       tactic: spec.tactic || 'bal',
       tbonus: spec.tbonus || 0, // coach tactics level
       auto: spec.auto !== false,
-      subs: 0, goals: 0, shots: 0, poss: 0, yel: {}, gone: [], used: [], started: spec.xi.slice(),
+      subs: 0, goals: 0, shots: 0, poss: 0, yel: {}, gone: [], used: [], started: spec.xi.slice(), on: {},
       pw: null,
     };
   }
@@ -21,7 +22,7 @@
     const xi = s.xi;
     let gk = 0, df = 0, mf = 0, fw = 0, best = 0;
     for (const p of xi) {
-      const o = p.ovr + SF.Econ.moodAdj(p);
+      const o = p.ovr + SF.Econ.moodAdj(p) + Body().condAdj(p) - Body().fatigue(p, (s.min || 0) - ((s.on && s.on[p.id]) || 0));
       best = Math.max(best, o);
       if (p.pos === 'GK') gk = Math.max(gk, o);
       else if (p.pos === 'DF') df += o;
@@ -59,12 +60,18 @@
     this.et = false;
     this.pens = null;
     this.phase = 'ft'; // 'ft' | 'et' | 'pens'
+    for (const s of [this.h, this.a]) {
+      const B = Body();
+      s.cf = util.avg(s.xi.map((p) => B.cardF(p))); s.rf = util.avg(s.xi.map((p) => B.redF(p)));
+      s.im = G.clubs && G.clubs[s.club] ? B.injMul(G, G.clubs[s.club]) : 1;
+    }
     this.refresh();
   }
 
   // tactics are a triangle: attack beats balanced, balanced beats defensive, defensive beats attack
   const BEATS = { att: 'bal', bal: 'def', def: 'att' };
   Match.prototype.refresh = function () {
+    this.h.min = this.a.min = this.min;
     power(this.h); power(this.a);
     for (const [s, o] of [[this.h, this.a], [this.a, this.h]]) {
       if (BEATS[s.tactic] === o.tactic) { s.pw.Ap *= 1.025; s.pw.Mp *= 1.025; s.pw.Dp *= 1.025; s.edge = 1; } else s.edge = BEATS[o.tactic] === s.tactic ? -1 : 0;
@@ -75,12 +82,12 @@
 
   Match.prototype.sub = function (side, outId, inId) {
     const s = side === 'h' ? this.h : this.a;
-    if (s.subs >= 3) return false;
+    if (s.subs >= CFG.subs) return false;
     const io = s.xi.findIndex((p) => p.id === outId);
     const ib = s.bench.findIndex((p) => p.id === inId);
     if (io < 0 || ib < 0) return false;
     const pin = s.bench[ib], pout = s.xi[io];
-    s.xi[io] = pin; s.bench.splice(ib, 1); s.subs++; s.used.push(pin.id);
+    s.xi[io] = pin; s.bench.splice(ib, 1); s.subs++; s.used.push(pin.id); s.on[pin.id] = this.min;
     this.refresh();
     this.ev({ t: 'sub', side, pid: pin.id, pid2: pout.id });
     return true;
@@ -92,13 +99,13 @@
     if (i < 0) return;
     s.xi.splice(i, 1);
     s.gone.push(p.id);
-    if (replace && s.subs < 3 && s.bench.length) {
+    if (replace && s.subs < CFG.subs && s.bench.length) {
       const same = s.bench.filter((b) => b.pos === p.pos);
       const pool = same.length ? same : s.bench.filter((b) => b.pos !== 'GK');
       if (pool.length) {
         const pin = pool.reduce((a, b) => (b.ovr > a.ovr ? b : a));
         s.bench.splice(s.bench.indexOf(pin), 1);
-        s.xi.push(pin); s.subs++; s.used.push(pin.id);
+        s.xi.push(pin); s.subs++; s.used.push(pin.id); s.on[pin.id] = this.min;
         this.ev({ t: 'sub', side, pid: pin.id, pid2: p.id, forced: 1 });
       }
     }
@@ -116,6 +123,7 @@
     const gkf = Math.pow(def.pw.Dp / Math.max(15, def.pw.gk), 0.6);
     let pg = CFG.baseGoal * ratio * gkf * (home ? CFG.homeAdv : 1);
     pg = util.clamp(pg, 0.015, 0.5);
+    if (R.chance(CFG.penChance)) return this.penalty(side, att, def);
     if (R.chance(0.72)) att.shots++;
     if (R.chance(pg)) {
       // scorer
@@ -131,6 +139,26 @@
     }
   };
 
+  /** a penalty: the best finisher takes it; the fouling defender may be booked */
+  Match.prototype.penalty = function (side, att, def) {
+    const taker = att.xi.filter((p) => p.pos !== 'GK').reduce((a, b) => (b.ovr + (b.pos === 'FW' ? 3 : 0) > a.ovr + (a.pos === 'FW' ? 3 : 0) ? b : a));
+    const gk = def.xi.find((p) => p.pos === 'GK');
+    const foul = R.weighted(def.xi, (x) => (x.pos === 'DF' ? 1.4 : x.pos === 'MF' ? 1 : x.pos === 'GK' ? 0.3 : 0.4) * SF.Body.cardF(x));
+    att.shots++;
+    const pOk = util.clamp(0.76 + (taker.ovr - (gk ? gk.ovr : 55)) / 300, 0.6, 0.88);
+    const r = R.chance(pOk) ? 'goal' : R.pick(['save', 'miss', 'post']);
+    this.ev({ t: 'pen', side, pid: taker.id, pid2: foul.id, r });
+    if (r === 'goal') { att.goals++; this.ev({ t: 'goal', side, pid: taker.id, pid2: 0, pen: 1 }); }
+    if (R.chance(0.35)) this.card(side === 'h' ? 'a' : 'h', def, foul);
+  };
+
+  /** a yellow card; the second one is a red */
+  Match.prototype.card = function (side, s, p) {
+    s.yel[p.id] = (s.yel[p.id] || 0) + 1;
+    if (s.yel[p.id] >= 2) { this.ev({ t: 'red', side, pid: p.id, second: 1 }); this.remove(side, p, false); }
+    else this.ev({ t: 'yellow', side, pid: p.id });
+  };
+
   Match.prototype.step = function () {
     if (this.done) return [];
     const start = this.events.length;
@@ -144,29 +172,30 @@
     }
     for (const side of ['h', 'a']) {
       const s = side === 'h' ? h : a;
-      if (R.chance(this.derby ? 0.025 : 0.019)) {
-        const p = R.weighted(s.xi, (x) => (x.pos === 'GK' ? 0.2 : x.pos === 'DF' ? 1.3 : x.pos === 'MF' ? 1.1 : 0.8));
-        s.yel[p.id] = (s.yel[p.id] || 0) + 1;
-        if (s.yel[p.id] >= 2) { this.ev({ t: 'red', side, pid: p.id, second: 1 }); this.remove(side, p, false); }
-        else this.ev({ t: 'yellow', side, pid: p.id });
+      const B = Body();
+      if (R.chance((this.derby ? 0.025 : 0.019) * (s.cf || 1))) {
+        const p = R.weighted(s.xi, (x) => (x.pos === 'GK' ? 0.2 : x.pos === 'DF' ? 1.3 : x.pos === 'MF' ? 1.1 : 0.8) * B.cardF(x));
+        this.card(side, s, p);
       }
-      if (s.xi.length > 8 && R.chance(0.0005)) {
-        const p = R.pick(s.xi);
+      if (s.xi.length > 8 && R.chance(0.0005 * (s.rf || 1))) {
+        const p = R.weighted(s.xi, (x) => B.redF(x));
         this.ev({ t: 'red', side, pid: p.id });
         this.remove(side, p, false);
       }
-      if (R.chance(0.0006) && s.xi.length > 8) {
-        const p = R.pick(s.xi);
-        this.ev({ t: 'inj', side, pid: p.id, n: Math.max(1, Math.round(R.range(1, 7))) });
+      if (R.chance(0.0006 * (s.im || 1)) && s.xi.length > 8) {
+        const p = R.weighted(s.xi, (x) => 1 + (100 - B.cond(x)) / 60);
+        const inj = B.rollInjury();
+        this.ev({ t: 'inj', side, pid: p.id, n: inj.n });
         this.remove(side, p, true);
       }
-      if (s.auto && m === 66 && s.subs < 3 && s.bench.length) {
+      if (s.auto && (m === 62 || m === 74) && s.subs < (m === 62 ? 3 : CFG.subs) && s.bench.length) {
         // fresh legs: replace the weakest outfield starter with a better/equal bench player of the same position
-        const out = s.xi.filter((x) => x.pos !== 'GK').sort((x, y) => x.ovr - y.ovr)[0];
+        const out = s.xi.filter((x) => x.pos !== 'GK').sort((x, y) => (x.ovr + B.condAdj(x)) - (y.ovr + B.condAdj(y)))[0];
         const cand = out && s.bench.filter((b) => b.pos === out.pos).sort((x, y) => y.ovr - x.ovr)[0];
-        if (cand && cand.ovr >= out.ovr - 4) this.sub(side, out.id, cand.id);
+        if (cand && cand.ovr + B.condAdj(cand) >= out.ovr + B.condAdj(out) - 4) this.sub(side, out.id, cand.id);
       }
     }
+    if (m % 15 === 0) this.refresh();
     const limit = this.et ? 120 : 90;
     if (m >= limit) {
       if (this.knockout && h.goals === a.goals) {

@@ -24,6 +24,7 @@
       v *= af;
       if (E.isStar(p)) v *= CFG.starValue;
       if (a <= 24) v *= 1 + Math.max(0, p.pot - p.ovr) * 0.012;
+      v *= SF.Body.valueF(p);
       return Math.max(500, Math.round(v / 100) * 100);
     },
     moodAdj(p) { const m = p.mood == null ? 70 : p.mood; return m < 35 ? -(35 - m) / 12 : 0; }, // unhappy players play worse
@@ -61,7 +62,7 @@
       const p = {
         id: G.nextPid++, n: playerName(), pos: o.pos, age, ovr, pot,
         wage: 0, ct: o.ct || R.int(1, 4), club: o.club || null,
-        mood: 70, yrs: 0, inj: 0, sus: 0, yc: 0, g: 0, ap: 0, gt: 0, apt: 0, ask: Math.round(R.range(0.95, 1.3) * 100) / 100, listed: 0,
+        mood: 70, tp: SF.Body.roll(o.pos), cond: 100, yrs: 0, inj: 0, sus: 0, yc: 0, g: 0, ap: 0, gt: 0, apt: 0, ask: Math.round(R.range(0.95, 1.3) * 100) / 100, listed: 0,
       };
       p.wage = E.wage(p);
       G.players[p.id] = p;

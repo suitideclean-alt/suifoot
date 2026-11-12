@@ -1,0 +1,21 @@
+from playwright.sync_api import sync_playwright
+errs=[]
+with sync_playwright() as p:
+    b=p.chromium.launch(); pg=b.new_page(viewport={'width':1280,'height':900})
+    pg.on('pageerror',lambda e:errs.append(str(e))); pg.on('console',lambda m:errs.append(m.text) if m.type=='error' else None)
+    pg.add_init_script("localStorage.setItem('suifoot.recap','1');localStorage.setItem('suifoot.lang','en')")
+    pg.goto('http://localhost:8765/'); pg.wait_for_timeout(600)
+    pg.click('text=Start'); pg.wait_for_timeout(800)
+    print('badges', pg.locator('svg.bdg').count())
+    pg.click('nav.tabs >> text=Squad'); pg.wait_for_timeout(400)
+    print('faces', pg.locator('svg.face').count(), 'tp chips', pg.locator('.chip[class*=tp-]').count(), 'train select', pg.locator('select[data-chg=train]').count())
+    pg.select_option('select[data-chg=train]','int'); pg.wait_for_timeout(300)
+    print('train now', pg.evaluate("SF.Body.mode(SF.getG().clubs[SF.getG().coaches[0].club])"))
+    pg.screenshot(path='/tmp/squad.png')
+    pg.click('a.pl >> nth=0'); pg.wait_for_timeout(300); pg.screenshot(path='/tmp/sheet.png'); pg.click('[data-act="m-cancel"]')
+    pg.click('nav.tabs >> text=Home'); pg.wait_for_timeout(200)
+    pg.click('[data-act=play-live]'); pg.wait_for_selector('#live .score')
+    print('pitch', pg.locator('#live svg.pitch').count(), 'subs text', pg.inner_text('#live').count('5'))
+    pg.click('[data-act=live-speed]'); pg.click('[data-act=live-speed]'); pg.click('[data-act=live-toggle]'); pg.wait_for_timeout(4000)
+    pg.screenshot(path='/tmp/live.png')
+    print('errors',errs); b.close()

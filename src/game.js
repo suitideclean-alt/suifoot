@@ -6,7 +6,7 @@
   const B = SF.Bank, W = SF.World, E = SF.Econ;
 
   const FORMS = { '4-4-2': [4, 4, 2], '4-3-3': [4, 3, 3], '3-5-2': [3, 5, 2], '5-3-2': [5, 3, 2], '4-5-1': [4, 5, 1], '3-4-3': [3, 4, 3] };
-  const CUP_KEYS = ['cup_r64', 'cup_r32', 'cup_r16', 'cup_qf', 'cup_sf', 'cup_f'];
+  const CUP_KEYS = ['cup_pre', 'cup_r64', 'cup_r32', 'cup_r16', 'cup_qf', 'cup_sf', 'cup_f'];
   const Game = (SF.Game = { FORMS, CUP_KEYS });
 
   // ---------- helpers ----------
@@ -79,6 +79,7 @@
     SF.Owner.initNpcCoaches(G);
     SF.Owner.seasonStart(G);
     if (SF.Boss) SF.Boss.seasonStart(G);
+    SF.Body.seasonReset(G);
     for (const c of G.coaches) if (c.role === 'owner') SF.Owner.autoHire(G, c);
     for (const c of G.coaches) Game.news(G, 'n_welcome', { club: G.clubs[c.club].name }, c.id);
     return G;
@@ -297,7 +298,7 @@
     if (c.drawn === c.round) return;
     const pool = R.shuffle(c.alive.slice());
     let playing = pool, byes = [];
-    if (c.round === 0) { playing = pool.slice(0, 32); byes = pool.slice(32); }
+    if (c.round === 0) { const p2 = Math.pow(2, Math.floor(Math.log2(pool.length))), n = pool.length > p2 ? 2 * (pool.length - p2) : pool.length; playing = pool.slice(0, n); byes = pool.slice(n); }
     c.byes = byes; c.matches = [];
     for (let i = 0; i + 1 < playing.length; i += 2) c.matches.push({ h: playing[i], a: playing[i + 1] });
     c.drawn = c.round;
@@ -315,7 +316,7 @@
       winners.push(w);
       G.clubs[w].cupRound = Math.max(G.clubs[w].cupRound, c.round + 1);
       G.clubs[l].cupRound = Math.max(G.clubs[l].cupRound, c.round);
-      if (c.round === 5) { c.winner = w; c.finalist = l; }
+      if (c.round === CFG.CUP_ROUNDS - 1) { c.winner = w; c.finalist = l; }
     }
     c.alive = c.byes.concat(winners);
     for (const b of c.byes) G.clubs[b].cupRound = Math.max(G.clubs[b].cupRound, c.round + 1);
@@ -341,7 +342,7 @@
   };
 
   Game.buildMatch = function (G, m) {
-    return new SF.Match(G, Game.specFor(G, m.h), Game.specFor(G, m.a), { knockout: m.k === 'C' || (m.k === 'E' && m.s >= 6), neutral: (m.k === 'C' && m.r === 5) || (m.k === 'E' && m.s === 8), derby: !!m.derby });
+    return new SF.Match(G, Game.specFor(G, m.h), Game.specFor(G, m.a), { knockout: m.k === 'C' || (m.k === 'E' && m.s >= 6), neutral: (m.k === 'C' && m.r === CFG.CUP_ROUNDS - 1) || (m.k === 'E' && m.s === 8), derby: !!m.derby });
   };
 
   Game.simMatch = function (G, m, mt) {
@@ -385,13 +386,13 @@
         ev.push([e.min, 'r', e.side, p.n, '']);
         if (G.clubs[p.club] && G.clubs[p.club].human) Game.news(G, 'n_red', { name: p.n }, G.clubs[p.club].human);
       } else if (e.t === 'inj') {
-        p.inj = Math.max(p.inj, Math.max(1, Math.round(e.n * (SF.Boss && G.clubs[p.club] ? SF.Boss.injMult(G.clubs[p.club]) : 1)))); p._f = 1;
-        ev.push([e.min, 'i', e.side, p.n, e.n]);
-        if (G.clubs[p.club] && G.clubs[p.club].human) Game.news(G, 'n_injured', { name: p.n, n: e.n }, G.clubs[p.club].human);
+        const hr = SF.Body.hurt(G, p, e.n, G.clubs[p.club]);
+        ev.push([e.min, 'i', e.side, p.n, hr.weeks, hr.loss]);
+        if (G.clubs[p.club] && G.clubs[p.club].human) Game.news(G, hr.loss ? 'n_injured_loss' : 'n_injured', { name: p.n, n: hr.weeks, loss: hr.loss }, G.clubs[p.club].human);
       } else if (e.t === 'sub') ev.push([e.min, 's', e.side, nm(e.pid), nm(e.pid2)]);
     }
     for (const sd of [mt.h, mt.a]) {
-      for (const pid of sd.started.concat(sd.used)) { const p = G.players[pid]; if (p) { p.ap++; p.apt++; } }
+      for (const pid of sd.started.concat(sd.used)) { const p = G.players[pid]; if (p) { p.ap++; p.apt++; SF.Body.played(p, sd.started.indexOf(pid) >= 0); } }
     }
     for (const [sd, cl] of [[mt.h, hc], [mt.a, ac]]) {
       if (!cl.human) continue;
@@ -402,7 +403,7 @@
     const att = attendance(hc);
     m.res = { hg: s.hg, ag: s.ag, p: s.pens ? [s.pens.h, s.pens.a] : null, et: s.et ? 1 : 0, ev, hs: s.hs, as: s.as, hp: s.hp, att };
     // gate
-    if ((m.k === 'C' && m.r === 5) || (m.k === 'E' && m.s === 8)) {
+    if ((m.k === 'C' && m.r === CFG.CUP_ROUNDS - 1) || (m.k === 'E' && m.s === 8)) {
       const gate = Math.round(45000 * 4 * 0.5);
       Game.income(G, m.h, gate, 'gate'); Game.income(G, m.a, gate, 'gate');
       m.res.att = 45000;
@@ -488,6 +489,7 @@
       if (p.inj > 0) p.inj--;
       if (p.sus > 0) p.sus--;
     }
+    SF.Body.weekly(G);
     for (const cid of G.clubIds) {
       const cl = G.clubs[cid];
       if (!cl.human) continue;
@@ -525,7 +527,7 @@
 
   Game.simulateSeason = function (G) {
     let g = 0;
-    while (G.phase === 'play' && g++ < 40) Game.playWeekAuto(G);
+    while (G.phase === 'play' && g++ < 80) Game.playWeekAuto(G);
   };
 
   // ---------- AI behaviour ----------
@@ -620,7 +622,7 @@
   function progress(G, p, club, coach) {
     const tl = club ? club.facility.train : 1;
     const cb = coach ? coach.sk.train : 0;
-    const boost = 1 + 0.06 * (tl - 1) + 0.05 * cb;
+    const boost = (1 + 0.06 * (tl - 1) + 0.05 * cb) * SF.Body.progressMul(club);
     let d;
     if (p.age <= 24) {
       d = (p.pot - p.ovr) * R.range(0.12, 0.4) * boost;
@@ -822,6 +824,7 @@
       const coach = Game.humanOf(G, id);
       for (const p of Game.players(G, club).slice()) {
         p.age++; p.ct--; p.inj = 0; p.sus = 0; p.yc = 0; p.yrs = (p.yrs || 0) + 1;
+        if (p.rec) { if (p.age < 33) p.ovr = Math.min(99, p.ovr + p.rec); p.rec = 0; }
         progress(G, p, club, coach);
         const retire = p.age >= 34 && R.chance(Math.min(0.95, (p.age - 33) * 0.28));
         if (retire) {
@@ -859,6 +862,7 @@
     Game.startSeason(G);
     SF.Owner.seasonStart(G);
     if (SF.Boss) SF.Boss.seasonStart(G);
+    SF.Body.seasonReset(G);
     for (const co of G.coaches) { if (co.club) { co.board = Math.max(co.board, 45); co.jobWeeks = Math.max(co.jobWeeks, 0); } }
     for (const id of G.clubIds) {
       const cl = G.clubs[id];

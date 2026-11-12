@@ -5,26 +5,26 @@ const eq=(a,b,m)=>{ if(a!==b) throw new Error((m||'')+` expected ${b} got ${a}`)
 const truthy=(a,m)=>{ if(!a) throw new Error(m||'expected truthy'); };
 const {Game,Actions:A,Bank:B,CFG}=SF;
 
-t('world has 48 clubs x 22 players and 4 divisions', ()=>{
+t('world has 72 clubs x 22 players and 4 divisions', ()=>{
   const G=Game.newGame({seed:1,coaches:[{name:'A'}]});
-  eq(G.clubIds.length,48); eq(G.divs.length,4); G.divs.forEach(d=>eq(d.length,12));
+  eq(G.clubIds.length,72); eq(G.divs.length,4); G.divs.forEach(d=>eq(d.length,18));
   G.clubIds.forEach(id=>eq(G.clubs[id].squad.length,22));
-  const names=new Set(G.clubIds.map(id=>G.clubs[id].name)); eq(names.size,48,'unique club names');
+  const names=new Set(G.clubIds.map(id=>G.clubs[id].name)); eq(names.size,72,'unique club names');
 });
 t('deterministic: same seed gives same season', ()=>{
   const a=Game.newGame({seed:42,coaches:[{name:'A'}]}); Game.simulateSeason(a); const sa=JSON.stringify(a.table);
   const b=Game.newGame({seed:42,coaches:[{name:'A'}]}); Game.simulateSeason(b); eq(JSON.stringify(b.table),sa);
 });
-t('season: every club plays 22 league games, tables are consistent', ()=>{
+t('season: every club plays 34 league games, tables are consistent', ()=>{
   const G=Game.newGame({seed:2,coaches:[{name:'A'}]}); Game.simulateSeason(G);
   eq(G.phase,'seasonEnd');
-  for(const id of G.clubIds){const x=G.table[id]; eq(x.p,22); eq(x.w+x.d+x.l,22); eq(x.pts,3*x.w+x.d);}
+  for(const id of G.clubIds){const x=G.table[id]; eq(x.p,34); eq(x.w+x.d+x.l,34); eq(x.pts,3*x.w+x.d);}
   for(let d=0;d<4;d++){ let gf=0,ga=0; G.divs[d].forEach(id=>{gf+=G.table[id].gf;ga+=G.table[id].ga}); eq(gf,ga,'goals for = against'); }
-  truthy(G.cup.winner,'cup has a winner'); eq(G.cup.round,6);
+  truthy(G.cup.winner,'cup has a winner'); eq(G.cup.round,7);
 });
-t('promotion/relegation moves 2 clubs each way and keeps 12 per division', ()=>{
+t('promotion/relegation moves 2 clubs each way and keeps 18 per division', ()=>{
   const G=Game.newGame({seed:3,coaches:[{name:'A'}]}); Game.simulateSeason(G); Game.newSeason(G);
-  G.divs.forEach(d=>eq(d.length,12)); eq(G.season,2); eq(G.phase,'play');
+  G.divs.forEach(d=>eq(d.length,18)); eq(G.season,2); eq(G.phase,'play');
 });
 t('money is conserved: supply == sum of balances', ()=>{
   const G=Game.newGame({seed:4,coaches:[{name:'A'}]}); Game.simulateSeason(G); Game.newSeason(G); Game.simulateSeason(G);
@@ -126,7 +126,7 @@ t('european cup: 16 clubs, 9 matchdays, a champion, prizes paid, money conserved
   if(!G.clubs[G.eu.winner].foreign) truthy(G.eu.paid[G.eu.winner]>=CFG.euWinner,'winner prize');
   eq(B.supply(G),B.totalBalances(G),'supply equals balances');
   eq(G.euroQ.length,CFG.EU_SLOTS); G.euroQ.forEach(id=>eq(G.clubs[id].foreign,undefined));
-  Game.newSeason(G); eq(G.eu.q.join(),G.euroQ.join(),'qualifiers carry over'); eq(G.clubIds.length,48);
+  Game.newSeason(G); eq(G.eu.q.join(),G.euroQ.join(),'qualifiers carry over'); eq(G.clubIds.length,72);
 });
 t('loans: borrow, cannot sell/release, returns after the loan, loan out brings a fee', ()=>{
   const G=Game.newGame({seed:24,coaches:[{role:'both',name:'A'}]}); const co=G.coaches[0]; const club=G.clubs[co.club];

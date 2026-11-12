@@ -116,7 +116,7 @@
     const eff = `<div class="card"><h2>${t('ow_eff')}</h2>${row(t('ow_cost_pt'), ef.perPoint != null ? h.money(ef.perPoint) : '-')}${row(t('ow_cost_goal'), ef.perGoal != null ? h.money(ef.perGoal) : '-')}${row(t('biz_ratio'), pct(ef.wageRatio), ef.wageRatio > 0.62 ? 'bad' : '')}<p class="mut sm">${t('ow_eff_note')}</p></div>`;
     const lab = { wages: t('ow_c_wages'), value: t('ow_c_value'), balance: t('balance'), debt: t('ow_c_debt'), fans: t('club_fans'), cap: t('capacity'), price: t('ticket_price'), strength: t('strength') };
     const fmt = (k, v) => (k === 'price' ? v.toFixed(1) : k === 'strength' ? v.toFixed(1) : h.mc(v));
-    const comp = `<div class="card"><h2>${t('ow_vs')}</h2>${h.tbl(['', '>' + t('ow_you'), '>' + t('ow_avg'), '>#'], Object.keys(lab).map((k) => `<tr><td>${lab[k]}</td><td class="r"><b>${fmt(k, cmp[k].mine)}</b></td><td class="r mut">${fmt(k, cmp[k].avg)}</td><td class="r">${cmp[k].rank}/12</td></tr>`))}</div>`;
+    const comp = `<div class="card"><h2>${t('ow_vs')}</h2>${h.tbl(['', '>' + t('ow_you'), '>' + t('ow_avg'), '>#'], Object.keys(lab).map((k) => `<tr><td>${lab[k]}</td><td class="r"><b>${fmt(k, cmp[k].mine)}</b></td><td class="r mut">${fmt(k, cmp[k].avg)}</td><td class="r">${cmp[k].rank}/${CFG.PER_DIV}</td></tr>`))}</div>`;
     const pr = (x) => `<div class="row sm"><span>${h.posTag(x.p.pos)} ${h.plink(x.p)} ${h.ovTag(x.p.ovr)}</span><span>${h.money(x.perApp)}/${t('ow_app')}</span></div>`;
     const sq = `<div class="card"><h2>${t('ow_sqret')}</h2><h3 class="sm good">${t('ow_best')}</h3>${sr.best.map(pr).join('') || '-'}<h3 class="sm bad" style="margin-top:8px">${t('ow_worst')}</h3>${sr.worst.map(pr).join('') || '-'}<p class="mut sm">${t('ow_sqret_note')}</p></div>`;
     const parts = B_.supParts(G, club);
