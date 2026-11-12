@@ -848,7 +848,7 @@
           continue;
         }
         if (p.ct <= 0) {
-          if (coach) { Game.news(G, 'n_expired', { name: p.n }, coach.id); releasePlayer(G, club, p, true); }
+          if (coach && !(club.owner && !club.ac)) { Game.news(G, 'n_expired', { name: p.n }, coach.id); releasePlayer(G, club, p, true); } // an owner's club with no coach keeps its regulars like a computer club does, instead of emptying the squad
           else {
             const rank = Game.players(G, club).filter((q) => q.ovr > p.ovr).length;
             if (rank < 17 && p.age < 34) { p.ct = R.int(1, 3); p.wage = Math.round((E.wage(p) * R.range(0.9, 1.1)) / 10) * 10; }

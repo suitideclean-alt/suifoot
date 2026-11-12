@@ -605,7 +605,7 @@
     const r = A.financeReport(G, c), bal = B.bal(G, club.id);
     if (!club.ac) tips.push(t('sg_nocoach'));
     if (bal < 0) tips.push(t('sg_debt'));
-    else if (club.ac.contract.left <= 8) tips.push(t('sg_expiring'));
+    else if (club.ac && club.ac.contract && club.ac.contract.left <= 8) tips.push(t('sg_expiring'));
     if (open) tips.push(t('sg_requests', { n: open }));
     if (!club.obj || club.obj.pos == null) tips.push(t('sg_noobj'));
     if (unhappy >= 3) tips.push(t('sg_mood', { n: unhappy }));

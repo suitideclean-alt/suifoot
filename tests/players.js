@@ -100,4 +100,10 @@ t('the bottom two of the fourth division: the coach is sacked with no pay; an ow
     Game.newSeason(G); truthy(G.clubs[cid].div === 3, 'the club stays in division 4 under the computer');
   }
 });
+t('an owner club without a coach keeps its squad (no mass release at the season turn)', () => {
+  const G = Game.newGame({ seed: 18, coaches: [{ name: 'A', role: 'owner' }] }); const co = G.coaches[0], club = G.clubs[co.club];
+  SF.Game.dropOut = SF.Game.dropOut; let min = 99;
+  for (let s = 1; s <= 4; s++) { club.ac = null; SF.Owner.sync(G, co); let g = 0; while (G.phase === 'play' && g++ < 90) Game.playWeekAuto(G); club.dropped = 0; if (G.phase === 'seasonEnd') { Game.newSeason(G); } if (!co.club) break; min = Math.min(min, club.squad.length); }
+  truthy(min >= 11, 'squad never collapsed, min ' + min);
+});
 console.log(`${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);
