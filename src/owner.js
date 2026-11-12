@@ -82,6 +82,16 @@
     return { net: Math.round(per), weeks: per >= 0 ? Infinity : Math.max(0, bal) / -per, bal };
   };
 
+  function runwayBlock(G, club, co, kind, p) {
+    if (!['buy', 'sign', 'loanin', 'renew'].includes(kind) || co.emerg) return null;
+    // cash lasts less than 4 weeks at the new weekly result: block (buying and selling for profit keeps the cash up, so it is not affected)
+    const rw = O.runway(G, club), pl = p.pid ? G.players[p.pid] : null;
+    const net2 = rw.net - (kind === 'renew' ? (p.wage || 0) - (pl ? pl.wage : 0) : p.wage || 0);
+    const left = Math.max(0, rw.bal - (p.cost || 0));
+    if (net2 < 0 && left / -net2 < CFG.owner.runwayMin) return { ok: false, err: 'low_runway', weeks: Math.round((left / -net2) * 10) / 10 };
+    return null;
+  }
+
   // ---------- gate: every coach action asks here first ----------
   function violation(G, club, pol, kind, p) {
     const bal = B.bal(G, club.id), wb = O.wageBill(G, club), c = p.cost || 0, pl = p.pid ? G.players[p.pid] : null;
@@ -115,17 +125,13 @@
     const club = G.clubs[co.club];
     if (!club) return null;
     const role = ROLE(co);
-    if (role === 'both') return null;
     if (co.emerg && kind === 'sign') return null; // a legal squad is not optional: the coach may sign the cheapest free agents
+    if (role === 'both') return (B.bal(G, club.id) < 0 && ['buy', 'sign', 'loanin', 'renew'].includes(kind) ? { ok: false, err: 'club_in_red' } : runwayBlock(G, club, co, kind, p));
     if (role === 'owner') return OWNER_ONLY.has(kind) ? null : (FREE.has(kind) ? null : { ok: false, err: 'owner_cant' });
     if (FREE.has(kind)) return null;
     if (B.bal(G, club.id) < 0 && ['buy', 'sign', 'loanin', 'renew'].includes(kind)) return { ok: false, err: 'club_in_red' }; // no new commitments while the club is in the red
-    if (['buy', 'sign', 'loanin', 'renew'].includes(kind) && !co.emerg) {
-      // cash lasts less than 4 weeks at the new weekly result: block (buying and selling for profit keeps the cash up, so it is not affected)
-      const rw = O.runway(G, club), pl = p.pid ? G.players[p.pid] : null;
-      const net2 = rw.net - (kind === 'renew' ? (p.wage || 0) - (pl ? pl.wage : 0) : p.wage || 0);
-      if (net2 < 0 && Math.max(0, rw.bal - (p.cost || 0)) / -net2 < CFG.owner.runwayMin) return { ok: false, err: 'low_runway', weeks: Math.round((Math.max(0, rw.bal - (p.cost || 0)) / -net2) * 10) / 10 };
-    }
+    const rb = runwayBlock(G, club, co, kind, p);
+    if (rb) return rb;
     const pol = O.policy(G, club);
     const why = OWNER_ONLY.has(kind) ? 'owner_only' : violation(G, club, pol, kind, p);
     if (!why) return null;

@@ -429,5 +429,16 @@ t('runway: a coach with cash is free to renew; one with a weekly loss and under 
   const rw2 = SF.Owner.runway(G, club);
   if (rw2.net < 0) { const r2 = SF.Actions.renew(G, co, pid, 2); truthy(['low_runway', 'no_funds', 'unhappy'].includes(r2.err), 'poor club blocked: ' + r2.err); }
 });
+t('the owner+coach is also blocked when cash would last under 4 weeks, and rich clubs are not', () => {
+  const G = Game.newGame({ seed: 80, coaches: [{ name: 'B', role: 'both' }] }); SF.setG(G);
+  const co = G.coaches[0], club = G.clubs[co.club];
+  for (let i = 0; i < 12; i++) Game.playWeekAuto(G);
+  const pid = club.squad.find((id) => G.players[id].ct >= 1); G.players[pid].ct = 1; G.players[pid].mood = 80; G.players[pid].wage = 10;
+  SF.Bank.debit(G, club.id, SF.Bank.bal(G, club.id) - 1500, 'fine');
+  const rw = SF.Owner.runway(G, club);
+  if (rw.net < 0) truthy(['low_runway', 'no_funds'].includes(SF.Actions.renew(G, co, pid, 2).err), 'blocked');
+  SF.Bank.credit(G, club.id, 5000000, 'bailout'); G.players[pid].ct = 1;
+  const r = SF.Actions.renew(G, co, pid, 2); truthy(r.ok || ['max_contract', 'unhappy'].includes(r.err), 'rich club free: ' + r.err);
+});
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
