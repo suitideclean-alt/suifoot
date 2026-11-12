@@ -274,10 +274,10 @@
     if (club.build) return no('building');
     if (club.cap + steps * A.expandStep(club) > 90000) return no('max_cap');
     const cost = A.stadiumCost(G, club, steps);
-    if (B.bal(G, club.id) < cost) return no('no_funds', { cost });
+    if (!SF.Owner.invCan(G, club, cost)) return no('no_funds', { cost, sf: SF.Owner.payer(G, club) ? 1 : 0 });
     const gt = SF.Owner.gate(G, coach, 'expand', { key: steps, cost });
     if (gt) return gt;
-    B.debit(G, club.id, cost, 'stadium');
+    SF.Owner.invPay(G, club, cost, 'stadium');
     club.build = { seats: steps * A.expandStep(club), left: CFG.expandWeeks };
     return ok({ cost });
   };
@@ -288,10 +288,10 @@
     const lvl = club.facility[key];
     if (lvl >= CFG.facMax) return no('max_level');
     const cost = A.facilityCost(club, key);
-    if (B.bal(G, club.id) < cost) return no('no_funds', { cost });
+    if (!SF.Owner.invCan(G, club, cost)) return no('no_funds', { cost, sf: SF.Owner.payer(G, club) ? 1 : 0 });
     const gt = SF.Owner.gate(G, coach, 'fac', { key, cost });
     if (gt) return gt;
-    B.debit(G, club.id, cost, 'facility');
+    SF.Owner.invPay(G, club, cost, 'facility');
     club.facility[key]++;
     return ok({ cost });
   };
@@ -328,8 +328,8 @@
     if (!club) return null;
     const sf = G.bank.sf[club.id] || {};
     const g = (k) => sf[k] || 0;
-    const inc = { gate: g('gate') + g('gate_in'), tv: g('tv'), sponsor: g('sponsor'), prize: g('prize'), sales: g('transfer_in') + g('sale_fee') + g('loan_fee_in') };
-    const out = { wages: -g('wages'), upkeep: -g('upkeep'), buys: -g('transfer_out') - g('signing') - g('loan_fee_out') - g('compensation'), invest: -g('stadium') - g('facility'), debt: -g('repay') - g('fine') };
+    const inc = { gate: g('gate') + g('gate_in'), tv: g('tv'), sponsor: g('sponsor'), sales: g('transfer_in') + g('sale_fee') + g('loan_fee_in') };
+    const out = { wages: -g('wages'), upkeep: -g('upkeep'), buys: -g('transfer_out') - g('signing') - g('loan_fee_out') - g('compensation'), debt: -g('repay') - g('fine') };
     const totIn = util.sum(Object.values(inc)), totOut = util.sum(Object.values(out));
     const weeksDone = Math.max(1, G.sched.slice(0, G.week - 1).filter((x) => x.t !== 'E').length);
     const wk = (x) => x / weeksDone;

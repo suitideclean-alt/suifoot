@@ -59,7 +59,7 @@
     const ac = club.ac, ct = ac && ac.contract;
     const coachCard = `<div class="card"><h2>${t('ac_title')}</h2>${ac ? `<div class="row"><b>${h.esc(ac.name)}</b><span class="mut">${t('ac_rep')} ${ac.rep} · ${t('ct_left')} ${(Math.max(0, ct.left) / CFG.owner.W).toFixed(1)}</span></div><div class="row sm"><span>${t('ow_conf')}</span><span>${Math.round(ac.board)}/100</span></div>${bar(ac.board, lvlCls(ac.board))}` : `<p class="warn">${t('ac_none')}</p>`}<button class="btn" style="margin-top:10px" data-act="tab:coach">${t('of_coach_open')}</button></div>`;
     return page(t('os_summary'), t('ow_summary_note'), `${kpis([
-      kpi(t('balance'), h.mc(fc.bal), t('ow_fc_end', { amt: h.mc(fc.end) }), fc.bal < 0 ? 'bad' : ''),
+      kpi(t('balance') + ' (USD)', h.mc(fc.bal), t('ow_fc_end', { amt: h.mc(fc.end) }), fc.bal < 0 ? 'bad' : ''),
       kpi(t('ow_season_net'), (net >= 0 ? '+' : '') + h.mc(net), t('ow_wk', { n: b.wk, m: CFG.TOTAL_WEEKS }), net >= 0 ? 'good' : 'bad'),
       kpi(t('ow_value'), h.mc(val), (val >= prev ? '▲ ' : '▼ ') + h.mc(Math.abs(val - prev)), val >= prev ? 'good' : 'bad'),
       kpi(t('os_rep'), o.orep + '/100', t('style_' + B_.style(o)), lvlCls(o.orep)),
@@ -145,9 +145,9 @@
     }
     const kitDone = b.kitUsed === G.season;
     const merch = `<div class="card"><h2>${t('ow_merch')}</h2><p class="mut sm">${t('ow_merch_note')}</p>${seg('o_merch', ['low', 'normal', 'premium'].map((v) => ({ v, l: t('ow_p_' + v), s: t('ow_merch_' + v) })), b.merch)}
-      <div class="row" style="margin-top:10px"><button class="btn" data-act="o_kit" ${kitDone ? 'disabled' : ''}>${t('ow_kit')} · ${h.mc(B_.kitCost(club))}</button><span class="mut sm">${b.kitLeft > 0 ? t('ow_kit_on', { n: b.kitLeft }) : kitDone ? t('ow_kit_used') : t('ow_kit_note')}</span></div></div>`;
+      <div class="row" style="margin-top:10px"><button class="btn" data-act="o_kit" ${kitDone ? 'disabled' : ''}>${t('ow_kit')} · ${h.ic(club, B_.kitCost(club))}</button><span class="mut sm">${b.kitLeft > 0 ? t('ow_kit_on', { n: b.kitLeft }) : kitDone ? t('ow_kit_used') : t('ow_kit_note')}</span></div></div>`;
     const mem = `<div class="card"><h2>${t('ow_members')}</h2><p class="mut sm">${t('ow_members_note')}</p>${seg('o_member', ['low', 'normal', 'high'].map((v) => ({ v, l: t('ow_p_' + v), s: t('ow_mem_' + v) })), b.member)}</div>`;
-    const evs = ['concert', 'friendly', 'tour'].map((k) => `<div class="tip s1"><div class="body"><div class="row"><span><b>${t('ev_' + k)}</b> <span class="mut sm">· ${t('ow_cost')} ${h.mc(B_.eventCost(club, k))}</span></span><button class="btn sm pri" data-act="o_event:${k}" ${b.evN >= 2 ? 'disabled' : ''}>${t('ow_run')}</button></div><div class="mut sm">${t('ev_d_' + k)}</div></div></div>`).join('');
+    const evs = ['concert', 'friendly', 'tour'].map((k) => `<div class="tip s1"><div class="body"><div class="row"><span><b>${t('ev_' + k)}</b> <span class="mut sm">· ${t('ow_cost')} ${h.ic(club, B_.eventCost(club, k))}</span></span><button class="btn sm pri" data-act="o_event:${k}" ${b.evN >= 2 ? 'disabled' : ''}>${t('ow_run')}</button></div><div class="mut sm">${t('ev_d_' + k)}</div></div></div>`).join('');
     const ev = `<div class="card wide"><h2>${t('ow_events')} <span class="mut" style="text-transform:none">· ${t('ow_events_left', { n: 2 - b.evN })}</span></h2>${evs}</div>`;
     const att = Game.attendance(club);
     const tick = `<div class="card"><h2>${t('ticket_price')}</h2>${club.mgr ? `<p class="mut sm">${t('ow_mgr_prices', { name: h.esc(club.mgr.name) })}</p>` : ''}
@@ -159,15 +159,15 @@
   // ---------- 5. club (investments) ----------
   function clubPage(c, club) {
     const h = H(), G = UI.G, b = club.boss, B_ = Bo(), A = SF.Actions;
-    const lineRow = (k, icon) => `<div class="tip s1"><div class="body"><div class="row"><b>${icon} ${t('ln_' + k)}</b><span class="mut sm">${b.lines[k] ? t('ow_per_wk', { amt: h.mc(B_.lineCost(club, k, b.lines[k])) }) : t('ow_off')}</span></div>
+    const lineRow = (k, icon) => `<div class="tip s1"><div class="body"><div class="row"><b>${icon} ${t('ln_' + k)}</b><span class="mut sm">${b.lines[k] ? t('ow_per_wk', { amt: h.ic(club, B_.lineCost(club, k, b.lines[k])) }) : t('ow_off')}</span></div>
       ${seg('o_line', [0, 1, 2, 3].map((n) => ({ v: k + '-' + n, l: n ? String(n) : '–', s: n ? h.mc(B_.lineCost(club, k, n)) : '' })), k + '-' + b.lines[k])}<div class="mut sm" style="margin-top:6px">${t('ln_d_' + k)}</div></div></div>`;
     const lines = `<div class="card wide"><h2>${t('ow_lines')}</h2><p class="mut sm">${t('ow_lines_note')}</p>${lineRow('acad', '🎓')}${lineRow('mkt', '📣')}${lineRow('comm', '🤝')}</div>`;
     const step = A.expandStep(club);
-    const steps = [1, 2, 3].map((n) => `<button class="btn sm" data-act="expand:${n}" ${club.build || b.build ? 'disabled' : ''}>+${h.money(n * step)} · ${h.mc(A.stadiumCost(G, club, n))}</button>`).join(' ');
+    const steps = [1, 2, 3].map((n) => `<button class="btn sm" data-act="expand:${n}" ${club.build || b.build ? 'disabled' : ''}>+${h.money(n * step)} · ${h.ic(club, A.stadiumCost(G, club, n))}</button>`).join(' ');
     const att = Game.attendance(club);
-    const projRow = (k) => { const lv = b.proj[k]; return `<div class="row"><span style="flex:1;min-width:150px"><b>${t('pj_' + k)}</b> <span class="mut sm">${t('level')} ${lv}/${B_.MAXPROJ}</span><div class="mut sm">${t('pj_d_' + k)}</div></span>${lv < B_.MAXPROJ ? `<button class="btn sm" data-act="o_proj:${k}" ${b.build || club.build ? 'disabled' : ''}>${t('upgrade')} · ${h.mc(B_.projCost(club, k))}</button>` : `<span class="good sm">✓ ${t('ow_max')}</span>`}</div>`; };
+    const projRow = (k) => { const lv = b.proj[k]; return `<div class="row"><span style="flex:1;min-width:150px"><b>${t('pj_' + k)}</b> <span class="mut sm">${t('level')} ${lv}/${B_.MAXPROJ}</span><div class="mut sm">${t('pj_d_' + k)}</div></span>${lv < B_.MAXPROJ ? `<button class="btn sm" data-act="o_proj:${k}" ${b.build || club.build ? 'disabled' : ''}>${t('upgrade')} · ${h.ic(club, B_.projCost(club, k))}</button>` : `<span class="good sm">✓ ${t('ow_max')}</span>`}</div>`; };
     const works = b.build ? `<p class="warn">${t('ow_works', { k: t('pj_' + b.build.k), n: b.build.left })}</p>` : club.build ? `<p class="warn">${t('building', { seats: club.build.seats, left: club.build.left })}</p>` : '';
-    const fac = (k) => { const l = club.facility[k]; return `<div class="row"><span style="min-width:150px">${t('fac_' + k)}</span><span>${t('level')} ${l}/${CFG.facMax}</span>${l < CFG.facMax ? `<button class="btn sm" data-act="fac:${k}">${t('upgrade')} · ${h.mc(A.facilityCost(club, k))}</button>` : ''}</div>`; };
+    const fac = (k) => { const l = club.facility[k]; return `<div class="row"><span style="min-width:150px">${t('fac_' + k)}</span><span>${t('level')} ${l}/${CFG.facMax}</span>${l < CFG.facMax ? `<button class="btn sm" data-act="fac:${k}">${t('upgrade')} · ${h.ic(club, A.facilityCost(club, k))}</button>` : ''}</div>`; };
     const stad = `<div class="card"><h2>${t('stadium')}</h2>${h.fx.stadium(att / club.cap, club)}<p>${t('capacity')}: <b>${h.money(club.cap)}</b> · ${t('exp_attendance')}: <b>${h.money(att)}</b></p>${works}<div class="row wrapb">${steps}</div>
       <h2 style="margin-top:14px">${t('ow_projects')}</h2>${PROJ.map(projRow).join('')}</div>`;
     const facs = `<div class="card"><h2>${t('facilities')}</h2><p class="mut sm">${t('ow_fac_note')}</p>${fac('youth')}${fac('train')}</div>`;

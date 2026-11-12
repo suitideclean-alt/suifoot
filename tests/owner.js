@@ -6,7 +6,7 @@ const eq = (a, b, m) => { if (a !== b) throw new Error((m || '') + ` expected ${
 const truthy = (a, m) => { if (!a) throw new Error(m || 'expected truthy'); };
 const { Game, Actions: A, Bank: B, Owner: O, CFG } = SF;
 const E_value = (p) => SF.Econ.value(p);
-const conserved = (G) => eq(B.supply(G), B.totalBalances(G), 'money conserved');
+const conserved = (G) => { eq(B.supply(G), B.totalBalances(G), 'money conserved'); eq(B.tsupply(G), B.ttotal(G), 'SFOOT conserved'); };
 
 function setup(role, seed) {
   const G = Game.newGame({ seed: seed || 7, coaches: [{ name: 'A', role }] });

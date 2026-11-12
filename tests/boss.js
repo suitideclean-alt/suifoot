@@ -5,12 +5,13 @@ function t(name, fn) { try { fn(); pass++; console.log('  ok  ' + name); } catch
 const eq = (a, b, m) => { if (a !== b) throw new Error((m || '') + ` expected ${b} got ${a}`); };
 const truthy = (a, m) => { if (!a) throw new Error(m || 'expected truthy'); };
 const { Game, Bank: B, Owner: O, Boss: Bo } = SF;
-const conserved = (G) => eq(B.supply(G), B.totalBalances(G), 'money conserved');
+const conserved = (G) => { eq(B.supply(G), B.totalBalances(G), 'money conserved'); eq(B.tsupply(G), B.ttotal(G), 'SFOOT conserved'); };
 function setup(seed) {
   const G = Game.newGame({ seed: seed || 11, coaches: [{ name: 'A', role: 'owner' }] });
   SF.setG(G);
   const co = G.coaches[0], club = G.clubs[co.club];
   B.credit(G, club.id, 2000000, 'bailout');
+  B.tcredit(G, SF.Owner.sfAcc(co.id), 2000000, 'grant');
   return { G, co, club };
 }
 const season = (G, co) => { let g = 0; while (G.phase === 'play' && g++ < 80) { Game.playWeekAuto(G); for (const a of G.approvals || []) if (a.status === 'open') O.decide(G, co, a.id, true); } };
@@ -34,8 +35,9 @@ t('investment lines cost money every week and raise academy potential', () => {
   const { G, co, club } = setup();
   Bo.setLine(G, co, 'acad', 3); Bo.setLine(G, co, 'mkt', 2); Bo.setLine(G, co, 'comm', 1);
   Game.playWeekAuto(G);
-  const k = (n) => (G.bank.led[club.id] || []).filter((e) => e[2] === n).length;
-  eq(k('academy') > 0 && k('marketing') > 0 && k('community') > 0, true, 'lines are debited');
+  const k = (n) => (G.bank.tled[club.id] || []).filter((e) => e[2] === n).length;
+  eq(k('academy') > 0 && k('marketing') > 0 && k('community') > 0, true, 'lines are debited in SFOOT');
+  eq((G.bank.led[club.id] || []).some((e) => e[2] === 'academy'), false, 'and not in USD');
   truthy(Bo.acadPot(club) > 3 && Bo.acadExtra(club) === 1); conserved(G);
 });
 t('merch price and membership trade money for supporters happiness', () => {
@@ -159,6 +161,45 @@ t('old saves migrate: no boss state yet, it is created', () => {
   const s = JSON.parse(JSON.stringify(G)); delete s.owners; delete s.coaches[0].own;
   const g2 = Game.migrate ? Game.migrate(s) : s; SF.setG(g2);
   truthy(g2.clubs[g2.coaches[0].club].boss && g2.owners, 'created');
+});
+
+t('two currencies: investments are paid in SFOOT by the human owner, wages and transfers stay in USD', () => {
+  const { G, co, club } = setup();
+  const usd0 = B.bal(G, club.id), sf0 = O.sfBal(G, co.id);
+  const r = SF.Actions.upgradeFacility(G, co, 'train');
+  truthy(r.ok, 'upgrade works');
+  eq(B.bal(G, club.id), usd0, 'USD untouched by an investment');
+  eq(O.sfBal(G, co.id), sf0 - r.cost, 'SFOOT paid by the owner');
+  const s2 = O.sfBal(G, co.id); G.bank.tok[O.sfAcc(co.id)] = 10;
+  eq(SF.Actions.upgradeFacility(G, co, 'train').err, 'no_funds', 'no SFOOT, no investment even with USD');
+  G.bank.tok[O.sfAcc(co.id)] = s2;
+  const w0 = B.bal(G, club.id); Game.playWeekAuto(G);
+  truthy(G.bank.led[club.id].some((e) => e[2] === 'wages'), 'wages are in USD');
+  truthy(B.bal(G, club.id) !== w0); conserved(G);
+});
+t('two currencies: prizes are paid in SFOOT to a human owner; computer clubs burn theirs', () => {
+  const { G, co, club } = setup();
+  const sf0 = O.sfBal(G, co.id), usd0 = B.bal(G, club.id), min0 = G.bank.tminted;
+  Game.income(G, club.id, 12345, 'prize');
+  eq(O.sfBal(G, co.id), sf0 + 12345, 'owner gets the prize'); eq(B.bal(G, club.id), usd0, 'club USD untouched');
+  const npc = G.clubIds.find((id) => !G.clubs[id].human);
+  const m1 = G.bank.tminted; Game.income(G, npc, 9999, 'prize');
+  eq(G.bank.tminted, m1, 'nothing minted for a computer club'); truthy((G.bank.tburnedPrize || 0) >= 9999, 'counted as burned');
+  eq(G.bank.tminted - min0, 12345); conserved(G);
+});
+t('two currencies: a coach role (computer owner) invests from the club USD; a line without SFOOT switches off', () => {
+  const G = Game.newGame({ seed: 4, coaches: [{ name: 'C', role: 'coach' }] }); const co = G.coaches[0], club = G.clubs[co.club];
+  eq(O.payer(G, club), null, 'no human owner'); eq(O.sfBal(G, co.id), 0, 'a coach holds no SFOOT');
+  const o = setup(); const { G: G2, co: co2, club: club2 } = o;
+  Bo.setLine(G2, co2, 'acad', 2); G2.bank.tok[O.sfAcc(co2.id)] = 0;
+  Game.playWeekAuto(G2);
+  eq(club2.boss.lines.acad, 0, 'line switched off'); truthy(G2.news.some((n) => n.k === 'n_line_off'));
+});
+t('old saves migrate: SFOOT accounts are created with the starting grant for owners', () => {
+  const G = Game.newGame({ seed: 6, coaches: [{ name: 'A', role: 'both' }] });
+  const s = Game.serialize(G); const o = JSON.parse(s); delete o.bank.tok; delete o.bank.tminted; delete o.bank.tburned; delete o.chk;
+  const g2 = Game.deserialize(JSON.stringify(o));
+  eq(O.sfBal(g2, g2.coaches[0].id), SF.CFG.startSfoot);
 });
 
 console.log(`\n${pass} passed, ${fail} failed`);

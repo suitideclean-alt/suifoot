@@ -41,7 +41,7 @@
   }
   function save() { try { localStorage.setItem(SAVE_(), Game.serialize(UI.G)); } catch (e) { /* storage full or blocked */ } }
   function errMsg(r) {
-    const k = 'err_' + r.err;
+    const k = r.err === 'no_funds' && r.sf ? 'err_no_funds_sf' : 'err_' + r.err;
     return SF.I18N.D[k] ? t(k, { ask: r.ask, max: r.max != null ? r.max : CFG.SQUAD_MAX, min: CFG.SQUAD_MIN, cost: r.cost, why: r.why ? t('why_' + r.why) : '' }) : t('err_generic');
   }
   function res(r, okMsg) {
@@ -178,7 +178,7 @@
     const bal = club ? B.bal(G, club.id) : 0;
     return `<header class="top"><div class="in"><div class="logo">${SF.Fx.logo(34)}<span>Sui<b>Foot</b></span></div>
       <span class="pill">${t('season')} ${G.season}${G.phase === 'seasonEnd' ? '' : ' · ' + t('week') + ' ' + G.week + '/' + G.sched.length}</span>
-      ${club ? `<span class="pill">${badge(club, 16)} ${esc(club.name)}</span><span class="pill ${bal < 0 ? 'neg' : ''}">${t('balance')} <b>${money(bal)}</b> SFOOT</span>${c.vac > 0 ? `<span class="pill vac">🏖 ${t('vac_pill', { n: c.vac })}</span>` : ''}` : ''}
+      ${club ? `<span class="pill">${badge(club, 16)} ${esc(club.name)}</span><span class="pill ${bal < 0 ? 'neg' : ''}">${t('balance')} <b>${money(bal)}</b> USD</span>${SF.Owner.role(c) !== 'coach' ? `<span class="pill">SFOOT <b>${money(SF.Owner.sfBal(G, c.id))}</b></span>` : ''}${c.vac > 0 ? `<span class="pill vac">🏖 ${t('vac_pill', { n: c.vac })}</span>` : ''}` : ''}
       <div class="sp"></div>${walletPill()}<button class="sndbtn" data-act="snd" title="${t('sound_label')}">${SF.Fx.soundOn() ? '🔊' : '🔇'}</button>
       ${G.coaches.length > 1 ? `<div class="coachsw">${G.coaches.map((x, i) => `<button class="${i === UI.ci ? 'on' : ''}" data-act="coach:${i}">${esc(x.name)}</button>`).join('')}</div>` : ''}
     </div><nav class="tabs">${tabs.map((k) => `<button class="${UI.tab === k ? 'on' : ''}" data-act="tab:${k}">${t('tab_' + k)}${k === 'owner' && nreq ? ` <b class="badge">${nreq}</b>` : ''}</button>`).join('')}</nav></header>
@@ -333,6 +333,8 @@
       ${away.length ? `<div class="card" style="margin-top:14px"><h2>${t('loans_out_title')}</h2>${away.map((p) => `<div class="sm">${posTag(p.pos)} ${starTag(p)}${plink(p)} ${ovTag(p.ovr)} · ${t('loan_to', { club: cname(p.club) })} · <span class="mut">${t('loan_left', { n: p.loan.left })}</span></div>`).join('')}</div>` : ''}`;
   }
   const mc = (n) => util.money(n, true);
+  /** cost of an investment with its currency: SFOOT when a human owner pays, USD when the (computer) owner pays from the club */
+  const ic = (club, n) => mc(n) + ' ' + (SF.Owner.payer(UI.G, club) ? 'SFOOT' : 'USD');
 
   // ---------- league ----------
   function leagueView() {
@@ -466,8 +468,8 @@
     const tips = list.map((tp) => {
       let acts = '';
       if (tp.act === 'price') acts = `<button class="btn sm pri" data-act="setprice:${tp.price}">${t('tip_set_price', { best: tp.price })}</button>`;
-      else if (tp.act === 'stadium') acts = `<button class="btn sm pri" data-act="expand:1" ${club.build ? 'disabled' : ''}>${t('tip_expand')} · ${mc(A.stadiumCost(G, club, 1))}</button>`;
-      else if (tp.act === 'facility') acts = `<button class="btn sm" data-act="fac:youth">${t('fac_youth')} · ${mc(A.facilityCost(club, 'youth'))}</button> <button class="btn sm" data-act="fac:train">${t('fac_train')} · ${mc(A.facilityCost(club, 'train'))}</button>`;
+      else if (tp.act === 'stadium') acts = `<button class="btn sm pri" data-act="expand:1" ${club.build ? 'disabled' : ''}>${t('tip_expand')} · ${ic(club, A.stadiumCost(G, club, 1))}</button>`;
+      else if (tp.act === 'facility') acts = `<button class="btn sm" data-act="fac:youth">${t('fac_youth')} · ${ic(club, A.facilityCost(club, 'youth'))}</button> <button class="btn sm" data-act="fac:train">${t('fac_train')} · ${mc(A.facilityCost(club, 'train'))}</button>`;
       else if (tp.act === 'market') acts = `<button class="btn sm" data-act="tab:transfers">${t('tip_market')}</button>`;
       else if (tp.act === 'loan' && tp.k === 'overdraft') acts = `<button class="btn sm pri" data-act="loan">${t('take_loan')}</button> <button class="btn sm" data-act="tab:squad">${t('tab_squad')}</button>`;
       else if (tp.act === 'loan') acts = B_loans(club).map((l) => `<button class="btn sm" data-act="repay:${l.id}">${t('repay_early')} #${l.id} · ${mc(B.earlyRepayCost(l))}</button>`).join(' ');
@@ -485,6 +487,14 @@
   }
   const B_loans = (club) => UI.G.bank.loans.filter((l) => l.club === club.id);
 
+  /** the owner's SFOOT: balance, what it paid for and what prizes brought in */
+  function sfCard(c, club) {
+    const G = UI.G;
+    if (SF.Owner.role(c) === 'coach') return `<div class="card"><h2>SFOOT</h2><p class="mut sm">${t('sf_coach_note')}</p></div>`;
+    const ts = (G.bank.tsf && G.bank.tsf[club.id]) || {};
+    const rows = Object.keys(ts).filter((k) => ts[k]).sort((a, b) => Math.abs(ts[b]) - Math.abs(ts[a])).map((k) => `<div class="row sm"><span style="flex:1">${SF.I18N.D['k_' + k] ? t('k_' + k) : k}</span><span class="${ts[k] >= 0 ? 'good' : 'bad'}">${ts[k] >= 0 ? '+' : ''}${money(ts[k])}</span></div>`).join('');
+    return `<div class="card"><h2>SFOOT</h2><div class="big">${money(SF.Owner.sfBal(G, c.id))} SFOOT</div><p class="mut sm">${t('sf_note')}</p>${rows || `<p class="mut sm">${t('sf_none')}</p>`}</div>`;
+  }
   function financeView() {
     const G = UI.G, c = co(), club = myClub();
     if (!club) return `<div class="card">${t('unemployed')}</div>`;
@@ -499,11 +509,11 @@
     const loans = G.bank.loans.filter((l) => l.club === club.id);
     const lim = B.creditLimit(G, club.id);
     const step = A.expandStep(club);
-    const steps = [1, 2, 3].map((n) => `<button class="btn sm" data-act="expand:${n}" ${club.build ? 'disabled' : ''}>${t('expand_n', { n: n * step })} · ${mc(A.stadiumCost(G, club, n))}</button>`).join(' ');
-    const fac = (k) => { const l = club.facility[k]; return `<div class="row"><span style="min-width:150px">${t('fac_' + k)}</span><span>${t('level')} ${l}/${CFG.facMax}</span>${l < CFG.facMax ? `<button class="btn sm" data-act="fac:${k}">${t('upgrade')} · ${mc(A.facilityCost(club, k))}</button>` : ''}</div>`; };
+    const steps = [1, 2, 3].map((n) => `<button class="btn sm" data-act="expand:${n}" ${club.build ? 'disabled' : ''}>${t('expand_n', { n: n * step })} · ${ic(club, A.stadiumCost(G, club, n))}</button>`).join(' ');
+    const fac = (k) => { const l = club.facility[k]; return `<div class="row"><span style="min-width:150px">${t('fac_' + k)}</span><span>${t('level')} ${l}/${CFG.facMax}</span>${l < CFG.facMax ? `<button class="btn sm" data-act="fac:${k}">${t('upgrade')} · ${ic(club, A.facilityCost(club, k))}</button>` : ''}</div>`; };
     const isOwner = SF.Owner.role(c) === 'owner';
     return `<div class="grid">${isOwner ? '' : advisorCard(c, club)}${balanceChart(club)}
-      <div class="card"><h2>${t('fin_summary')}</h2><div class="big ${B.bal(G, club.id) < 0 ? 'bad' : 'good'}">${money(B.bal(G, club.id))} SFOOT</div>
+      <div class="card"><h2>${t('fin_summary')}</h2><div class="big ${B.bal(G, club.id) < 0 ? 'bad' : 'good'}">${money(B.bal(G, club.id))} USD</div>
         <h3 class="sm mut">${t('fin_income')}: ${money(ti)}</h3>${inc.map(([k, v]) => `<div class="row sm"><span style="flex:1">${kl(k)}</span><span class="good">+${money(v)}</span></div>`).join('')}
         <h3 class="sm mut" style="margin-top:10px">${t('fin_expenses')}: ${money(te)}</h3>${exp.map(([k, v]) => `<div class="row sm"><span style="flex:1">${kl(k)}</span><span class="bad">-${money(v)}</span></div>`).join('')}</div>
       ${isOwner ? '' : `<div class="card"><h2>${t('stadium')}</h2>${SF.Fx.stadium(att / club.cap, club)}<p>${t('capacity')}: <b>${money(club.cap)}</b> · ${t('exp_attendance')}: <b>${money(att)}</b></p>
@@ -515,7 +525,8 @@
         ${loans.length ? tbl(['', '>' + t('loan_weekly'), '>' + t('loan_total'), ''], loans.map((l) => `<tr><td>#${l.id}</td><td class="r">${money(l.weekly)}</td><td class="r">${money(l.due)}</td><td><button class="btn sm" data-act="repay:${l.id}">${t('repay_early')} · ${mc(B.earlyRepayCost(l))}</button></td></tr>`)) : `<p class="mut">${t('no_loans')}</p>`}
         <button class="btn" data-act="loan" ${lim <= 0 ? 'disabled' : ''}>${t('take_loan')}</button></div>`}
       <div class="card"><h2>${t('ledger')}</h2>${tbl(['', '', '>'], led.map((e) => `<tr><td class="mut sm">${e[0]}·${e[1]}</td><td>${kl(e[2])}</td><td class="r ${e[3] >= 0 ? 'good' : 'bad'}">${e[3] >= 0 ? '+' : ''}${money(e[3])}</td></tr>`))}</div>
-      <div class="card wide"><h2>${t('token_title')}</h2><p>${t('token_note')}</p><p class="mut sm">${t('supply')}: ${money(B.supply(G))} SFOOT</p></div></div>`;
+      ${sfCard(c, club)}
+      <div class="card wide"><h2>${t('token_title')}</h2><p>${t('token_note')}</p><p class="mut sm">${t('supply')}: ${money(B.supply(G))} USD · ${money(B.tsupply(G))} SFOOT</p></div></div>`;
   }
 
   // ---------- coach ----------
@@ -528,7 +539,7 @@
     const best = Game.players(G, cl).sort((a, b) => b.ovr - a.ovr).slice(0, 5);
     const last = cl.hist.length ? cl.hist[cl.hist.length - 1] : null;
     return `<div class="sm"><p>${divName(cl.div)} · ${t('standing')}: <b>${pos}</b>/${CFG.PER_DIV} · ${t('pts')} ${tb.pts} (${tb.w}-${tb.d}-${tb.l})</p>
-      <p>${t('club_balance')}: <b>${money(B.bal(G, id))}</b> SFOOT · ${t('strength')}: ${Math.round(Game.strength(G, cl) * 10) / 10}</p>
+      <p>${t('club_balance')}: <b>${money(B.bal(G, id))}</b> USD · ${t('strength')}: ${Math.round(Game.strength(G, cl) * 10) / 10}</p>
       <p>${t('capacity')}: ${money(cl.cap)} · ${t('club_fans')}: ${money(cl.fans)} · ${t('club_titles')}: ${cl.title} / ${cl.cups}</p>
       ${last ? `<p>${t('club_last')}: ${divName(last.d)}, #${last.pos}</p>` : ''}
       <p>${t('objective')}: ${t('obj_text', { n: cl.target })}</p>
@@ -1322,11 +1333,11 @@
       case 'sellnow': {
         const p = G.players[+arg];
         const price = Math.round((E.value(p) * 0.65 * (1 + 0.015 * c.sk.neg)) / 100) * 100;
-        return modal(`<h3>${esc(p.n)}</h3><p>${t('sell_now')}: <b>${money(price)}</b> SFOOT</p>`, () => { res(A.sellNow(G, c, p.id), t('ok_sold', { fee: price })); });
+        return modal(`<h3>${esc(p.n)}</h3><p>${t('sell_now')}: <b>${money(price)}</b> USD</p>`, () => { res(A.sellNow(G, c, p.id), t('ok_sold', { fee: price })); });
       }
       case 'release': {
         const p = G.players[+arg];
-        return modal(`<h3>${esc(p.n)}</h3><p>${t('release')}: ${t('cost')} <b>${money(A.releaseCost(p))}</b> SFOOT</p>`, () => { res(A.release(G, c, p.id)); });
+        return modal(`<h3>${esc(p.n)}</h3><p>${t('release')}: ${t('cost')} <b>${money(A.releaseCost(p))}</b> USD</p>`, () => { res(A.release(G, c, p.id)); });
       }
       case 'renew': {
         const p = G.players[+arg];
@@ -1353,7 +1364,7 @@
     }
   }
 
-  UI.h = { t, esc, money, mc, tbl, ctag, posTag, plink, ovTag, divName, rqStatus, res, modal, render, co, myClub, cashCard, balanceChart, ownerTips, ownerTeam, ownerManager, fx: SF.Fx };
+  UI.h = { t, esc, money, mc, ic, tbl, ctag, posTag, plink, ovTag, divName, rqStatus, res, modal, render, co, myClub, cashCard, balanceChart, ownerTips, ownerTeam, ownerManager, fx: SF.Fx };
 
   window.addEventListener('DOMContentLoaded', init);
 })();

@@ -42,3 +42,12 @@ Dono (roles `owner` e `both`; estado em `club.nz`) com caixa parada (> 16 unidad
 ## Clube no vermelho (v0.9.11) e autonomia de caixa (v0.9.9–10)
 - Clube humano (qualquer papel) com saldo negativo: `nz.red = min(0,5, dívida / (32 × unidade semanal da divisão))`. Em conjunto com a negligência (`Bo.stress = max`) reduz bilheteira (−30%), patrocínio (−40%), merch/sócios (−35%), humor dos adeptos (−30), adeptos por época (−6%) e humor do plantel (−1,2/semana), com os fatores multiplicados por `stress` (máx. 0,5 no caso da dívida).
 - Treinador e dono-treinador: `O.runway` = semanas de caixa ao resultado semanal médio das últimas 10 semanas. < 12 semanas: aviso; < 4 semanas: bloqueia compras, assinaturas, empréstimos de entrada e renovações que agravem a perda. Saldo negativo bloqueia tudo isso. Vender e baixar salários são sempre permitidos.
+
+## Duas moedas (v0.9.13)
+- **USD** (moeda do jogo, virtual): salários, transferências, renovações, bilheteira, TV, patrocínios, empréstimos, multas. Nunca sai do jogo.
+- **SFOOT** (token real): investimentos (estádio, instalações, projetos, equipamento especial, eventos, programas de academia/marketing/comunidade) e **prémios**. Nunca se converte em USD.
+- Quem paga o investimento em SFOOT é o **dono humano** (papéis `owner` e `both`), a partir da sua conta SFOOT. Num clube com treinador humano e dono computador, o investimento sai do USD do clube (dinheiro virtual do dono computador).
+- Prémios (liga, subida, taça, marcador, Liga dos Campeões): pagos em SFOOT ao dono humano do clube. Clube sem dono humano: o prémio **não é criado** (equivale a queimar).
+- Programa semanal (academia, marketing, comunidade) sem SFOOT suficiente: desliga-se com aviso.
+- Teste: cada dono humano recebe `CFG.startSfoot` (500 000) ao começar; jogos antigos recebem-no ao migrar.
+- Os valores dos prémios ainda são os antigos; a fórmula dos 75 % das entradas fica para a especificação económica.

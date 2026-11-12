@@ -30,6 +30,29 @@
   O.wallet = (id) => 'w:' + id;
   O.openWallet = function (G, id) { if (G.bank.acc[O.wallet(id)] == null) B.open(G, O.wallet(id), 0, true); };
   O.walletBal = (G, id) => B.bal(G, O.wallet(id));
+  /** the human's SFOOT account (the real token): pays the club's investments and receives the prizes */
+  O.sfAcc = (id) => 't:' + id;
+  O.sfBal = (G, id) => B.tbal(G, O.sfAcc(id));
+  /** who pays for a club investment in SFOOT: the human owner (roles owner and both). A computer owner pays from the club's USD. */
+  O.payer = function (G, club) {
+    if (!club || !club.owner) return null;
+    const co = G.coaches.find((c) => c.id === club.owner);
+    return co && ROLE(co) !== 'coach' ? co : null;
+  };
+  O.invBal = (G, club) => { const p = O.payer(G, club); return p ? O.sfBal(G, p.id) : B.bal(G, club.id); };
+  O.invCan = (G, club, cost) => O.invBal(G, club) >= cost;
+  O.invPay = function (G, club, cost, kind) {
+    const p = O.payer(G, club);
+    if (p) return B.tdebit(G, O.sfAcc(p.id), cost, kind, club.id);
+    return B.debit(G, club.id, cost, kind);
+  };
+  /** prizes are paid in SFOOT to the human owner of the club; a club without a human owner burns its prize (it is never minted) */
+  O.prize = function (G, club, amt, memo) {
+    const p = O.payer(G, club);
+    amt = Math.round(amt);
+    if (!p || amt <= 0) { G.bank.tburnedPrize = (G.bank.tburnedPrize || 0) + Math.max(0, amt); return 0; }
+    return B.tcredit(G, O.sfAcc(p.id), amt, 'prize', club.id);
+  };
   O.wageBill = (G, club) => util.sum(club.squad.map((id) => G.players[id].wage));
 
   // ---------- policy (limits set by the owner) ----------

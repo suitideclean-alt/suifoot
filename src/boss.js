@@ -87,9 +87,9 @@
     }
     if (!Bo.neglectOn(G, club)) return;
     const z = club.nz;
-    const sf = G.bank.sf[club.id] || {};
+    const sf = G.bank.sf[club.id] || {}, ts = (G.bank.tsf && G.bank.tsf[club.id]) || {};
     let inv = 0;
-    for (const k of INVEST) inv += Math.abs(Math.min(0, sf[k] || 0));
+    for (const k of INVEST) inv += Math.abs(Math.min(0, sf[k] || 0)) + Math.abs(Math.min(0, ts[k] || 0));
     const delta = inv >= z.invPrev ? inv - z.invPrev : inv; // the season flows are reset every year
     z.invPrev = inv;
     z.invR = z.invR * 0.92 + delta;
@@ -189,7 +189,12 @@
     const ng = Bo.stress(club);
     // investment lines
     const kinds = { acad: 'academy', mkt: 'marketing', comm: 'community' };
-    for (const k of LINES) if (b.lines[k] > 0) B.debit(G, club.id, lineCost(club, k, b.lines[k]), kinds[k]);
+    // the lines are investments, paid in SFOOT by the owner: with no SFOOT left the line is switched off
+    for (const k of LINES) if (b.lines[k] > 0) {
+      const lc = lineCost(club, k, b.lines[k]);
+      if (SF.Owner.invCan(G, club, lc)) SF.Owner.invPay(G, club, lc, kinds[k]);
+      else { b.lines[k] = 0; SF.Game.news(G, 'n_line_off', { k }, co.id); }
+    }
     const sq = SF.Q.sqrt(club.fans / CFG.fans[club.div]);
     const f = club.form || [], avg = f.length ? util.avg(f) : 1.3, hype = 0.9 + 0.1 * avg;
     // merchandising and memberships
@@ -243,8 +248,8 @@
     if (!b || !Bo.active(G, club)) return { ok: false, err: 'owner_only' };
     if (b.kitUsed === G.season) return { ok: false, err: 'kit_used' };
     const cost = Bo.kitCost(club);
-    if (B.bal(G, club.id) < cost) return { ok: false, err: 'no_funds' };
-    B.debit(G, club.id, cost, 'kit');
+    if (!SF.Owner.invCan(G, club, cost)) return { ok: false, err: 'no_funds', sf: 1 };
+    SF.Owner.invPay(G, club, cost, 'kit');
     b.kitLeft = BC.kitWeeks; b.kitUsed = G.season; b.spent += 0; b.sup = Math.min(100, b.sup + 2);
     return { ok: true };
   };
@@ -259,8 +264,8 @@
     if (b.build || club.build) return { ok: false, err: 'busy' };
     if (b.proj[k] >= BC.maxProj) return { ok: false, err: 'max' };
     const cost = Bo.projCost(club, k);
-    if (B.bal(G, club.id) < cost) return { ok: false, err: 'no_funds' };
-    B.debit(G, club.id, cost, 'project');
+    if (!SF.Owner.invCan(G, club, cost)) return { ok: false, err: 'no_funds', sf: 1 };
+    SF.Owner.invPay(G, club, cost, 'project');
     b.spent += cost; b.build = { k, left: Math.min(14, 6 + b.proj[k]) };
     Bo.track(G, co, 'invest', { cost });
     return { ok: true, cost };
@@ -283,8 +288,8 @@
     if (b.evN >= BC.events.max) return { ok: false, err: 'max' };
     if (G.phase !== 'play') return { ok: false, err: 'phase' };
     const cost = Bo.eventCost(club, k), u = unit(club);
-    if (B.bal(G, club.id) < cost) return { ok: false, err: 'no_funds' };
-    B.debit(G, club.id, cost, 'event');
+    if (!SF.Owner.invCan(G, club, cost)) return { ok: false, err: 'no_funds', sf: 1 };
+    SF.Owner.invPay(G, club, cost, 'event');
     let inc = 0, note = '';
     if (k === 'concert') { inc = u * R.range(1.2, 2.4) * (1 + 0.1 * Bo.pe(b.proj.roof)); b.sup -= 3; if (R.chance(0.25)) { const rep = u * 1; B.debit(G, club.id, rep, 'event'); note = 'pitch'; } }
     if (k === 'friendly') { inc = u * R.range(0.8, 1.6); b.sup += 1; if (R.chance(0.15 * Bo.injMult(club))) { const p = R.pick(SF.Game.players(G, club)); if (p) { p.inj = Math.max(p.inj, R.int(2, 4)); note = 'inj'; } } }

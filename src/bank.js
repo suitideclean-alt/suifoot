@@ -1,14 +1,17 @@
-/* SuiFoot Bank: the in-game ledger. Every amount is in SFOOT (integer).
- * It is intentionally shaped like a Sui Coin<SFOOT> treasury so it can later be
- * swapped for the on-chain token: credit() = mint, debit() = burn, transfer() = move.
- * Phase A (this build): closed in-game currency, no real value. */
+/* SuiFoot Bank: the in-game ledger. Two currencies, both integers.
+ *  - USD (acc):   the game's own money: wages, transfers, gate, TV, sponsors, loans. Virtual, never leaves the game.
+ *  - SFOOT (tok): the real token: club investments (stadium, facilities, projects...) and prizes. Held by the human owner.
+ * The two are never converted into each other.
+ * The SFOOT side is shaped like a Sui Coin<SFOOT> treasury so it can later be swapped for the on-chain token:
+ * tcredit() = mint, tdebit() = burn (paid to the project treasury), ttransfer() = move.
+ * Phase A (this build): closed, off-chain, no real value. */
 (function () {
   const SF = globalThis.SF;
   const MINT = new Set(['gate', 'tv', 'sponsor', 'prize', 'loan', 'bailout', 'sale_fee']);
 
   SF.Bank = {
     init(G) {
-      G.bank = { acc: {}, minted: 0, burned: 0, flows: {}, led: {}, sf: {}, loans: [], nextLoan: 1, tracked: {} };
+      G.bank = { acc: {}, minted: 0, burned: 0, flows: {}, led: {}, sf: {}, loans: [], nextLoan: 1, tracked: {}, tok: {}, tminted: 0, tburned: 0, tflows: {}, tsf: {}, tled: {} };
     },
     open(G, id, amount, tracked) {
       G.bank.acc[id] = 0;
@@ -54,6 +57,45 @@
       else G.bank.flows[kind + '_in'] = (G.bank.flows[kind + '_in'] || 0) + amt;
     },
     supply(G) { return G.bank.minted - G.bank.burned; },
+
+    // ---------- SFOOT (the real token) ----------
+    ensureTok(G) {
+      const b = G.bank;
+      if (!b.tok) { b.tok = {}; b.tminted = 0; b.tburned = 0; b.tflows = {}; b.tsf = {}; b.tled = {}; }
+    },
+    tbal(G, id) { return (G.bank.tok && G.bank.tok[id]) || 0; },
+    tlog(G, id, kind, amt, clubId) {
+      const b = G.bank;
+      b.tflows[kind] = (b.tflows[kind] || 0) + amt;
+      if (clubId == null) return;
+      const sf = b.tsf[clubId] || (b.tsf[clubId] = {});
+      sf[kind] = (sf[kind] || 0) + amt;
+      const l = b.tled[clubId] || (b.tled[clubId] = []);
+      l.push([G.season, G.week, kind, amt, id]);
+      if (l.length > 100) l.splice(0, l.length - 100);
+    },
+    /** SFOOT enters the game (prize paid out, or the starting grant) */
+    tcredit(G, id, amt, kind, clubId) {
+      amt = Math.round(amt);
+      if (!amt) return 0;
+      SF.Bank.ensureTok(G);
+      G.bank.tok[id] = (G.bank.tok[id] || 0) + amt;
+      G.bank.tminted += amt;
+      SF.Bank.tlog(G, id, kind, amt, clubId);
+      return amt;
+    },
+    /** SFOOT leaves the owner and goes to the project treasury (investment); clubId says which club it was spent on */
+    tdebit(G, id, amt, kind, clubId) {
+      amt = Math.round(amt);
+      if (!amt) return 0;
+      SF.Bank.ensureTok(G);
+      G.bank.tok[id] = (G.bank.tok[id] || 0) - amt;
+      G.bank.tburned += amt;
+      SF.Bank.tlog(G, id, kind, -amt, clubId);
+      return amt;
+    },
+    tsupply(G) { return (G.bank.tminted || 0) - (G.bank.tburned || 0); },
+    ttotal(G) { let s = 0; for (const k in (G.bank.tok || {})) s += G.bank.tok[k]; return s; },
     totalBalances(G) { let s = 0; for (const k in G.bank.acc) s += G.bank.acc[k]; return s; },
 
     // ---------- loans ----------

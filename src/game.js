@@ -19,6 +19,7 @@
   Game.income = function (G, cid, amt, kind, memo) {
     const c = G.clubs[cid];
     if (c.foreign) return 0;
+    if (kind === 'prize') return SF.Owner.prize(G, c, amt, memo); // prizes are real SFOOT, paid to the human owner only
     const a = B.credit(G, cid, amt, kind, memo);
     c.rev += a;
     return a;
@@ -71,7 +72,7 @@
       club.owner = c.role === 'coach' ? 0 : c.id;
       if (c.role === 'coach') c.contract = SF.Owner.newContract(club, c.rep);
       SF.Owner.openWallet(G, c.id);
-      if (c.role !== 'coach') SF.Bank.credit(G, SF.Owner.wallet(c.id), 500000, 'bailout');
+      if (c.role !== 'coach') { SF.Bank.credit(G, SF.Owner.wallet(c.id), 500000, 'bailout'); SF.Bank.tcredit(G, SF.Owner.sfAcc(c.id), CFG.startSfoot, 'grant'); } // USD to run the club, SFOOT to invest (testnet grant)
       G.coaches.push(c);
     });
     if (o.bonus && G.coaches[0]) { G.coaches[0].rep = Math.min(100, G.coaches[0].rep + (o.bonus.rep || 0)); G.coaches[0].xp += o.bonus.xp || 0; }
@@ -118,6 +119,10 @@
     }
     for (const id of G.clubIds.concat(G.euIds)) { const c = G.clubs[id]; if (!c.style) c.style = R.weighted(['att', 'bal', 'def'], (x) => ({ att: 3, bal: 4, def: 3 }[x])); if (c.acad === undefined) c.acad = []; if (c.rival === undefined) c.rival = null; }
     if (!G.eu) { G.eu = null; if (G.divs) setupEuro(G, true); G.eu.idle = 1; }
+    if (!G.bank.tok) { // saves from before the two currencies: every human owner gets the starting SFOOT
+      SF.Bank.ensureTok(G);
+      for (const co of G.coaches) if (co.role && co.role !== 'coach') SF.Bank.tcredit(G, SF.Owner.sfAcc(co.id), CFG.startSfoot, 'grant');
+    }
     if (!G.tq) G.tq = [];
     if (G.divs) { SF.Extras.pairRivals(G); for (const co of G.coaches) { co.goals = co.goals || []; co.ach = co.ach || {}; co.watch = co.watch || []; if (co.club) { SF.Extras.fillGoals(G, co); SF.Extras.autoCaptain(G, G.clubs[co.club]); } } }
     SF.Owner.initNpcCoaches(G);
@@ -148,6 +153,7 @@
     for (let d = 0; d < CFG.DIVS; d++) G.divs.push(G.clubIds.filter((id) => G.clubs[id].div === d));
     G.table = {}; G.res = [];
     G.bank.sf = {};
+    G.bank.tsf = {};
     for (const id of G.clubIds) {
       const c = G.clubs[id];
       G.table[id] = { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 };
