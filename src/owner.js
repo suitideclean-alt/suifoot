@@ -100,6 +100,7 @@
     if (co.emerg && kind === 'sign') return null; // a legal squad is not optional: the coach may sign the cheapest free agents
     if (role === 'owner') return OWNER_ONLY.has(kind) ? null : (FREE.has(kind) ? null : { ok: false, err: 'owner_cant' });
     if (FREE.has(kind)) return null;
+    if (B.bal(G, club.id) < 0 && ['buy', 'sign', 'loanin', 'renew'].includes(kind)) return { ok: false, err: 'club_in_red' }; // no new commitments while the club is in the red
     const pol = O.policy(G, club);
     const why = OWNER_ONLY.has(kind) ? 'owner_only' : violation(G, club, pol, kind, p);
     if (!why) return null;
@@ -723,6 +724,11 @@
       else c.late++;
       payMatchBonus(G, club, co, c, false);
       c.left--;
+      // a club in the red is the coach's problem too: the board loses confidence every week
+      if (B.bal(G, club.id) < 0) {
+        co.board = Math.max(0, co.board - 1.5);
+        if (!co.redWarn || G.season !== co.redWarn) { co.redWarn = G.season; SF.Game.news(G, 'n_club_red', {}, co.id); }
+      }
     }
     for (const co of O.ownerClubs(G)) {
       O.acWeekly(G, co);

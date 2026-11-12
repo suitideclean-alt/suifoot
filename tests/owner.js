@@ -402,5 +402,19 @@ t('auto-advance stops at a request or at the end of the season', () => {
   truthy(G.phase === 'seasonEnd' || O.openFor(G, club.id).length > 0, 'stopped for a reason');
 });
 
+t('a coach cannot add commitments while the club is in the red, and the board loses confidence', () => {
+  const G = Game.newGame({ seed: 77, coaches: [{ name: 'C', role: 'coach' }] }); SF.setG(G);
+  const co = G.coaches[0], club = G.clubs[co.club];
+  SF.Bank.debit(G, club.id, SF.Bank.bal(G, club.id) + 5000, 'fine');
+  const pid = club.squad[0]; G.players[pid].ct = 1;
+  truthy(['club_in_red', 'no_funds'].includes(SF.Actions.renew(G, co, pid, 2).err), 'blocked');
+  const b0 = co.board; Game.playWeekAuto(G); truthy(co.board < b0, 'board ' + b0 + ' -> ' + co.board);
+});
+t('job offers wait while the coach is banned', () => {
+  const G = Game.newGame({ seed: 78, coaches: [{ name: 'C', role: 'coach' }] }); SF.setG(G);
+  const co = G.coaches[0]; SF.Actions.sack(G, co, false); SF.Actions.genOffers(G, co, 1);
+  co.offers.push({ id: 99, club: G.clubIds.find((i) => !G.clubs[i].human), ttl: 6, seen: 0 }); co.ban = 5;
+  SF.Actions.weeklyCareer(G); eq(co.offers.find((o) => o.id === 99).ttl, 6);
+});
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

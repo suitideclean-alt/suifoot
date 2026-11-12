@@ -486,7 +486,7 @@
   A.weeklyCareer = function (G) {
     for (const co of G.coaches) {
       if (SF.Owner.role(co) !== 'coach') continue;
-      co.offers = co.offers.filter((o) => { o.ttl--; return o.ttl > 0 && !G.clubs[o.club].human; });
+      co.offers = co.offers.filter((o) => { if (!(co.ban > 0)) o.ttl--; return o.ttl > 0 && !G.clubs[o.club].human; }); // offers wait while the coach is banned
       if (co.club) {
         co.jobWeeks++;
         if (co.board <= 15 && co.jobWeeks >= 8) { A.sack(G, co, false); continue; }
