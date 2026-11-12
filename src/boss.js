@@ -58,7 +58,7 @@
     for (const k of ['youth', 'train']) for (let i = 1; i < club.facility[k]; i++) fac += CFG.facStep(i) * CFG.facDiv[club.div] * 0.5;
     const b = club.boss;
     const proj = b ? b.spent * 0.8 : 0;
-    const brand = unit(club) * W * 2 * Math.sqrt(club.fans / CFG.fans[club.div]);
+    const brand = unit(club) * W * 2 * SF.Q.sqrt(club.fans / CFG.fans[club.div]);
     const cash = Math.max(0, B.bal(G, club.id));
     const debt = B.debtOf(G, club.id) + (b ? util.sum(b.bonds.map((x) => x.due)) : 0);
     return Math.round(sq + stadium + fac + proj + brand + cash - debt);
@@ -134,7 +134,7 @@
   // ---------- sponsors ----------
   const baseSponsor = (G, club) => {
     const co = humanOf(G, club);
-    return CFG.sponsorWeekly[club.div] * Math.sqrt(club.fans / CFG.fans[club.div]) * (co ? SF.Game.repSponsor(co.rep) : 1) * (1 - 0.4 * Bo.stress(club));
+    return CFG.sponsorWeekly[club.div] * SF.Q.sqrt(club.fans / CFG.fans[club.div]) * (co ? SF.Game.repSponsor(co.rep) : 1) * (1 - 0.4 * Bo.stress(club));
   };
   Bo.offers = function (G, club) {
     const b = Bo.init(G, club);
@@ -190,7 +190,7 @@
     // investment lines
     const kinds = { acad: 'academy', mkt: 'marketing', comm: 'community' };
     for (const k of LINES) if (b.lines[k] > 0) B.debit(G, club.id, lineCost(club, k, b.lines[k]), kinds[k]);
-    const sq = Math.sqrt(club.fans / CFG.fans[club.div]);
+    const sq = SF.Q.sqrt(club.fans / CFG.fans[club.div]);
     const f = club.form || [], avg = f.length ? util.avg(f) : 1.3, hype = 0.9 + 0.1 * avg;
     // merchandising and memberships
     const merch = u * 0.10 * sq * (1 + 0.15 * b.lines.mkt) * BC.merch[b.merch] * hype * (b.kitLeft > 0 ? 1.35 : 1) * (1 - 0.35 * ng);
@@ -251,7 +251,7 @@
   Bo.MAXPROJ = BC.maxProj;
   /** a project level counts fully up to level 2 and half after that, so level 10 is strong but not absurd */
   Bo.pe = (n) => (n <= BC.peHalf ? n : BC.peHalf + (n - BC.peHalf) * 0.5);
-  Bo.projUnits = (lv) => (lv === 0 ? 10 : lv === 1 ? 22 : Math.round(22 * Math.pow(1.45, lv - 1)));
+  Bo.projUnits = (lv) => (lv === 0 ? 10 : lv === 1 ? 22 : Math.round(22 * SF.Q.pow(1.45, lv - 1)));
   Bo.projCost = (club, k) => { const b = club.boss; return round(unit(club) * Bo.projUnits(b.proj[k]), 1000); };
   Bo.startProject = function (G, co, k) {
     const club = G.clubs[co.club], b = club && club.boss;

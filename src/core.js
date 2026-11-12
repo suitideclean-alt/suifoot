@@ -71,7 +71,7 @@
       let u = 0;
       while (u === 0) u = R.f();
       const v = R.f();
-      return m + s * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+      return m + s * SF.Q.sqrt(-2 * SF.Q.ln(u)) * SF.Q.cos(2 * SF.Q.PI * v);
     },
     shuffle(a) {
       for (let i = a.length - 1; i > 0; i--) {
@@ -91,7 +91,7 @@
   });
 
   /** cost to go from facility level n to n+1 (before the division factor): the old table up to 4, then +6% per level */
-  SF.CFG.facStep = (n) => (n <= 4 ? SF.CFG.facilityCost[n] : Math.round((SF.CFG.facilityCost[4] * Math.pow(1.06, n - 4)) / 1000) * 1000);
+  SF.CFG.facStep = (n) => (n <= 4 ? SF.CFG.facilityCost[n] : Math.round((SF.CFG.facilityCost[4] * SF.Q.pow(1.06, n - 4)) / 1000) * 1000);
 
   SF.util = {
     clamp: (x, a, b) => Math.max(a, Math.min(b, x)),

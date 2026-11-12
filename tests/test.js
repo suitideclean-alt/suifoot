@@ -252,4 +252,13 @@ t('long run with all v0.3 mechanics: 10 seasons, 2 coaches, nothing breaks, mone
   for(let s=0;s<10;s++){ Game.simulateSeason(G); eq(B.supply(G),B.totalBalances(G));
     for(const id of G.clubIds){ const c=G.clubs[id]; truthy(c.squad.length>=14&&c.squad.length<=CFG.SQUAD_MAX+2,'squad '+c.squad.length); for(const pid of c.squad) truthy(G.players[pid]&&G.players[pid].club===id,'player consistency'); } Game.newSeason(G); }
 });
+t('save checksum: a normal save loads clean, a hand-edited one is flagged, and the flag is permanent', () => {
+  const G = Game.newGame({ seed: 5, coaches: [{ name: 'A', role: 'coach' }] }); SF.setG(G);
+  Game.playWeekAuto(G);
+  const s = Game.serialize(G); eq(Game.deserialize(s).unverified, undefined, 'clean');
+  const bad = JSON.parse(s); bad.bank.acc[Object.keys(bad.bank.acc)[0]] += 1000000;
+  const g2 = Game.deserialize(JSON.stringify(bad)); eq(g2.unverified, 1, 'flagged');
+  const g3 = Game.deserialize(Game.serialize(g2)); eq(g3.unverified, 1, 'flag survives a re-save');
+  const legacy = JSON.parse(s); delete legacy.chk; eq(Game.deserialize(JSON.stringify(legacy)).unverified, undefined, 'old saves without checksum are not flagged');
+});
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail?1:0);

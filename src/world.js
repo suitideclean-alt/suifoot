@@ -18,7 +18,7 @@
 
   const E = (SF.Econ = {
     value(p) {
-      let v = 7500 * Math.exp(0.11 * (p.ovr - 40));
+      let v = 7500 * SF.Q.exp(0.11 * (p.ovr - 40));
       const a = p.age;
       const af = a <= 21 ? 1.25 : a <= 25 ? 1.1 : a <= 29 ? 1 : a === 30 ? 0.8 : a === 31 ? 0.65 : a === 32 ? 0.5 : a === 33 ? 0.35 : 0.2;
       v *= af;
@@ -42,7 +42,7 @@
     isStar(p) { return p.ovr >= CFG.starOvr; },
     wage(p) { return Math.max(40, Math.round((E.wageFor(p.ovr) * (p.ovr >= CFG.starOvr ? CFG.starWage : 1)) / 10) * 10); },
     starCount(list) { return list.filter((p) => p.ovr >= CFG.starOvr).length; },
-    wageFor(ovr) { return Math.max(40, Math.round((120 * Math.exp(0.065 * (ovr - 30))) / 10) * 10); },
+    wageFor(ovr) { return Math.max(40, Math.round((120 * SF.Q.exp(0.065 * (ovr - 30))) / 10) * 10); },
     strength(G, club) {
       const sq = club.squad.map((id) => G.players[id]).sort((a, b) => b.ovr - a.ovr);
       return util.avg(sq.slice(0, 14).map((p) => p.ovr));

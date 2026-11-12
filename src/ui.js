@@ -34,7 +34,7 @@
   /** the saved game, or null. A save from before v0.9 (12 clubs per division) cannot continue: it is kept under another key and a new career starts. */
   function loadSaved() {
     let s = null;
-    try { s = localStorage.getItem(SAVE_()); if (!s) return null; return Game.deserialize(s); } catch (e) {
+    try { s = localStorage.getItem(SAVE_()); if (!s) return null; const g = Game.deserialize(s); if (g.unverified) setTimeout(() => toast(t('save_unverified'), true), 600); return g; } catch (e) {
       if (e && e.old && s) { try { localStorage.setItem(SAVE_() + '.pre09', s); localStorage.removeItem(SAVE_()); } catch (x) { /* ignore */ } setTimeout(() => toast(t('old_save'), true), 600); }
       return null;
     }

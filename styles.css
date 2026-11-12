@@ -275,7 +275,7 @@ html[data-theme=dark] .sub button.on{background:var(--navy2)}
 .form .line input,.form .line select{min-width:0;width:100%}
 
 /* ===== v0.3.2: gamer / esports typography and palette (follows the new logo) ===== */
-:root{--disp:"Orbitron","Rajdhani","Segoe UI",system-ui,sans-serif;--tech:"Rajdhani","Segoe UI",system-ui,sans-serif;--navy:#070b24;--navy2:#0f1a52;--neon:#38bdf8;--serif:var(--tech)}
+:root{--disp:"Segoe UI","Helvetica Neue",Arial,system-ui,sans-serif;--tech:"Segoe UI","Helvetica Neue",Arial,system-ui,sans-serif;--navy:#070b24;--navy2:#0f1a52;--neon:#38bdf8;--serif:var(--tech)}
 header.top{background:linear-gradient(180deg,#101c5a,#070b24);border-bottom:3px solid;border-image:linear-gradient(90deg,#38bdf8,#4DA2FF 45%,#d9a521) 1}
 .logo{font-family:var(--disp);font-weight:900;font-size:1.25rem;letter-spacing:.08em;text-transform:uppercase;color:#fff}
 .logo span{display:inline-block;transform:skewX(-8deg);text-shadow:0 0 14px rgba(56,189,248,.45)}

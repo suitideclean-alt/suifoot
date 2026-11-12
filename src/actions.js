@@ -266,7 +266,7 @@
   A.stadiumCost = (G, club, steps) => steps * A.expandStep(club) * CFG.seatCost;
   A.facilityCost = (club, key) => Math.round((CFG.facStep(club.facility[key]) * CFG.facDiv[club.div]) / 1000) * 1000;
   /** what a facility level is worth: full effect up to level 5, then a slowly rising curve that tops out near 8 */
-  A.facEff = (l) => (l <= 5 ? l : 5 + 3 * (1 - Math.exp(-(l - 5) / 25)));
+  A.facEff = (l) => (l <= 5 ? l : 5 + 3 * (1 - SF.Q.exp(-(l - 5) / 25)));
   A.expandStadium = function (G, coach, steps) {
     const club = myClub(G, coach);
     if (!club) return no('no_club');
@@ -334,7 +334,7 @@
     const weeksDone = Math.max(1, G.sched.slice(0, G.week - 1).filter((x) => x.t !== 'E').length);
     const wk = (x) => x / weeksDone;
     const wageW = util.sum(club.squad.map((id) => G.players[id].wage));
-    const baseRev = CFG.tvWeekly[club.div] + CFG.sponsorWeekly[club.div] * Math.sqrt(club.fans / CFG.fans[club.div]) * Game.repSponsor(coach.rep);
+    const baseRev = CFG.tvWeekly[club.div] + CFG.sponsorWeekly[club.div] * SF.Q.sqrt(club.fans / CFG.fans[club.div]) * Game.repSponsor(coach.rep);
     const att = Game.attendance(club);
     const home = att * club.price;
     const weeklyIncome = baseRev + home * 0.5; // about half the league matches are at home
@@ -430,7 +430,7 @@
       cands = all.slice(0, 3);
     }
     for (let i = 0; i < n && cands.length; i++) {
-      const id = R.weighted(cands, (x) => Math.exp(-(cap - Game.strength(G, G.clubs[x])) / 6));
+      const id = R.weighted(cands, (x) => SF.Q.exp(-(cap - Game.strength(G, G.clubs[x])) / 6));
       cands.splice(cands.indexOf(id), 1);
       coach.offers.push({ id: coach.nextOffer++, club: id, ttl: 6, seen: 0 });
       Game.news(G, 'n_job_offer', { club: G.clubs[id].name }, coach.id);

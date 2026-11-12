@@ -119,8 +119,8 @@
     const def = side === 'h' ? this.a : this.h;
     att.poss++;
     const home = side === 'h' && !this.neutral;
-    const ratio = Math.exp(CFG.gam * (att.pw.Ap - def.pw.Dp));
-    const gkf = Math.pow(def.pw.Dp / Math.max(15, def.pw.gk), 0.6);
+    const ratio = SF.Q.exp(CFG.gam * (att.pw.Ap - def.pw.Dp));
+    const gkf = SF.Q.pow(def.pw.Dp / Math.max(15, def.pw.gk), 0.6);
     let pg = CFG.baseGoal * ratio * gkf * (home ? CFG.homeAdv : 1);
     pg = util.clamp(pg, 0.015, 0.5);
     if (R.chance(CFG.penChance)) return this.penalty(side, att, def);
@@ -168,7 +168,7 @@
     const rate = (this.et ? 0.8 : 1) * CFG.baseAttack;
     if (R.chance(rate)) {
       const d = h.pw.Mp + (this.neutral ? 0 : CFG.homeMid) - a.pw.Mp;
-      this.attackFrom(R.chance(1 / (1 + Math.exp(-CFG.gamM * d))) ? 'h' : 'a');
+      this.attackFrom(R.chance(1 / (1 + SF.Q.exp(-CFG.gamM * d))) ? 'h' : 'a');
     }
     for (const side of ['h', 'a']) {
       const s = side === 'h' ? h : a;

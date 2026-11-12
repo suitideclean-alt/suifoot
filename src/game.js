@@ -24,7 +24,7 @@
     return a;
   };
   Game.strength = (G, club) => E.strength(G, club);
-  Game.level = (xp) => Math.floor(Math.sqrt(Math.max(0, xp) / 60)) + 1;
+  Game.level = (xp) => SF.Q.isqrt(Math.max(0, xp) / 60) + 1;
   Game.freePoints = (c) => Game.level(c.xp) - 1 - (c.sk.train + c.sk.tact + c.sk.neg + c.sk.youth);
   Game.repStrength = (rep) => 46 + rep * 0.3;
   Game.repTier = (rep) => (rep < 20 ? 0 : rep < 40 ? 1 : rep < 60 ? 2 : rep < 80 ? 3 : 4);
@@ -50,7 +50,7 @@
   // ---------- new game ----------
   Game.newGame = function (o) {
     o = o || {};
-    const seed = (o.seed != null ? o.seed : (Date.now() ^ 0x9e3779b9)) >>> 0;
+    const seed = (o.seed != null ? o.seed : 1) >>> 0;
     const G = { v: SF.VERSION, fmt: 2, seed, rs: seed, season: 1, week: 1, phase: 'play', news: [], coaches: [], offers: [], hall: [], nextOffer: 1, lang: o.lang || 'en', wk: null };
     SF.setG(G);
     W.generate(G);
@@ -85,10 +85,25 @@
     return G;
   };
 
-  Game.serialize = (G) => JSON.stringify(G);
+  // Save checksum (cyrb53). It only DETECTS hand-edited or corrupted saves so the game can mark them unverified; a determined player can
+  // strip it, so it is not security. Real protection is that the online mode keeps the authoritative state on the server / chain.
+  const sum53 = (s) => {
+    let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+    for (let i = 0; i < s.length; i++) { const c = s.charCodeAt(i); h1 = Math.imul(h1 ^ c, 2654435761); h2 = Math.imul(h2 ^ c, 1597334677); }
+    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+    return 4294967296 * (2097151 & h2) + (h1 >>> 0);
+  };
+  Game.serialize = (G) => {
+    delete G.chk;
+    const chk = sum53(JSON.stringify(G));
+    return JSON.stringify(Object.assign({}, G, { chk }));
+  };
   Game.deserialize = function (s) {
     const G = JSON.parse(s);
     if (G.fmt !== 2) { const e = new Error('old league format'); e.old = true; throw e; } // saves from before v0.9 have 12 clubs per division
+    const chk = G.chk; delete G.chk;
+    if (chk !== undefined && sum53(JSON.stringify(G)) !== chk) G.unverified = 1; // edited by hand or corrupted: stays flagged for good
     SF.setG(G);
     Game.migrate(G);
     return G;
@@ -299,7 +314,7 @@
     if (c.drawn === c.round) return;
     const pool = R.shuffle(c.alive.slice());
     let playing = pool, byes = [];
-    if (c.round === 0) { const p2 = Math.pow(2, Math.floor(Math.log2(pool.length))), n = pool.length > p2 ? 2 * (pool.length - p2) : pool.length; playing = pool.slice(0, n); byes = pool.slice(n); }
+    if (c.round === 0) { const p2 = (1 << SF.Q.ilog2(pool.length)), n = pool.length > p2 ? 2 * (pool.length - p2) : pool.length; playing = pool.slice(0, n); byes = pool.slice(n); }
     c.byes = byes; c.matches = [];
     for (let i = 0; i + 1 < playing.length; i += 2) c.matches.push({ h: playing[i], a: playing[i + 1] });
     c.drawn = c.round;
@@ -357,7 +372,7 @@
     const f = club.form;
     const avgPts = f.length ? util.avg(f) : 1.3;
     const mood = 0.8 + 0.1 * avgPts;
-    const priceF = Math.pow(CFG.refPrice[club.div] / club.price, 1.1);
+    const priceF = SF.Q.pow(CFG.refPrice[club.div] / club.price, 1.1);
     return Math.min(club.cap, Math.round(club.fans * mood * priceF * (SF.Boss ? SF.Boss.attMult(club) : 1)));
   }
   Game.attendance = attendance;
@@ -457,7 +472,7 @@
     B.debit(G, club.id, wages, 'wages');
     Game.income(G, club.id, CFG.tvWeekly[club.div], 'tv');
     const co = Game.humanOf(G, club.id);
-    const spBase = CFG.sponsorWeekly[club.div] * Math.sqrt(club.fans / CFG.fans[club.div]) * (co ? Game.repSponsor(co.rep) : 1);
+    const spBase = CFG.sponsorWeekly[club.div] * SF.Q.sqrt(club.fans / CFG.fans[club.div]) * (co ? Game.repSponsor(co.rep) : 1);
     Game.income(G, club.id, SF.Boss ? SF.Boss.sponsor(G, club, spBase) : spBase, 'sponsor');
     B.debit(G, club.id, club.cap * CFG.upkeepPerSeat, 'upkeep');
     if (SF.Boss) SF.Boss.econ(G, club);
@@ -630,7 +645,7 @@
       if (p.ap >= 12) d += 0.8;
       if (p.ap <= 2) d *= 0.7;
     } else if (p.age <= 29) d = R.gauss(0.2, 1.1) * (R.f() < 0.5 ? boost : 1);
-    else if (p.age <= 32) d = -R.range(0.2, 1.6) / Math.sqrt(boost);
+    else if (p.age <= 32) d = -R.range(0.2, 1.6) / SF.Q.sqrt(boost);
     else d = -R.range(1.2, 3.0);
     p.ovr = util.clamp(p.ovr + stoch(Math.abs(d)) * Math.sign(d), 25, 94);
     if (p.age <= 24) p.pot = Math.max(p.ovr, Math.min(95, p.pot + Math.round(R.gauss(0, 1))));
