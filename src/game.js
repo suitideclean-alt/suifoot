@@ -51,7 +51,7 @@
   Game.newGame = function (o) {
     o = o || {};
     const seed = (o.seed != null ? o.seed : (Date.now() ^ 0x9e3779b9)) >>> 0;
-    const G = { v: SF.VERSION, seed, rs: seed, season: 1, week: 1, phase: 'play', news: [], coaches: [], offers: [], hall: [], nextOffer: 1, lang: o.lang || 'en', wk: null };
+    const G = { v: SF.VERSION, fmt: 2, seed, rs: seed, season: 1, week: 1, phase: 'play', news: [], coaches: [], offers: [], hall: [], nextOffer: 1, lang: o.lang || 'en', wk: null };
     SF.setG(G);
     W.generate(G);
     G.free = G.free || [];
@@ -88,6 +88,7 @@
   Game.serialize = (G) => JSON.stringify(G);
   Game.deserialize = function (s) {
     const G = JSON.parse(s);
+    if (G.fmt !== 2) { const e = new Error('old league format'); e.old = true; throw e; } // saves from before v0.9 have 12 clubs per division
     SF.setG(G);
     Game.migrate(G);
     return G;

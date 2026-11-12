@@ -31,6 +31,14 @@
   const ovTag = (o) => `<span class="ov ${ovCls(o)}">${o}</span>`;
   const divName = (d) => t('div_n', { n: d + 1 });
   const SAVE_ = () => SF.Wallet.slot(SAVE0);
+  /** the saved game, or null. A save from before v0.9 (12 clubs per division) cannot continue: it is kept under another key and a new career starts. */
+  function loadSaved() {
+    let s = null;
+    try { s = localStorage.getItem(SAVE_()); if (!s) return null; return Game.deserialize(s); } catch (e) {
+      if (e && e.old && s) { try { localStorage.setItem(SAVE_() + '.pre09', s); localStorage.removeItem(SAVE_()); } catch (x) { /* ignore */ } setTimeout(() => toast(t('old_save'), true), 600); }
+      return null;
+    }
+  }
   function save() { try { localStorage.setItem(SAVE_(), Game.serialize(UI.G)); } catch (e) { /* storage full or blocked */ } }
   function errMsg(r) {
     const k = 'err_' + r.err;
@@ -69,7 +77,7 @@
   }
   function init() {
     SF.I18N.set(detectLang());
-    try { const s = localStorage.getItem(SAVE_()); if (s) { UI.G = Game.deserialize(s); } } catch (e) { UI.G = null; }
+    UI.G = loadSaved();
     document.addEventListener('click', onClick);
     document.addEventListener('change', onChange);
     let lastAddr = SF.Wallet.addr;
@@ -98,7 +106,7 @@
     const first = !localStorage.getItem(SAVE_());
     if (SF.Wallet.addr && first && UI.G) { save(); toast(t('wl_adopted')); return; } // the guest game moves to this wallet
     UI.G = null;
-    try { const s = localStorage.getItem(SAVE_()); if (s) UI.G = Game.deserialize(s); } catch (e) { UI.G = null; }
+    UI.G = loadSaved();
   }
 
   function render() {
@@ -1201,7 +1209,7 @@
     if (act === 'wl-menu') return walletMenu();
     if (act === 'wl-go') return walletGo(+arg);
     if (act === 'setup-start') return setupStart();
-    if (act === 'continue') { try { UI.G = Game.deserialize(localStorage.getItem(SAVE_())); render(); } catch (err) { toast(t('import_bad'), true); } return; }
+    if (act === 'continue') { UI.G = loadSaved(); if (UI.G) render(); else { render(); } return; }
     if (!G) return;
     const c = co();
     switch (act) {
