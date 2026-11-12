@@ -136,7 +136,7 @@
     for (const id of G.clubIds) {
       const c = G.clubs[id];
       G.table[id] = { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 };
-      c.rev = 0; c.form = []; c.cupRound = 0; c.nextDiv = c.div;
+      c.rev = 0; c.form = []; c.cupRound = 0; c.nextDiv = c.div; c.dropped = 0;
     }
     for (const pid in G.players) { const p = G.players[pid]; p.g = 0; p.gl = 0; p.ap = 0; }
     const rr = G.divs.map((ids) => roundRobin(ids));
@@ -623,7 +623,7 @@
   function progress(G, p, club, coach) {
     const tl = club ? club.facility.train : 1;
     const cb = coach ? coach.sk.train : 0;
-    const boost = (1 + 0.06 * (tl - 1) + 0.05 * cb) * SF.Body.progressMul(club);
+    const boost = (1 + 0.06 * (SF.Actions.facEff(tl) - 1) + 0.05 * cb) * SF.Body.progressMul(club);
     let d;
     if (p.age <= 24) {
       d = (p.pot - p.ovr) * R.range(0.12, 0.4) * boost;
@@ -645,7 +645,7 @@
     const n = 1 + (R.chance(CFG.youthExtra) ? 1 : 0) + (yl >= 3 ? 1 : 0);
     for (let i = 0; i < n; i++) {
       const pos = R.weighted(['GK', 'DF', 'MF', 'FW'], (x) => (x === 'GK' ? 1 : 3));
-      const pot = util.clamp(Math.round(R.gauss(CFG.youthPot[club.div] + (yl - 1) * 1.2 + (coach ? coach.sk.youth * 1.5 : 0), CFG.youthSd)), 40, 93);
+      const pot = util.clamp(Math.round(R.gauss(CFG.youthPot[club.div] + (SF.Actions.facEff(yl) - 1) * 1.2 + (coach ? coach.sk.youth * 1.5 : 0), CFG.youthSd)), 40, 93);
       const ovr = util.clamp(pot - R.int(14, 28), 28, 70);
       const p = W.newPlayer(G, { pos, ovr, age: R.int(16, 18), club: club.id, ct: 3, pot });
       p.wage = 40;
@@ -690,6 +690,7 @@
         for (const id of st.slice(0, 2)) { G.clubs[id].nextDiv = d - 1; summary.promoted.push(id); Game.income(G, id, CFG.promoBonus[d], 'prize'); addPrize(summary, id, CFG.promoBonus[d], 'promo', { d }); }
       }
       if (d < CFG.DIVS - 1) for (const id of st.slice(-2)) { G.clubs[id].nextDiv = d + 1; summary.relegated.push(id); }
+      else for (const id of st.slice(-2)) { G.clubs[id].dropped = 1; (summary.dropped = summary.dropped || []).push(id); } // nothing below the fourth division
     }
     if (G.cup.winner) {
       G.clubs[G.cup.winner].cups++;
@@ -749,6 +750,8 @@
       if (co.hist.length >= 5) X.unlock(G, co, 'a_seasons5');
       if (co.hist.length >= 10) X.unlock(G, co, 'a_seasons10');
     }
+    // a human who takes a club down from the fourth division loses it: no wages from now on, and an owner loses the club
+    for (const co of G.coaches) { const cl = co.club && G.clubs[co.club]; if (cl && cl.dropped) Game.dropOut(G, co, cl); }
     G.hall.push(hall);
     G.summary = summary;
     G.phase = 'seasonEnd';
@@ -756,6 +759,16 @@
     if (SF.Boss) SF.Boss.seasonEnd(G);
     SF.Actions.seasonEndCareer(G);
   }
+  Game.dropOut = function (G, co, club) {
+    const O = SF.Owner, role = O.role(co);
+    co.contract = null; // no severance, no wages after this
+    if (club.ac) { O.toMarket(G, club.ac, 0); club.ac = null; }
+    club.owner = 0;
+    SF.Actions.sack(G, co, 'expired');
+    co.sacked++; co.rep = Math.max(0, co.rep - 8);
+    if (role !== 'coach') co.role = 'coach'; // the former owner starts again as a coach
+    Game.news(G, role === 'coach' ? 'n_dropped_coach' : 'n_dropped_owner', { club: club.name }, co.id);
+  };
   function addPrize(sm, id, amt, kind, x) {
     sm.prizes[id] = (sm.prizes[id] || 0) + Math.round(amt);
     (sm.awards = sm.awards || []).push(Object.assign({ k: kind, club: id, amt: Math.round(amt) }, x));

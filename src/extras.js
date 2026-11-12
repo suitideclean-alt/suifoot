@@ -224,7 +224,7 @@
     const n = 3 + (yl >= 3 ? 1 : 0) + (yl >= 5 ? 1 : 0) + (SF.Boss ? SF.Boss.acadExtra(club) : 0);
     for (let i = 0; i < n; i++) {
       const pos = R.weighted(['GK', 'DF', 'MF', 'FW'], (x) => (x === 'GK' ? 1 : 3));
-      const pot = util.clamp(Math.round(R.gauss(CFG.youthPot[club.div] + (yl - 1) * 1.2 + (coach ? coach.sk.youth * 1.5 : 0) + (SF.Boss ? SF.Boss.acadPot(club) : 0), CFG.youthSd)), 40, 93);
+      const pot = util.clamp(Math.round(R.gauss(CFG.youthPot[club.div] + (SF.Actions.facEff(yl) - 1) * 1.2 + (coach ? coach.sk.youth * 1.5 : 0) + (SF.Boss ? SF.Boss.acadPot(club) : 0), CFG.youthSd)), 40, 93);
       const ovr = util.clamp(pot - R.int(14, 28), 28, 70);
       const p = SF.World.newPlayer(G, { pos, ovr, age: R.int(16, 18), club: null, ct: 3, pot });
       p.wage = 40; p.acad = club.id; p.hg = 1;

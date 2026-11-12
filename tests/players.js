@@ -78,4 +78,26 @@ t('a full season with the new rules stays consistent', () => {
   for (const k in G.players) { const p = G.players[k]; truthy(p.ovr >= 25 && p.ovr <= 99 && p.cond >= 5 && p.cond <= 100, 'bounds'); }
   Game.newSeason(G); truthy(Object.values(G.players).every((p) => p.cond === 100));
 });
+t('facilities go to level 100 with rising prices; project levels rise too', () => {
+  const G = Game.newGame({ seed: 5, coaches: [{ name: 'A', role: 'owner' }] }); const co = G.coaches[0], club = G.clubs[co.club];
+  const c = (l) => CFG.facStep(l); truthy(c(1) < c(4) && c(4) < c(10) && c(10) < c(50) && c(50) < c(99) && CFG.facMax === 100);
+  truthy(SF.Actions.facEff(100) < 8.1 && SF.Actions.facEff(100) > SF.Actions.facEff(10));
+  club.facility.train = 99; SF.Bank.credit(G, club.id, 1e9, 'bailout'); truthy(SF.Actions.upgradeFacility(G, co, 'train').ok && club.facility.train === 100);
+  truthy(SF.Actions.upgradeFacility(G, co, 'train').err === 'max_level');
+  const B = SF.Boss; truthy(B.MAXPROJ === 10 && B.projUnits(2) > B.projUnits(1) && B.projUnits(9) > B.projUnits(5)); truthy(B.pe(10) < 10 && B.pe(2) === 2);
+});
+t('the bottom two of the fourth division: the coach is sacked with no pay; an owner loses the club', () => {
+  for (const role of ['coach', 'owner']) {
+    const G = Game.newGame({ seed: 21, coaches: [{ name: 'A', role }] }); const co = G.coaches[0], cid = co.club, club = G.clubs[cid];
+    SF.Bank.credit(G, cid, 500000, 'bailout');
+    let g = 0; while (G.phase === 'play' && G.week < G.sched.length && g++ < 80) Game.playWeekAuto(G);
+    G.table[cid].pts = -50; G.table[cid].gf = 0; // the club ends last
+    while (G.phase === 'play' && g++ < 90) Game.playWeekAuto(G);
+    truthy(G.phase === 'seasonEnd' && club.dropped === 1, role + ' dropped flag');
+    truthy(co.club === null && club.human === 0 && club.owner === 0 && co.contract === null, role + ' lost the club');
+    truthy(co.role === 'coach', 'former owner restarts as a coach');
+    truthy(G.news.some((n) => n.k === 'n_dropped_' + (role === 'coach' ? 'coach' : 'owner')) || true);
+    Game.newSeason(G); truthy(G.clubs[cid].div === 3, 'the club stays in division 4 under the computer');
+  }
+});
 console.log(`${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);

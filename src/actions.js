@@ -264,7 +264,9 @@
 
   A.expandStep = (club) => Math.max(500, Math.round((club.cap * 0.1) / 500) * 500);
   A.stadiumCost = (G, club, steps) => steps * A.expandStep(club) * CFG.seatCost;
-  A.facilityCost = (club, key) => Math.round((CFG.facilityCost[club.facility[key]] * CFG.facDiv[club.div]) / 1000) * 1000;
+  A.facilityCost = (club, key) => Math.round((CFG.facStep(club.facility[key]) * CFG.facDiv[club.div]) / 1000) * 1000;
+  /** what a facility level is worth: full effect up to level 5, then a slowly rising curve that tops out near 8 */
+  A.facEff = (l) => (l <= 5 ? l : 5 + 3 * (1 - Math.exp(-(l - 5) / 25)));
   A.expandStadium = function (G, coach, steps) {
     const club = myClub(G, coach);
     if (!club) return no('no_club');
@@ -284,7 +286,7 @@
     const club = myClub(G, coach);
     if (!club || !club.facility[key]) return no('bad');
     const lvl = club.facility[key];
-    if (lvl >= 5) return no('max_level');
+    if (lvl >= CFG.facMax) return no('max_level');
     const cost = A.facilityCost(club, key);
     if (B.bal(G, club.id) < cost) return no('no_funds', { cost });
     const gt = SF.Owner.gate(G, coach, 'fac', { key, cost });

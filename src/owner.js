@@ -674,7 +674,7 @@
     }
     if (G.week % 12 === 6 && R.chance(e * 0.5)) {
       const key = club.facility.youth <= club.facility.train ? 'youth' : 'train';
-      if (club.facility[key] < 5 && A_.facilityCost(club, key) <= (bal - reserve) * 0.5) A_.upgradeFacility(G, co, key);
+      if (club.facility[key] < 10 && A_.facilityCost(club, key) <= (bal - reserve) * 0.5) A_.upgradeFacility(G, co, key);
     }
   };
 
