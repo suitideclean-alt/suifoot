@@ -40,7 +40,7 @@
     expandWeeks: 4,
     facilityCost: [0, 150000, 320000, 650000, 1200000], // cost to go from level N to N+1 (index N), scaled by facDiv
     facDiv: [1, 0.55, 0.3, 0.15],
-    facMax: 100,         // facility levels go to 100; every level costs more than the last
+    facMax: 50,          // facility levels go to 50; every level costs more than the last
     loanRate: 0.12, // flat per season
     overdraftFee: 0.01, // weekly on negative balance
     youthPot: [66, 60, 54, 49], youthSd: 10, youthExtra: 0.45, aiKeep: 0.8,
@@ -90,8 +90,8 @@
     },
   });
 
-  /** cost to go from facility level n to n+1 (before the division factor): the old table up to 4, then +4.5% per level */
-  SF.CFG.facStep = (n) => (n <= 4 ? SF.CFG.facilityCost[n] : Math.round((SF.CFG.facilityCost[4] * Math.pow(1.045, n - 4)) / 1000) * 1000);
+  /** cost to go from facility level n to n+1 (before the division factor): the old table up to 4, then +6% per level */
+  SF.CFG.facStep = (n) => (n <= 4 ? SF.CFG.facilityCost[n] : Math.round((SF.CFG.facilityCost[4] * Math.pow(1.06, n - 4)) / 1000) * 1000);
 
   SF.util = {
     clamp: (x, a, b) => Math.max(a, Math.min(b, x)),

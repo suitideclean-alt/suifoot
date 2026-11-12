@@ -34,4 +34,4 @@ Badges: 18 animals x 4 shield shapes = 72 unique, colours from the club. Faces: 
 There is no league below division 4. If a human's club ends in the bottom two there, the coach is sacked with no severance and no further wages (reputation -8), and an owner also loses the club (the club stays in division 4 under the computer; the owner restarts as a coach). Coaches are always drawn into division 4; owners pick any club.
 
 ## Facilities and projects (v0.9.3)
-Facility levels go to 100. Cost of a level = the old table up to level 4, then +4.5% per level (x division factor). The effect counts fully up to level 5 and then follows a curve that tops out near 8. Stadium projects go to level 10: price 10, 22 units, then +45% per level; the effect counts fully up to level 2 and half after.
+Facility levels go to 50. Cost of a level = the old table up to level 4, then +6% per level (x division factor). The effect counts fully up to level 5 and then follows a curve that tops out near 8. Stadium projects go to level 10: price 10, 22 units, then +45% per level; the effect counts fully up to level 2 and half after.

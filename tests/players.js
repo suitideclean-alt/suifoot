@@ -78,11 +78,11 @@ t('a full season with the new rules stays consistent', () => {
   for (const k in G.players) { const p = G.players[k]; truthy(p.ovr >= 25 && p.ovr <= 99 && p.cond >= 5 && p.cond <= 100, 'bounds'); }
   Game.newSeason(G); truthy(Object.values(G.players).every((p) => p.cond === 100));
 });
-t('facilities go to level 100 with rising prices; project levels rise too', () => {
+t('facilities go to level 50 with rising prices; project levels rise too', () => {
   const G = Game.newGame({ seed: 5, coaches: [{ name: 'A', role: 'owner' }] }); const co = G.coaches[0], club = G.clubs[co.club];
-  const c = (l) => CFG.facStep(l); truthy(c(1) < c(4) && c(4) < c(10) && c(10) < c(50) && c(50) < c(99) && CFG.facMax === 100);
-  truthy(SF.Actions.facEff(100) < 8.1 && SF.Actions.facEff(100) > SF.Actions.facEff(10));
-  club.facility.train = 99; SF.Bank.credit(G, club.id, 1e9, 'bailout'); truthy(SF.Actions.upgradeFacility(G, co, 'train').ok && club.facility.train === 100);
+  const c = (l) => CFG.facStep(l); truthy(c(1) < c(4) && c(4) < c(10) && c(10) < c(50) && c(30) < c(49) && CFG.facMax === 50);
+  truthy(SF.Actions.facEff(50) < 8.1 && SF.Actions.facEff(50) > SF.Actions.facEff(10));
+  club.facility.train = 49; SF.Bank.credit(G, club.id, 1e9, 'bailout'); truthy(SF.Actions.upgradeFacility(G, co, 'train').ok && club.facility.train === 50);
   truthy(SF.Actions.upgradeFacility(G, co, 'train').err === 'max_level');
   const B = SF.Boss; truthy(B.MAXPROJ === 10 && B.projUnits(2) > B.projUnits(1) && B.projUnits(9) > B.projUnits(5)); truthy(B.pe(10) < 10 && B.pe(2) === 2);
 });
