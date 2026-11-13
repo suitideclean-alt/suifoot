@@ -62,6 +62,10 @@
       B.tcredit(G, O.sfAcc(hc.id), part, 'prize', club.id);
       G.bank.ttreasury = (G.bank.ttreasury || 0) + (amt - part);
     } else { G.bank.tburnedPrize = (G.bank.tburnedPrize || 0) + amt; return 0; }
+    for (const p of [hc, owner]) if (p && p.sfDebt > 0) { // an unpaid exit clause is settled from the prize
+      const d = Math.min(p.sfDebt, Math.max(0, O.sfBal(G, p.id)));
+      if (d > 0) { B.tdebit(G, O.sfAcc(p.id), d, 'coach_exit', club.id); p.sfDebt -= d; }
+    }
     return amt;
   };
   O.wageBill = (G, club) => util.sum(club.squad.map((id) => G.players[id].wage));
@@ -239,6 +243,14 @@
   }
   function payOwed(G, o, amt) {
     if (amt <= 0) return 0;
+    const payer = o.ai ? O.payer(G, G.clubs[o.club]) : null;
+    if (payer) { // a human owner pays what a fired computer coach is owed in SFOOT, to the project treasury; with no SFOOT the instalment waits
+      amt = Math.min(amt, Math.max(0, O.sfBal(G, payer.id)));
+      if (amt <= 0) return 0;
+      B.tdebit(G, O.sfAcc(payer.id), amt, 'severance', o.club);
+      o.left -= amt;
+      return amt;
+    }
     if (o.ai) B.debit(G, o.club, amt, 'coach_pay');
     else B.transfer(G, o.club, O.wallet(o.to), amt, 'coach_pay');
     o.left -= amt;
@@ -265,8 +277,13 @@
       co.contract = null;
       return { fee: 0, just: true };
     }
-    const fee = O.exitFee(co), have = Math.max(0, O.walletBal(G, co.id)), pay = Math.min(fee, have);
-    if (pay > 0) B.transfer(G, O.wallet(co.id), c.club, pay, 'coach_exit');
+    const fee = O.exitFee(co), have = Math.max(0, O.sfBal(G, co.id)), pay = Math.min(fee, have);
+    if (pay > 0) { // the exit clause is real money: to the human owner, or to the project treasury when the club has none
+      const owner = O.payer(G, G.clubs[c.club]);
+      if (owner && owner.id !== co.id) B.ttransfer(G, O.sfAcc(co.id), O.sfAcc(owner.id), pay, 'coach_exit', c.club, c.club);
+      else B.tdebit(G, O.sfAcc(co.id), pay, 'coach_exit', c.club);
+    }
+    if (fee > pay) co.sfDebt = (co.sfDebt || 0) + (fee - pay); // what he could not pay is taken from his next prizes
     co.ban = OC.ban;
     co.contract = null;
     return { fee: pay, owed: fee, just: false };

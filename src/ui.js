@@ -492,7 +492,7 @@
     const G = UI.G;
     const ts = (G.bank.tsf && G.bank.tsf[club.id]) || {};
     const rows = Object.keys(ts).filter((k) => ts[k]).sort((a, b) => Math.abs(ts[b]) - Math.abs(ts[a])).map((k) => `<div class="row sm"><span style="flex:1">${SF.I18N.D['k_' + k] ? t('k_' + k) : k}</span><span class="${ts[k] >= 0 ? 'good' : 'bad'}">${ts[k] >= 0 ? '+' : ''}${money(ts[k])}</span></div>`).join('');
-    return `<div class="card"><h2>SFOOT</h2><div class="big">${money(SF.Owner.sfBal(G, c.id))} SFOOT</div><p class="mut sm">${t(SF.Owner.role(c) === 'coach' ? 'sf_coach_note' : 'sf_note')}</p>${rows || `<p class="mut sm">${t('sf_none')}</p>`}</div>`;
+    return `<div class="card"><h2>SFOOT</h2><div class="big">${money(SF.Owner.sfBal(G, c.id))} SFOOT</div><p class="mut sm">${t(SF.Owner.role(c) === 'coach' ? 'sf_coach_note' : 'sf_note')}</p>${c.sfDebt > 0 ? `<p class="bad sm">${t('sf_debt', { amt: c.sfDebt })}</p>` : ''}${rows || `<p class="mut sm">${t('sf_none')}</p>`}</div>`;
   }
   /** the prizes on offer for this club's division, in SFOOT, and how much of each one reaches the player */
   function prizesCard(c, club) {

@@ -45,7 +45,7 @@ Dono (roles `owner` e `both`; estado em `club.nz`) com caixa parada (> 16 unidad
 
 ## Duas moedas (v0.9.13)
 - **USD** (moeda do jogo, virtual): salários, transferências, renovações, bilheteira, TV, patrocínios, empréstimos, multas. Nunca sai do jogo.
-- **SFOOT** (token real): investimentos (estádio, instalações, projetos, equipamento especial, eventos, programas de academia/marketing/comunidade) e **prémios**. Nunca se converte em USD.
+- **SFOOT** (token real): investimentos (estádio, instalações, projetos, equipamento especial, eventos, programas de academia/marketing/comunidade), **prémios**, e **rescisões e demissões de treinadores pagas por humanos**. Nunca se converte em USD.
 - Quem paga o investimento em SFOOT é o **dono humano** (papéis `owner` e `both`), a partir da sua conta SFOOT. Num clube com treinador humano e dono computador, o investimento sai do USD do clube (dinheiro virtual do dono computador).
 - Prémios (liga, subida, taça, marcador, Liga dos Campeões), em SFOOT:
   - só dono humano: tudo para o dono;
@@ -68,3 +68,9 @@ Regra: **Finanças = dinheiro do clube em USD**; **SFOOT, investimentos e prémi
 - Dono: Finanças (previsão, fair play, investidores, obrigações, resultados, transações) · Dono > Resumo, SFOOT (saldo + prémios), Dados, Comercial, Clube (investimentos), Equipa, Reputação, Hall of fame.
 - Dono+treinador: Finanças (USD: conselheiro, receitas, bilhetes, empréstimos, transações) · Dono (estádio e instalações em SFOOT, saldo SFOOT, prémios).
 - Treinador: Finanças (USD) · Treinador (contrato, pedidos ao dono, SFOOT e prémios).
+
+### Rescisões e demissões em SFOOT (v0.9.23)
+- O que um humano paga vai para a tesouraria (ou para o outro humano, se houver); o computador nunca cria SFOOT para pagar a um humano.
+- Treinador humano que sai sem justa causa: paga a cláusula de saída em SFOOT. O que não conseguir pagar fica em dívida (`sfDebt`) e é descontado dos próximos prémios.
+- Dono humano que despede (ou rescinde por acordo com) o treinador do computador: paga em SFOOT, em prestações semanais, à tesouraria; sem SFOOT a prestação espera.
+- Quando paga o computador (despedir um treinador humano, rescisão por acordo, saída com justa causa), continua em USD.

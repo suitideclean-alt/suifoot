@@ -127,11 +127,12 @@ t('mitigation: a new job reduces the instalments', () => {
 
 t('quitting without just cause: pays the exit clause, cannot sign for 8 weeks', () => {
   const { G, co, club } = setup('coach');
-  B.credit(G, O.wallet(co.id), 10000000, 'bailout');
-  const fee = O.exitFee(co), c0 = B.bal(G, club.id);
+  B.tcredit(G, O.sfAcc(co.id), 10000000, 'grant');
+  const fee = O.exitFee(co), c0 = B.bal(G, club.id), tb0 = O.sfBal(G, co.id), tr0 = G.bank.tburned;
   eq(fee, Math.round(O.remaining(co) * 0.5));
   A.resign(G, co);
-  eq(B.bal(G, club.id) - c0 >= fee - 1, true, 'club received the fee'); eq(co.ban, CFG.owner.ban);
+  eq(tb0 - O.sfBal(G, co.id), fee, 'the exit clause is paid in SFOOT'); eq(G.bank.tburned - tr0, fee, 'to the project treasury (no human owner)');
+  eq(B.bal(G, club.id), c0, 'club USD untouched'); eq(co.ban, CFG.owner.ban);
   co.offers.push({ id: 98, club: club.id, ttl: 6, seen: 0 });
   eq(A.acceptJob(G, co, 98).err, 'banned');
   for (let i = 0; i < 20 && co.ban > 0; i++) Game.playWeekAuto(G);
@@ -450,5 +451,28 @@ t('a club in the red loses gate, sponsors and morale; a healthy one does not', (
   truthy(Bo.attMult(club) < 0.9, 'gate ' + Bo.attMult(club)); truthy(Bo.sponsor(G, club, 1000) < 900, 'sponsor ' + Bo.sponsor(G, club, 1000));
   SF.Bank.credit(G, club.id, 600000, 'bailout'); Bo.neglectTick(G, club); eq(Bo.stress(club), 0, 'recovers');
 });
+t('exit clause without SFOOT becomes a debt taken from the next prize', () => {
+  const { G, co, club } = setup('coach');
+  const fee = O.exitFee(co); eq(O.sfBal(G, co.id), 0);
+  A.resign(G, co);
+  eq(co.sfDebt, fee, 'whole clause owed');
+  // a new club, a prize: the debt is settled first
+  const tgt = G.clubIds.find((id) => !G.clubs[id].human);
+  co.club = tgt; G.clubs[tgt].human = co.id; G.clubs[tgt].owner = 0;
+  const before = G.bank.tburned; SF.Game.income(G, tgt, 100000, 'prize'); // coach gets 40,000
+  eq(co.sfDebt, Math.max(0, fee - 40000), 'debt reduced from the prize');
+  eq(O.sfBal(G, co.id), Math.max(0, 40000 - fee)); truthy(G.bank.tburned - before === Math.min(fee, 40000)); conserved(G);
+});
+t('a human owner pays the fired computer coach in SFOOT, in instalments; with no SFOOT it waits', () => {
+  const { G, co, club } = ownerSetup();
+  const usd0 = B.bal(G, club.id), sf0 = O.sfBal(G, co.id);
+  const owed = O.fireCost(G, co); O.fire(G, co);
+  weeks(G, 3);
+  const od = G.owed.find((x) => x.ai); truthy(od.left < od.total, 'paid');
+  truthy(sf0 - O.sfBal(G, co.id) === od.total - od.left, 'paid from the owner SFOOT');
+  B.tdebit(G, O.sfAcc(co.id), O.sfBal(G, co.id), 'grant'); const left = od.left; weeks(G, 2);
+  eq(G.owed.find((x) => x.id === od.id).left, left, 'no SFOOT, no instalment'); conserved(G);
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

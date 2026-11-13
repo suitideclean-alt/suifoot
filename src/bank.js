@@ -94,6 +94,17 @@
       SF.Bank.tlog(G, id, kind, -amt, clubId);
       return amt;
     },
+    /** SFOOT between two humans: no mint, no burn */
+    ttransfer(G, from, to, amt, kind, clubFrom, clubTo) {
+      amt = Math.round(amt);
+      if (!amt) return 0;
+      SF.Bank.ensureTok(G);
+      G.bank.tok[from] = (G.bank.tok[from] || 0) - amt;
+      G.bank.tok[to] = (G.bank.tok[to] || 0) + amt;
+      SF.Bank.tlog(G, from, kind + '_out', -amt, clubFrom);
+      SF.Bank.tlog(G, to, kind + '_in', amt, clubTo);
+      return amt;
+    },
     tsupply(G) { return (G.bank.tminted || 0) - (G.bank.tburned || 0); },
     ttotal(G) { let s = 0; for (const k in (G.bank.tok || {})) s += G.bank.tok[k]; return s; },
     totalBalances(G) { let s = 0; for (const k in G.bank.acc) s += G.bank.acc[k]; return s; },
