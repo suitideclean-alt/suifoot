@@ -30,10 +30,10 @@
     tvWeekly: [11000, 5500, 4000, 3000],
     sponsorWeekly: [12000, 8000, 6500, 5000],
     startCash: [900000, 380000, 150000, 60000],
-    prizeLeague: [350000, 130000, 55000, 24000], // champion prize per division
+    prizeDiv: [320000, 160000, 80000, 40000], // total prize per division: scale 8:4:2:1 from the 1st to the 4th
+    prizeSplit: [0.7, 0.3], // champion 70%, runner-up 30%
     prizeCup: 200000,
     prizeScorer: 60000, // one prize for the season's top scorer, all divisions and all competitions
-    promoBonus: [0, 90000, 40000, 18000], // bonus for being promoted into division index-1
     upkeepPerSeat: 0.012, // weekly stadium upkeep per seat
     seatCost: 90, // cost to build one seat
     coachPrize: 0.4, // share of a prize a human coach gets when the club has no human owner (the rest goes to the project treasury)

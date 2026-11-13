@@ -55,3 +55,8 @@ Dono (roles `owner` e `both`; estado em `club.nz`) com caixa parada (> 16 unidad
 - Programa semanal (academia, marketing, comunidade) sem SFOOT suficiente: desliga-se com aviso.
 - Teste: cada dono humano recebe `CFG.startSfoot` (500 000) ao começar; jogos antigos recebem-no ao migrar.
 - Os valores dos prémios ainda são os antigos; a fórmula dos 75 % das entradas fica para a especificação económica.
+
+### Prémios de liga (v0.9.19)
+- Cada divisão tem um prémio total na escala 8:4:2:1 (1.ª a 4.ª): 320 000 / 160 000 / 80 000 / 40 000 SFOOT. Campeão 70%, segundo 30%.
+- Já não há bónus de subida em SFOOT (a subida continua a valer desportivamente).
+- Melhor marcador: um único prémio por época (60 000), todas as divisões e todas as competições.

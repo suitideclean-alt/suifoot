@@ -271,7 +271,7 @@
     const aw = S.awards || [];
     const awLabel = (a) => t('pr_' + a.k) + (a.d != null ? ' · ' + divName(a.d) : '');
     const awWho = (a) => (a.k === 'scorer' ? esc(a.name) + ' (' + t('goals_n', { g: a.g }) + ') · ' : '') + ctag(a.club, 16) + (a.k === 'eu' ? ' <span class="mut sm">' + t('eu_reach_' + a.reach) + '</span>' : '');
-    const order = { euwin: 0, eu: 1, league: 2, scorer: 3, promo: 4, cup: 5, cupfinal: 6 };
+    const order = { euwin: 0, eu: 1, league: 2, league2: 3, scorer: 4, promo: 5, cup: 6, cupfinal: 7 };
     const awRows = aw.slice().sort((x, y) => (x.d != null ? x.d : 9) - (y.d != null ? y.d : 9) || order[x.k] - order[y.k]).map((a) => `<tr class="${club && a.club === club.id ? 'me' : ''}"><td>${awLabel(a)}</td><td>${awWho(a)}</td><td class="r good">+${money(a.amt)}</td></tr>`);
     const champs = [];
     const prize = club ? S.prizes[club.id] || 0 : 0;
@@ -499,7 +499,7 @@
     const G = UI.G, O = SF.Owner, d = club.div;
     const owner = O.payer(G, club) && O.payer(G, club).id === c.id, coachOnly = O.role(c) === 'coach' && !O.payer(G, club);
     const share = owner ? 1 : coachOnly ? CFG.coachPrize : 0;
-    const rows = [[t('pr_league') + ' · ' + divName(d), CFG.prizeLeague[d]], [t('pz_promo'), d > 0 ? CFG.promoBonus[d] : 0], [t('pz_scorer'), CFG.prizeScorer],
+    const rows = [[t('pr_league') + ' · ' + divName(d), Math.round(CFG.prizeDiv[d] * CFG.prizeSplit[0])], [t('pr_league2') + ' · ' + divName(d), CFG.prizeDiv[d] - Math.round(CFG.prizeDiv[d] * CFG.prizeSplit[0])], [t('pz_scorer'), CFG.prizeScorer],
       [t('pr_cup'), CFG.prizeCup], [t('pr_cupfinal'), Math.round(CFG.prizeCup * 0.4)],
       [t('pz_eu_part'), CFG.euPartic], [t('pz_eu_win'), CFG.euWin], [t('pz_eu_draw'), CFG.euDraw], [t('pz_eu_qf'), CFG.euQF], [t('pz_eu_sf'), CFG.euSF], [t('pz_eu_final'), CFG.euFinal], [t('pz_eu_ru'), Math.round(CFG.euFinal * 0.5)], [t('pr_euwin'), CFG.euWinner]].filter((r) => r[1] > 0);
     const earned = ((G.bank.tsf && G.bank.tsf[club.id]) || {}).prize || 0;

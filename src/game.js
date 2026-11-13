@@ -710,14 +710,16 @@
       const champ = st[0];
       hall.champ.push(champ); summary.champions.push(champ);
       G.clubs[champ].title++;
-      Game.income(G, champ, CFG.prizeLeague[d], 'prize'); addPrize(summary, champ, CFG.prizeLeague[d], 'league', { d });
+      const p1 = Math.round(CFG.prizeDiv[d] * CFG.prizeSplit[0]);
+      Game.income(G, champ, p1, 'prize'); addPrize(summary, champ, p1, 'league', { d });
+      Game.income(G, st[1], CFG.prizeDiv[d] - p1, 'prize'); addPrize(summary, st[1], CFG.prizeDiv[d] - p1, 'league2', { d });
       const ts = Game.topScorers(G, d, 1)[0];
       if (ts) {
         hall.scorer.push({ name: ts.n, club: ts.club, g: ts.gl }); summary.scorers.push({ d, name: ts.n, club: ts.club, g: ts.gl });
       } else { hall.scorer.push(null); summary.scorers.push(null); }
       if (d === 0) { G.euroQ = st.slice(0, CFG.EU_SLOTS); summary.euQ = G.euroQ.slice(); }
       if (d > 0) {
-        for (const id of st.slice(0, 2)) { G.clubs[id].nextDiv = d - 1; summary.promoted.push(id); Game.income(G, id, CFG.promoBonus[d], 'prize'); addPrize(summary, id, CFG.promoBonus[d], 'promo', { d }); }
+        for (const id of st.slice(0, 2)) { G.clubs[id].nextDiv = d - 1; summary.promoted.push(id); }
       }
       if (d < CFG.DIVS - 1) for (const id of st.slice(-2)) { G.clubs[id].nextDiv = d + 1; summary.relegated.push(id); }
       else for (const id of st.slice(-2)) { G.clubs[id].dropped = 1; (summary.dropped = summary.dropped || []).push(id); } // nothing below the fourth division
