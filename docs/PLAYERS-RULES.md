@@ -59,4 +59,6 @@ Dono (roles `owner` e `both`; estado em `club.nz`) com caixa parada (> 16 unidad
 ### Prémios de liga (v0.9.19)
 - Cada divisão tem um prémio total na escala 8:4:2:1 (1.ª a 4.ª): 320 000 / 160 000 / 80 000 / 40 000 SFOOT. Campeão 70%, segundo 30%.
 - Já não há bónus de subida em SFOOT (a subida continua a valer desportivamente).
-- Melhor marcador: um único prémio por época (60 000), todas as divisões e todas as competições.
+- Melhor marcador: um único prémio por época (50 000), todas as divisões e todas as competições.
+- Taça: campeão 100 000, finalista 40 000. Liga dos Campeões: campeão 150 000 (mais pequenos prémios por fase: participação 8 000, vitória em grupo 6 000, empate 2 000, quartas 17 000, meias 26 000, final 39 000, finalista vencido +19 500).
+- Referência da bolsa de prémios (1 000 000): divisões 60% (4/8/16/32%), Liga dos Campeões 15%, Taça 10%, marcador 5%, reserva 10%.

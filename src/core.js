@@ -16,7 +16,7 @@
     EU_AFTER: [3, 9, 14, 19, 23, 27, 30, 32, 34], // european matchdays (6 group + QF + SF + final) are played after these league matchdays
     EU_TEAMS: 16, EU_FOREIGN: 12, EU_SLOTS: 4,
     euNat: ['Aurelia', 'Norvik', 'Solmar'],
-    euPartic: 40000, euWin: 30000, euDraw: 10000, euQF: 80000, euSF: 120000, euFinal: 180000, euWinner: 700000, // winner = 2x the division-1 champion prize
+    euPartic: 8000, euWin: 6000, euDraw: 2000, euQF: 17000, euSF: 26000, euFinal: 39000, euWinner: 150000, // winner prize = 15% of the prize pool (division 1 total = 32%)
     euGate: 1.5, // european gate multiplier (full stadium, premium ticket)
     starOvr: 80, starValue: 1.5, starWage: 1.35, starFlair: 0.5, starFree: 3, starPenalty: 0.03, // max 3 stars in XI (~27%)
     scoutCost: [24000, 12000, 6000, 3000], scoutOne: [8000, 4000, 2000, 1000], derbyGate: 1.3, hotPremium: 1.1, watchMax: 15,
@@ -32,8 +32,8 @@
     startCash: [900000, 380000, 150000, 60000],
     prizeDiv: [320000, 160000, 80000, 40000], // total prize per division: scale 8:4:2:1 from the 1st to the 4th
     prizeSplit: [0.7, 0.3], // champion 70%, runner-up 30%
-    prizeCup: 200000,
-    prizeScorer: 60000, // one prize for the season's top scorer, all divisions and all competitions
+    prizeCup: 100000, // 10% of the prize pool
+    prizeScorer: 50000, // one prize for the season's top scorer, all divisions and all competitions
     upkeepPerSeat: 0.012, // weekly stadium upkeep per seat
     seatCost: 90, // cost to build one seat
     coachPrize: 0.4, // share of a prize a human coach gets when the club has no human owner (the rest goes to the project treasury)
