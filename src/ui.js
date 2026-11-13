@@ -592,14 +592,11 @@
       <h2 style="margin-top:12px">${t('rq_title')}</h2>${rq || `<span class="mut">${t('rq_none')}</span>`}</div>`;
   }
   function cashCard(c, club, note) {
-    const G = UI.G, O = SF.Owner, pol = O.policy(G, club);
+    const G = UI.G, O = SF.Owner;
     return `<div class="card hl"><h2>${t('own_title')}</h2><p class="mut">${note}</p>
       <div class="row"><span>SFOOT</span><b>${money(O.sfBal(G, c.id))}</b></div>
       <div class="row"><span>${t('own_club_cash')}</span><b>${money(B.bal(G, club.id))}</b></div>
-      <div class="row"><span>${t('ct_wallet')}</span><b>${money(O.walletBal(G, c.id))}</b></div>
-      <div class="row"><span>${t('own_reserve')}</span><b>${money(pol.reserve)}</b></div>
-      <div class="line"><label>${t('own_amount')}</label><input type="number" id="own-amt" min="0" step="1000" value="10000"></div>
-      <div class="row"><button class="btn" data-act="invest">${t('own_invest')}</button></div></div>`;
+    </div>`;
   }
   const dots = (n) => '●'.repeat(n) + '○'.repeat(5 - n);
   function ownerView() {
@@ -1313,8 +1310,6 @@
           ${num('win', t('ac_win'), ct.win || 0)}${num('draw', t('ac_draw'), ct.draw || 0)}${num('title', t('ac_bonus_title'), ct.bonus.title)}${num('promo', t('ac_bonus_promo'), ct.bonus.promo)}${num('euro', t('ac_bonus_euro'), ct.bonus.euro)}`,
           (f) => res(SF.Owner.renewCoach(G, c, +f.years, { win: f.win, draw: f.draw, title: f.title, promo: f.promo, euro: f.euro }), t('ok_done')));
       }
-      case 'withdraw': return res(SF.Owner.withdraw(G, c, $('#own-amt').value), t('ok_done'));
-      case 'invest': return res(SF.Owner.invest(G, c, $('#own-amt').value), t('ok_done'));
       case 'oacc': { const r = A.acceptOffer(G, c, +arg); return res(r, r.ok ? t('ok_sold', { fee: r.fee }) : ''); }
       case 'odec': return res(A.declineOffer(G, c, +arg));
       case 'price': return res(A.setPrice(G, c, myClub().price + parseFloat(arg)));
