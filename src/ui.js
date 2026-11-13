@@ -146,7 +146,7 @@
         ${bonusOpt()}
         <div class="row end"><button class="btn pri" data-act="setup-start">${t('start')}</button></div>
         <p class="mut sm">${t('fictional_note')}</p></div>
-        <div class="card"><h2>${t('about_title')}</h2><p>${t('about_text')}</p><p class="mut sm">${t('roadmap')}</p>
+        <div class="card"><h2>${t('about_title')}</h2><p>${t('about_text')}</p><h3 class="sm mut" style="margin-top:10px">${t('token_title')}</h3><p class="sm">${t('token_note')}</p><p class="mut sm">${t('supply')}: ${money(B.supply(UI.G))} USD · ${money(B.tsupply(UI.G))} SFOOT · ${t('treasury')}: ${money(UI.G.bank.ttreasury || 0)} SFOOT</p><p class="mut sm">${t('roadmap')}</p>
         ${has ? `<button class="btn" data-act="continue">${t('continue')}</button>` : ''}
         <label class="btn" style="display:inline-block">${t('import')}<input type="file" accept=".json,application/json" data-chg="import" hidden></label></div>${legendsCard()}</div></div>`;
   }
@@ -523,22 +523,36 @@
     const step = A.expandStep(club);
     const steps = [1, 2, 3].map((n) => `<button class="btn sm" data-act="expand:${n}" ${club.build ? 'disabled' : ''}>${t('expand_n', { n: n * step })} · ${ic(club, A.stadiumCost(G, club, n))}</button>`).join(' ');
     const fac = (k) => { const l = club.facility[k]; return `<div class="row"><span style="min-width:150px">${t('fac_' + k)}</span><span>${t('level')} ${l}/${CFG.facMax}</span>${l < CFG.facMax ? `<button class="btn sm" data-act="fac:${k}">${t('upgrade')} · ${ic(club, A.facilityCost(club, k))}</button>` : ''}</div>`; };
-    const isOwner = SF.Owner.role(c) === 'owner';
-    return `<div class="grid">${isOwner ? '' : advisorCard(c, club)}${balanceChart(club)}
+    const role = SF.Owner.role(c), isOwner = role === 'owner';
+    const ledger = `<div class="card"><h2>${t('ledger')}</h2>${tbl(['', '', '>'], led.map((e) => `<tr><td class="mut sm">${e[0]}·${e[1]}</td><td>${kl(e[2])}</td><td class="r ${e[3] >= 0 ? 'good' : 'bad'}">${e[3] >= 0 ? '+' : ''}${money(e[3])}</td></tr>`))}</div>`;
+    if (isOwner) return UI.owner.financePage(c, club) + `<div class="grid" style="margin-top:14px">${ledger}</div>`; // one single finance page for the owner
+    return `<div class="grid">${advisorCard(c, club)}${balanceChart(club)}
       <div class="card"><h2>${t('fin_summary')}</h2><div class="big ${B.bal(G, club.id) < 0 ? 'bad' : 'good'}">${money(B.bal(G, club.id))} USD</div>
         <h3 class="sm mut">${t('fin_income')}: ${money(ti)}</h3>${inc.map(([k, v]) => `<div class="row sm"><span style="flex:1">${kl(k)}</span><span class="good">+${money(v)}</span></div>`).join('')}
         <h3 class="sm mut" style="margin-top:10px">${t('fin_expenses')}: ${money(te)}</h3>${exp.map(([k, v]) => `<div class="row sm"><span style="flex:1">${kl(k)}</span><span class="bad">-${money(v)}</span></div>`).join('')}</div>
-      ${isOwner ? '' : `<div class="card"><h2>${t('stadium')}</h2>${SF.Fx.stadium(att / club.cap, club)}<p>${t('capacity')}: <b>${money(club.cap)}</b> · ${t('exp_attendance')}: <b>${money(att)}</b></p>
+      <div class="card"><h2>${t('stadium')}</h2>${SF.Fx.stadium(att / club.cap, club)}<p>${t('capacity')}: <b>${money(club.cap)}</b> · ${t('exp_attendance')}: <b>${money(att)}</b></p>
         <div class="row"><span>${t('ticket_price')}:</span><button class="btn sm" data-act="price:-0.1">−</button><b>${club.price.toFixed(1)}</b><button class="btn sm" data-act="price:0.1">+</button></div>
-        <p>${club.build ? `<span class="warn">${t('building', { seats: club.build.seats, left: club.build.left })}</span>` : steps}</p>
-        <h2 style="margin-top:14px">${t('facilities')}</h2>${fac('youth')}${fac('train')}</div>`}
-      ${isOwner ? `<div class="card"><p class="mut">${t('fin_owner_note')}</p><button class="btn" data-act="o_go:finance">${t('os_finance')}</button></div>` : ''}
-      ${SF.Owner.role(c) === 'owner' ? '' : `<div class="card"><h2>${t('loans')}</h2><p class="mut">${t('credit_limit')}: ${money(lim)}</p>
+        ${role === 'both' ? `<p class="mut sm">${t('inv_moved')}</p>` : `<p>${club.build ? `<span class="warn">${t('building', { seats: club.build.seats, left: club.build.left })}</span>` : steps}</p>
+        <h2 style="margin-top:14px">${t('facilities')}</h2>${fac('youth')}${fac('train')}`}</div>
+      <div class="card"><h2>${t('loans')}</h2><p class="mut">${t('credit_limit')}: ${money(lim)}</p>
         ${loans.length ? tbl(['', '>' + t('loan_weekly'), '>' + t('loan_total'), ''], loans.map((l) => `<tr><td>#${l.id}</td><td class="r">${money(l.weekly)}</td><td class="r">${money(l.due)}</td><td><button class="btn sm" data-act="repay:${l.id}">${t('repay_early')} · ${mc(B.earlyRepayCost(l))}</button></td></tr>`)) : `<p class="mut">${t('no_loans')}</p>`}
-        <button class="btn" data-act="loan" ${lim <= 0 ? 'disabled' : ''}>${t('take_loan')}</button></div>`}
-      <div class="card"><h2>${t('ledger')}</h2>${tbl(['', '', '>'], led.map((e) => `<tr><td class="mut sm">${e[0]}·${e[1]}</td><td>${kl(e[2])}</td><td class="r ${e[3] >= 0 ? 'good' : 'bad'}">${e[3] >= 0 ? '+' : ''}${money(e[3])}</td></tr>`))}</div>
-      ${sfCard(c, club)}${prizesCard(c, club)}
-      <div class="card wide"><h2>${t('token_title')}</h2><p>${t('token_note')}</p><p class="mut sm">${t('supply')}: ${money(B.supply(G))} USD · ${money(B.tsupply(G))} SFOOT · ${t('treasury')}: ${money(G.bank.ttreasury || 0)} SFOOT</p></div></div>`;
+        <button class="btn" data-act="loan" ${lim <= 0 ? 'disabled' : ''}>${t('take_loan')}</button></div>
+      ${ledger}</div>`;
+  }
+
+  // ---------- SFOOT: the owner's (or coach's) real-token side, kept apart from the club's USD finance ----------
+  /** stadium expansion and facilities: the investments an owner pays in SFOOT */
+  function investCard(club) {
+    const G = UI.G, step = A.expandStep(club);
+    const steps = [1, 2, 3].map((n) => `<button class="btn sm" data-act="expand:${n}" ${club.build ? 'disabled' : ''}>${t('expand_n', { n: n * step })} · ${ic(club, A.stadiumCost(G, club, n))}</button>`).join(' ');
+    const fac = (k) => { const l = club.facility[k]; return `<div class="row"><span style="min-width:150px">${t('fac_' + k)}</span><span>${t('level')} ${l}/${CFG.facMax}</span>${l < CFG.facMax ? `<button class="btn sm" data-act="fac:${k}">${t('upgrade')} · ${ic(club, A.facilityCost(club, k))}</button>` : ''}</div>`; };
+    return `<div class="card"><h2>${t('inv_title')}</h2><p class="mut sm">${t('inv_note')}</p>
+      <h3 class="sm mut">${t('stadium')} · ${t('capacity')}: ${money(club.cap)}</h3><p>${club.build ? `<span class="warn">${t('building', { seats: club.build.seats, left: club.build.left })}</span>` : steps}</p>
+      <h3 class="sm mut" style="margin-top:10px">${t('facilities')}</h3>${fac('youth')}${fac('train')}</div>`;
+  }
+  function sfootPage(c, club) {
+    const G = UI.G;
+    return `<div class="grid">${sfCard(c, club)}${prizesCard(c, club)}</div>`;
   }
 
   // ---------- coach ----------
@@ -604,18 +618,11 @@
       <div class="row"><span>${t('ct_wallet')}</span><b>${money(O.walletBal(G, c.id))}</b></div>
       <h2 style="margin-top:12px">${t('rq_title')}</h2>${rq || `<span class="mut">${t('rq_none')}</span>`}</div>`;
   }
-  function cashCard(c, club, note) {
-    const G = UI.G, O = SF.Owner;
-    return `<div class="card hl"><h2>${t('own_title')}</h2><p class="mut">${note}</p>
-      <div class="row"><span>SFOOT</span><b>${money(O.sfBal(G, c.id))}</b></div>
-      <div class="row"><span>${t('own_club_cash')}</span><b>${money(B.bal(G, club.id))}</b></div>
-    </div>`;
-  }
   const dots = (n) => '●'.repeat(n) + '○'.repeat(5 - n);
   function ownerView() {
     const G = UI.G, c = co(), club = myClub(), O = SF.Owner;
     if (!club) return `<div class="card"><p class="mut">-</p></div>`;
-    if (O.role(c) !== 'owner') return `<div class="grid">${cashCard(c, club, t('own_note_both'))}</div>`;
+    if (O.role(c) !== 'owner') return `<p class="mut">${t('own_note_both')}</p><div class="grid">${investCard(club)}${sfCard(c, club)}</div><div class="grid" style="margin-top:14px">${prizesCard(c, club)}</div>`;
     return UI.owner.view(c, club);
   }
 
@@ -756,7 +763,7 @@
     return `<div class="grid"><div class="card hl"><h2>${esc(c.name)}</h2><p>${club ? ctag(club.id, 22) : '<span class="bad">—</span>'}</p>
         <p>${t('coach_level')}: <b>${lvl}</b></p><div class="bar"><i style="width:${Math.max(0, Math.min(100, pct))}%"></i></div><p class="mut sm">${t('xp')} ${c.xp} · ${t('skill_points', { n: pts })}</p>${sk}
         <p class="mut sm">${t('sacked_count', { n: c.sacked })}</p>${club && SF.Owner.role(c) === 'coach' ? `<button class="btn dng" data-act="resign">${t('resign')}</button>` : ''} <button class="btn dng" data-act="retire">${t('retire')}</button></div>
-      ${contractCard(c, club)}${goalsCard(c)}${repCard(c)}${vacCard(c, club)}
+      ${contractCard(c, club)}${club && SF.Owner.role(c) === 'coach' ? sfCard(c, club) + prizesCard(c, club) : ''}${goalsCard(c)}${repCard(c)}${vacCard(c, club)}
       <div class="card">${offersBlock(c)}</div>
       <div class="card"><h2>${t('trophies')}</h2>${trophies.length ? trophies.map((x) => `<div>${x}</div>`).join('') : `<span class="mut">${t('no_trophies')}</span>`}
         <h2 style="margin-top:14px">${t('career')}</h2>${c.hist.length ? tbl([t('season'), t('club'), '>#'], c.hist.slice().reverse().map((h) => `<tr><td>${h.s}</td><td>${ctag(h.club, 14)} <span class="mut sm">${divName(h.d)}</span></td><td class="r">${h.pos}</td></tr>`)) : `<span class="mut">-</span>`}</div>
@@ -1372,7 +1379,7 @@
     }
   }
 
-  UI.h = { t, esc, money, mc, ic, tbl, ctag, posTag, plink, ovTag, divName, rqStatus, res, modal, render, co, myClub, cashCard, balanceChart, ownerTips, ownerTeam, ownerManager, fx: SF.Fx };
+  UI.h = { t, esc, money, mc, ic, tbl, ctag, posTag, plink, ovTag, divName, rqStatus, res, modal, render, co, myClub, sfootPage, balanceChart, ownerTips, ownerTeam, ownerManager, fx: SF.Fx };
 
   window.addEventListener('DOMContentLoaded', init);
 })();

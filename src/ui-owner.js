@@ -6,7 +6,7 @@
   const Bo = () => SF.Boss, O = () => SF.Owner;
   const t = (k, p) => SF.I18N.t(k, p);
   const H = () => UI.h;
-  const SUBS = ['summary', 'finance', 'data', 'commercial', 'club', 'team', 'rep', 'hall'];
+  const SUBS = ['summary', 'sfoot', 'data', 'commercial', 'club', 'team', 'rep', 'hall'];
   const AXES = ['hon', 'free', 'mot', 'pat', 'amb', 'sta'];
   const BADGES = ['champion', 'builder', 'trainer', 'balanced', 'loyal', 'savior', 'debtfree', 'honest'];
   const sgn = (n) => (n >= 0 ? '+' : '') + H().money(Math.round(n));
@@ -35,9 +35,10 @@
       const G = UI.G, open = O().openFor(G, club.id).length;
       const bar = `<div class="sub">${SUBS.map((k) => `<button class="${sub === k ? 'on' : ''}" data-act="ot:${k}">${t('os_' + k)}${k === 'summary' && open ? ` <span class="dot">${open}</span>` : ''}</button>`).join('')}</div>`;
       if (!club.boss) Bo().init(G, club);
-      const fn = { summary, finance, data, commercial, club: clubPage, team, rep, hall }[sub];
+      const fn = { summary, sfoot: (c2, cl) => H().sfootPage(c2, cl), data, commercial, club: clubPage, team, rep, hall }[sub];
       return bar + fn(c, club);
     },
+    financePage: (c, club) => { if (!club.boss) Bo().init(UI.G, club); return finance(c, club); },
     act(act, arg, el) {
       const fn = ACTS[act];
       if (!fn) return false;
@@ -60,11 +61,12 @@
     const coachCard = `<div class="card"><h2>${t('ac_title')}</h2>${ac ? `<div class="row"><b>${h.esc(ac.name)}</b><span class="mut">${t('ac_rep')} ${ac.rep} · ${t('ct_left')} ${(Math.max(0, ct.left) / CFG.owner.W).toFixed(1)}</span></div><div class="row sm"><span>${t('ow_conf')}</span><span>${Math.round(ac.board)}/100</span></div>${bar(ac.board, lvlCls(ac.board))}` : `<p class="warn">${t('ac_none')}</p>`}<button class="btn" style="margin-top:10px" data-act="tab:coach">${t('of_coach_open')}</button></div>`;
     return page(t('os_summary'), t('ow_summary_note'), `${kpis([
       kpi(t('balance') + ' (USD)', h.mc(fc.bal), t('ow_fc_end', { amt: h.mc(fc.end) }), fc.bal < 0 ? 'bad' : ''),
+      kpi('SFOOT', h.mc(O().sfBal(G, c.id)), t('os_sfoot_sub'), ''),
       kpi(t('ow_season_net'), (net >= 0 ? '+' : '') + h.mc(net), t('ow_wk', { n: b.wk, m: CFG.TOTAL_WEEKS }), net >= 0 ? 'good' : 'bad'),
       kpi(t('ow_value'), h.mc(val), (val >= prev ? '▲ ' : '▼ ') + h.mc(Math.abs(val - prev)), val >= prev ? 'good' : 'bad'),
       kpi(t('os_rep'), o.orep + '/100', t('style_' + B_.style(o)), lvlCls(o.orep)),
       kpi(t('ow_fans'), Math.round(b.sup) + '/100', t('ow_fans_sub', { n: h.money(club.fans) }), lvlCls(b.sup))])}
-      <div class="grid">${inbox}<div class="card"><h2>${t('sg_title')}</h2>${tips}</div>${coachCard}${h.cashCard(c, club, t('own_note_owner'))}${h.balanceChart(club)}</div>`);
+      <div class="grid">${inbox}<div class="card"><h2>${t('sg_title')}</h2>${tips}</div>${coachCard}${h.balanceChart(club)}</div>`);
   }
   function tipList(c, club) {
     const h = H(), G = UI.G, B_ = Bo();
@@ -232,6 +234,6 @@
     o_bond: (a, h, G, c) => h.res(Bo().issueBond(G, c, document.querySelector('#bond-amt').value, document.querySelector('#bond-yrs').value), t('ok_done')),
     o_repay: (a, h, G, c) => h.res(Bo().repayBond(G, c, +a), t('ok_done')),
     o_hl: (a, h) => { UI.hl = a; h.render(); },
-    o_go: (a, h) => { UI.ot = a; UI.tab = 'owner'; h.render(); },
+    o_go: (a, h) => { if (a === 'finance') UI.tab = 'finance'; else { UI.ot = a; UI.tab = 'owner'; } h.render(); },
   };
 })();
