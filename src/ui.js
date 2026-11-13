@@ -494,6 +494,19 @@
     const rows = Object.keys(ts).filter((k) => ts[k]).sort((a, b) => Math.abs(ts[b]) - Math.abs(ts[a])).map((k) => `<div class="row sm"><span style="flex:1">${SF.I18N.D['k_' + k] ? t('k_' + k) : k}</span><span class="${ts[k] >= 0 ? 'good' : 'bad'}">${ts[k] >= 0 ? '+' : ''}${money(ts[k])}</span></div>`).join('');
     return `<div class="card"><h2>SFOOT</h2><div class="big">${money(SF.Owner.sfBal(G, c.id))} SFOOT</div><p class="mut sm">${t(SF.Owner.role(c) === 'coach' ? 'sf_coach_note' : 'sf_note')}</p>${rows || `<p class="mut sm">${t('sf_none')}</p>`}</div>`;
   }
+  /** the prizes on offer for this club's division, in SFOOT, and how much of each one reaches the player */
+  function prizesCard(c, club) {
+    const G = UI.G, O = SF.Owner, d = club.div;
+    const owner = O.payer(G, club) && O.payer(G, club).id === c.id, coachOnly = O.role(c) === 'coach' && !O.payer(G, club);
+    const share = owner ? 1 : coachOnly ? CFG.coachPrize : 0;
+    const rows = [[t('pr_league') + ' · ' + divName(d), CFG.prizeLeague[d]], [t('pz_promo'), d > 0 ? CFG.promoBonus[d] : 0], [t('pr_scorer') + ' · ' + divName(d), CFG.prizeScorer[d]],
+      [t('pr_cup'), CFG.prizeCup], [t('pr_cupfinal'), Math.round(CFG.prizeCup * 0.4)],
+      [t('pz_eu_part'), CFG.euPartic], [t('pz_eu_win'), CFG.euWin], [t('pz_eu_draw'), CFG.euDraw], [t('pz_eu_qf'), CFG.euQF], [t('pz_eu_sf'), CFG.euSF], [t('pz_eu_final'), CFG.euFinal], [t('pz_eu_ru'), Math.round(CFG.euFinal * 0.5)], [t('pr_euwin'), CFG.euWinner]].filter((r) => r[1] > 0);
+    const earned = ((G.bank.tsf && G.bank.tsf[club.id]) || {}).prize || 0;
+    return `<div class="card wide"><h2>${t('pz_title')}</h2><p class="mut sm">${t(owner ? 'pz_note_owner' : coachOnly ? 'pz_note_coach' : 'pz_note_none', { p: Math.round(CFG.coachPrize * 100) })}</p>
+      ${tbl(['', '>' + t('pz_total'), '>' + t('pz_you')], rows.map((r) => `<tr><td>${r[0]}</td><td class="r">${money(r[1])}</td><td class="r good">${share ? '+' + money(Math.round(r[1] * share)) : '-'}</td></tr>`))}
+      <div class="row" style="margin-top:8px"><span>${t('pz_earned')}</span><b class="good">+${money(earned)} SFOOT</b></div></div>`;
+  }
   function financeView() {
     const G = UI.G, c = co(), club = myClub();
     if (!club) return `<div class="card">${t('unemployed')}</div>`;
@@ -524,7 +537,7 @@
         ${loans.length ? tbl(['', '>' + t('loan_weekly'), '>' + t('loan_total'), ''], loans.map((l) => `<tr><td>#${l.id}</td><td class="r">${money(l.weekly)}</td><td class="r">${money(l.due)}</td><td><button class="btn sm" data-act="repay:${l.id}">${t('repay_early')} · ${mc(B.earlyRepayCost(l))}</button></td></tr>`)) : `<p class="mut">${t('no_loans')}</p>`}
         <button class="btn" data-act="loan" ${lim <= 0 ? 'disabled' : ''}>${t('take_loan')}</button></div>`}
       <div class="card"><h2>${t('ledger')}</h2>${tbl(['', '', '>'], led.map((e) => `<tr><td class="mut sm">${e[0]}·${e[1]}</td><td>${kl(e[2])}</td><td class="r ${e[3] >= 0 ? 'good' : 'bad'}">${e[3] >= 0 ? '+' : ''}${money(e[3])}</td></tr>`))}</div>
-      ${sfCard(c, club)}
+      ${sfCard(c, club)}${prizesCard(c, club)}
       <div class="card wide"><h2>${t('token_title')}</h2><p>${t('token_note')}</p><p class="mut sm">${t('supply')}: ${money(B.supply(G))} USD · ${money(B.tsupply(G))} SFOOT · ${t('treasury')}: ${money(G.bank.ttreasury || 0)} SFOOT</p></div></div>`;
   }
 
