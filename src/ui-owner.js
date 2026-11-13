@@ -17,7 +17,7 @@
   const kpis = (arr) => `<div class="kpis">${arr.join('')}</div>`;
   const page = (title, note, body) => `<div class="pagehead"><h2>${title}</h2><p class="mut sm">${note}</p></div>${body}`;
   const sec = (title, note) => `<div class="card wide secbar"><h3>${title}</h3>${note ? `<p class="mut sm">${note}</p>` : ''}</div>`;
-  const seg = (act, opts, cur) => `<div class="seg">${opts.map((o) => `<button class="${String(o.v) === String(cur) ? 'on' : ''}" data-act="${act}:${o.v}"><b>${o.l}</b>${o.s ? `<span>${o.s}</span>` : ''}</button>`).join('')}</div>`;
+  const seg = (act, opts, cur) => `<div class="seg">${opts.map((o) => `<button class="${String(o.v) === String(cur) ? 'on' : ''}${/-0$/.test(String(o.v)) ? ' off' : ''}" data-act="${act}:${o.v}"><b>${o.l}</b>${o.s ? `<span>${o.s}</span>` : ''}</button>`).join('')}</div>`;
   const bar = (v, cls) => `<div class="bar ${cls || ''}"><i style="width:${util.clamp(v, 0, 100)}%"></i></div>`;
   const row = (l, v, cls) => `<div class="row"><span>${l}</span><b class="${cls || ''}">${v}</b></div>`;
   const kl = (k) => (SF.I18N.D['k_' + k] ? t('k_' + k) : k);
@@ -162,7 +162,7 @@
   function clubPage(c, club) {
     const h = H(), G = UI.G, b = club.boss, B_ = Bo(), A = SF.Actions;
     const lineRow = (k, icon) => `<div class="tip s1"><div class="body"><div class="row"><b>${icon} ${t('ln_' + k)}</b><span class="mut sm">${b.lines[k] ? t('ow_per_wk', { amt: h.ic(club, B_.lineCost(club, k, b.lines[k])) }) : t('ow_off')}</span></div>
-      ${seg('o_line', [0, 1, 2, 3].map((n) => ({ v: k + '-' + n, l: n ? String(n) : '–', s: n ? h.mc(B_.lineCost(club, k, n)) : '' })), k + '-' + b.lines[k])}<div class="mut sm" style="margin-top:6px">${t('ln_d_' + k)}</div></div></div>`;
+      ${seg('o_line', [0, 1, 2, 3].map((n) => ({ v: k + '-' + n, l: n ? String(n) : '–', s: n ? h.ic(club, B_.lineCost(club, k, n)) : '' })), k + '-' + b.lines[k])}<div class="mut sm" style="margin-top:6px">${t('ln_d_' + k)}</div></div></div>`;
     const lines = `<div class="card wide"><h2>${t('ow_lines')}</h2><p class="mut sm">${t('ow_lines_note')}</p>${lineRow('acad', '🎓')}${lineRow('mkt', '📣')}${lineRow('comm', '🤝')}</div>`;
     const step = A.expandStep(club);
     const steps = [1, 2, 3].map((n) => `<button class="btn sm" data-act="expand:${n}" ${club.build || b.build ? 'disabled' : ''}>+${h.money(n * step)} · ${h.ic(club, A.stadiumCost(G, club, n))}</button>`).join(' ');

@@ -360,3 +360,5 @@ tr.me td{background:rgba(77,162,255,.12)}
 .tbl.squad select{padding:3px 2px;font-size:.78rem;max-width:92px}
 .tbl.squad td.act{padding-right:2px}
 .tbl td.act{text-align:right}
+
+.seg button.on.off{background:var(--bg3);border-color:var(--line);color:var(--mut)}

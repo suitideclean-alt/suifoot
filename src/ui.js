@@ -146,7 +146,7 @@
         ${bonusOpt()}
         <div class="row end"><button class="btn pri" data-act="setup-start">${t('start')}</button></div>
         <p class="mut sm">${t('fictional_note')}</p></div>
-        <div class="card"><h2>${t('about_title')}</h2><p>${t('about_text')}</p><h3 class="sm mut" style="margin-top:10px">${t('token_title')}</h3><p class="sm">${t('token_note')}</p><p class="mut sm">${t('supply')}: ${money(B.supply(UI.G))} USD · ${money(B.tsupply(UI.G))} SFOOT · ${t('treasury')}: ${money(UI.G.bank.ttreasury || 0)} SFOOT</p><p class="mut sm">${t('roadmap')}</p>
+        <div class="card"><h2>${t('about_title')}</h2><p>${t('about_text')}</p><h3 class="sm mut" style="margin-top:10px">${t('token_title')}</h3><p class="sm">${t('token_note')}</p>${UI.G ? `<p class="mut sm">${t('supply')}: ${money(B.supply(UI.G))} USD · ${money(B.tsupply(UI.G))} SFOOT · ${t('treasury')}: ${money((UI.G.bank && UI.G.bank.ttreasury) || 0)} SFOOT</p>` : ''}<p class="mut sm">${t('roadmap')}</p>
         ${has ? `<button class="btn" data-act="continue">${t('continue')}</button>` : ''}
         <label class="btn" style="display:inline-block">${t('import')}<input type="file" accept=".json,application/json" data-chg="import" hidden></label></div>${legendsCard()}</div></div>`;
   }
@@ -760,14 +760,22 @@
     const sk = ['train', 'tact', 'neg', 'youth'].map((k) => `<div class="row"><span style="min-width:140px"><b>${t('sk_' + k)}</b><div class="mut sm">${t('sk_' + k + '_d')}</div></span><span>${'●'.repeat(c.sk[k])}${'○'.repeat(5 - c.sk[k])}</span><button class="btn sm" data-act="skill:${k}" ${pts < 1 || c.sk[k] >= 5 ? 'disabled' : ''}>+</button></div>`).join('');
     const trophies = c.trophies.map((x) => `🏆 ${esc(cname(x.club))} · ${t('season')} ${x.s} · ${x.k === 'league' ? t('champion') + ' ' + divName(x.d) : x.k === 'euro' ? t('trophy_euro') : t('cup_winner')}`);
     const hall = G.hall.slice().reverse().slice(0, 15).map((h) => `<tr><td>${h.s}</td><td>${h.champ.map((id) => ctag(id, 14)).join('<br>')}</td><td>${h.cup ? ctag(h.cup, 14) : '-'}</td><td>${h.euro ? ctag(h.euro, 14) : '-'}</td></tr>`);
-    return `<div class="grid"><div class="card hl"><h2>${esc(c.name)}</h2><p>${club ? ctag(club.id, 22) : '<span class="bad">—</span>'}</p>
+    const profile = `<div class="card hl"><h2>${esc(c.name)}</h2><p>${club ? ctag(club.id, 22) : '<span class="bad">—</span>'}</p>
         <p>${t('coach_level')}: <b>${lvl}</b></p><div class="bar"><i style="width:${Math.max(0, Math.min(100, pct))}%"></i></div><p class="mut sm">${t('xp')} ${c.xp} · ${t('skill_points', { n: pts })}</p>${sk}
-        <p class="mut sm">${t('sacked_count', { n: c.sacked })}</p>${club && SF.Owner.role(c) === 'coach' ? `<button class="btn dng" data-act="resign">${t('resign')}</button>` : ''} <button class="btn dng" data-act="retire">${t('retire')}</button></div>
-      ${contractCard(c, club)}${club && SF.Owner.role(c) === 'coach' ? sfCard(c, club) + prizesCard(c, club) : ''}${goalsCard(c)}${repCard(c)}${vacCard(c, club)}
-      <div class="card">${offersBlock(c)}</div>
-      <div class="card"><h2>${t('trophies')}</h2>${trophies.length ? trophies.map((x) => `<div>${x}</div>`).join('') : `<span class="mut">${t('no_trophies')}</span>`}
-        <h2 style="margin-top:14px">${t('career')}</h2>${c.hist.length ? tbl([t('season'), t('club'), '>#'], c.hist.slice().reverse().map((h) => `<tr><td>${h.s}</td><td>${ctag(h.club, 14)} <span class="mut sm">${divName(h.d)}</span></td><td class="r">${h.pos}</td></tr>`)) : `<span class="mut">-</span>`}</div>
-      <div class="card"><h2>${t('hall')}</h2>${hall.length ? tbl([t('season'), t('champion'), t('cup'), '⭐'], hall) : `<span class="mut">-</span>`}</div>${achCard(c)}${legendsCard()}</div>`;
+        <p class="mut sm">${t('sacked_count', { n: c.sacked })}</p>${club && SF.Owner.role(c) === 'coach' ? `<button class="btn dng" data-act="resign">${t('resign')}</button>` : ''} <button class="btn dng" data-act="retire">${t('retire')}</button></div>`;
+    const trophiesCard = `<div class="card"><h2>${t('trophies')}</h2>${trophies.length ? trophies.map((x) => `<div>${x}</div>`).join('') : `<span class="mut">${t('no_trophies')}</span>`}
+        <h2 style="margin-top:14px">${t('career')}</h2>${c.hist.length ? tbl([t('season'), t('club'), '>#'], c.hist.slice().reverse().map((h) => `<tr><td>${h.s}</td><td>${ctag(h.club, 14)} <span class="mut sm">${divName(h.d)}</span></td><td class="r">${h.pos}</td></tr>`)) : `<span class="mut">-</span>`}</div>`;
+    const hallCard = `<div class="card"><h2>${t('hall')}</h2>${hall.length ? tbl([t('season'), t('champion'), t('cup'), '⭐'], hall) : `<span class="mut">-</span>`}</div>`;
+    const sub = ['profile', 'goals', 'market', 'career'].includes(UI.cs) ? UI.cs : 'profile';
+    const labels = { profile: t('cs_profile'), goals: t('cs_goals'), market: t('cs_market'), career: t('cs_career') };
+    const bar = `<div class="sub">${Object.keys(labels).map((k) => `<button class="${sub === k ? 'on' : ''}" data-act="cs:${k}">${labels[k]}</button>`).join('')}</div>`;
+    const pages = {
+      profile: profile + contractCard(c, club) + (club && SF.Owner.role(c) === 'coach' ? sfCard(c, club) + prizesCard(c, club) : ''),
+      goals: goalsCard(c) + repCard(c),
+      market: `<div class="card">${offersBlock(c)}</div>` + vacCard(c, club),
+      career: trophiesCard + hallCard + achCard(c) + legendsCard(),
+    };
+    return bar + `<div class="grid">${pages[sub]}</div>`;
   }
 
   // ---------- settings ----------
@@ -780,7 +788,7 @@
       <div class="row" style="margin-top:14px"><button class="btn pri" data-act="save">${t('save')}</button><button class="btn" data-act="export">${t('export')}</button>
       <label class="btn">${t('import')}<input type="file" accept=".json,application/json" data-chg="import" hidden></label>
       <button class="btn dng" data-act="newgame">${t('new_game')}</button></div></div>
-      <div class="card"><h2>${t('about_title')}</h2><p>${t('about_text')}</p><p class="mut sm">${t('roadmap')}</p><p class="mut sm">${t('fictional_note')}</p></div></div>`;
+      <div class="card"><h2>${t('about_title')}</h2><p>${t('about_text')}</p><h3 class="sm mut" style="margin-top:10px">${t('token_title')}</h3><p class="sm">${t('token_note')}</p><p class="mut sm">${t('supply')}: ${money(B.supply(UI.G))} USD · ${money(B.tsupply(UI.G))} SFOOT · ${t('treasury')}: ${money((UI.G.bank && UI.G.bank.ttreasury) || 0)} SFOOT</p><p class="mut sm">${t('roadmap')}</p><p class="mut sm">${t('fictional_note')}</p></div></div>`;
   }
 
   // ---------- season end celebration ----------
@@ -1303,6 +1311,7 @@
         return res(SF.Owner.setPolicy(G, c, { budget: g('budget'), maxFee: g('maxFee'), maxWage: g('maxWage'), wageCap: g('wageCap'), minSalePct: g('minSalePct') / 100, maxLoans: g('maxLoans'), reserve: g('reserve') }), t('ok_done'));
       }
       case 'ct': UI.ct = arg; return render();
+      case 'cs': UI.cs = arg; return render();
       case 'auto': return autoAdvance();
       case 'cvc': return cvModal(G.clubs[arg].ac, arg);
       case 'cvf': return cvModal(SF.Owner.market(G).find((x) => x.id === arg));
