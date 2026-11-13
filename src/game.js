@@ -690,6 +690,17 @@
     return out.sort((a, b) => b.gl - a.gl || a.ap - b.ap).slice(0, n || 10);
   };
 
+  /** the season's top scorer: goals in every competition, all four divisions together (fewer appearances wins a tie) */
+  Game.seasonScorer = function (G) {
+    let best = null;
+    for (const cid of G.clubIds) for (const pid of G.clubs[cid].squad) {
+      const p = G.players[pid];
+      if (!(p.g > 0)) continue;
+      if (!best || p.g > best.g || (p.g === best.g && (p.ap < best.ap || (p.ap === best.ap && p.id < best.id)))) best = p;
+    }
+    return best;
+  };
+
   function endSeason(G) {
     const hall = { s: G.season, champ: [], scorer: [], cup: G.cup.winner, finalist: G.cup.finalist };
     const summary = { champions: [], promoted: [], relegated: [], scorers: [], cup: G.cup.winner, finalist: G.cup.finalist, prizes: {} };
@@ -702,9 +713,7 @@
       Game.income(G, champ, CFG.prizeLeague[d], 'prize'); addPrize(summary, champ, CFG.prizeLeague[d], 'league', { d });
       const ts = Game.topScorers(G, d, 1)[0];
       if (ts) {
-        Game.income(G, ts.club, CFG.prizeScorer[d], 'prize'); addPrize(summary, ts.club, CFG.prizeScorer[d], 'scorer', { d, name: ts.n, g: ts.gl });
         hall.scorer.push({ name: ts.n, club: ts.club, g: ts.gl }); summary.scorers.push({ d, name: ts.n, club: ts.club, g: ts.gl });
-        if (G.clubs[ts.club].human) Game.news(G, 'n_scorer', { name: ts.n, g: ts.gl }, G.clubs[ts.club].human);
       } else { hall.scorer.push(null); summary.scorers.push(null); }
       if (d === 0) { G.euroQ = st.slice(0, CFG.EU_SLOTS); summary.euQ = G.euroQ.slice(); }
       if (d > 0) {
@@ -712,6 +721,13 @@
       }
       if (d < CFG.DIVS - 1) for (const id of st.slice(-2)) { G.clubs[id].nextDiv = d + 1; summary.relegated.push(id); }
       else for (const id of st.slice(-2)) { G.clubs[id].dropped = 1; (summary.dropped = summary.dropped || []).push(id); } // nothing below the fourth division
+    }
+    const top = Game.seasonScorer(G);
+    if (top) {
+      Game.income(G, top.club, CFG.prizeScorer, 'prize'); addPrize(summary, top.club, CFG.prizeScorer, 'scorer', { name: top.n, g: top.g });
+      summary.topScorer = { name: top.n, club: top.club, g: top.g };
+      hall.top = { name: top.n, club: top.club, g: top.g };
+      if (G.clubs[top.club].human) Game.news(G, 'n_scorer', { name: top.n, g: top.g }, G.clubs[top.club].human);
     }
     if (G.cup.winner) {
       G.clubs[G.cup.winner].cups++;

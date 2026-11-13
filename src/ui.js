@@ -499,7 +499,7 @@
     const G = UI.G, O = SF.Owner, d = club.div;
     const owner = O.payer(G, club) && O.payer(G, club).id === c.id, coachOnly = O.role(c) === 'coach' && !O.payer(G, club);
     const share = owner ? 1 : coachOnly ? CFG.coachPrize : 0;
-    const rows = [[t('pr_league') + ' · ' + divName(d), CFG.prizeLeague[d]], [t('pz_promo'), d > 0 ? CFG.promoBonus[d] : 0], [t('pr_scorer') + ' · ' + divName(d), CFG.prizeScorer[d]],
+    const rows = [[t('pr_league') + ' · ' + divName(d), CFG.prizeLeague[d]], [t('pz_promo'), d > 0 ? CFG.promoBonus[d] : 0], [t('pz_scorer'), CFG.prizeScorer],
       [t('pr_cup'), CFG.prizeCup], [t('pr_cupfinal'), Math.round(CFG.prizeCup * 0.4)],
       [t('pz_eu_part'), CFG.euPartic], [t('pz_eu_win'), CFG.euWin], [t('pz_eu_draw'), CFG.euDraw], [t('pz_eu_qf'), CFG.euQF], [t('pz_eu_sf'), CFG.euSF], [t('pz_eu_final'), CFG.euFinal], [t('pz_eu_ru'), Math.round(CFG.euFinal * 0.5)], [t('pr_euwin'), CFG.euWinner]].filter((r) => r[1] > 0);
     const earned = ((G.bank.tsf && G.bank.tsf[club.id]) || {}).prize || 0;

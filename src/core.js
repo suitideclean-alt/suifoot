@@ -32,7 +32,7 @@
     startCash: [900000, 380000, 150000, 60000],
     prizeLeague: [350000, 130000, 55000, 24000], // champion prize per division
     prizeCup: 200000,
-    prizeScorer: [60000, 25000, 10000, 5000],
+    prizeScorer: 60000, // one prize for the season's top scorer, all divisions and all competitions
     promoBonus: [0, 90000, 40000, 18000], // bonus for being promoted into division index-1
     upkeepPerSeat: 0.012, // weekly stadium upkeep per seat
     seatCost: 90, // cost to build one seat

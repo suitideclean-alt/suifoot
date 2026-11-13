@@ -621,6 +621,7 @@
     pz_eu_win: [`European cup: each group win`, `Coupe d'Europe : chaque victoire en groupe`, `Liga dos Campeões: cada vitória nos grupos`, `Europapokal: jeder Gruppensieg`],
     pz_eu_draw: [`European cup: each group draw`, `Coupe d'Europe : chaque nul en groupe`, `Liga dos Campeões: cada empate nos grupos`, `Europapokal: jedes Gruppenremis`],
     pz_eu_ru: [`European cup: beaten finalist (extra)`, `Coupe d'Europe : finaliste battu (en plus)`, `Liga dos Campeões: finalista vencido (extra)`, `Europapokal: unterlegener Finalist (extra)`],
+    pz_scorer: [`Season top scorer (all divisions, all competitions)`, `Meilleur buteur de la saison (toutes divisions, toutes compétitions)`, `Artilheiro da época (todas as divisões e competições)`, `Torschützenkönig der Saison (alle Ligen, alle Wettbewerbe)`],
     err_no_funds: [`Not enough funds`, `Fonds insuffisants`, `Saldo insuficiente`, `Nicht genug Geld`],
     err_rejected: [`Offer rejected: too low`, `Offre refusée : trop basse`, `Oferta recusada: muito baixa`, `Angebot abgelehnt: zu niedrig`],
     err_counter: [`Almost! They want {ask}.`, `Presque ! Ils veulent {ask}.`, `Quase! Eles querem {ask}.`, `Fast! Sie wollen {ask}.`],
