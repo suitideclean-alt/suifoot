@@ -594,11 +594,12 @@
   function cashCard(c, club, note) {
     const G = UI.G, O = SF.Owner, pol = O.policy(G, club);
     return `<div class="card hl"><h2>${t('own_title')}</h2><p class="mut">${note}</p>
+      <div class="row"><span>SFOOT</span><b>${money(O.sfBal(G, c.id))}</b></div>
       <div class="row"><span>${t('own_club_cash')}</span><b>${money(B.bal(G, club.id))}</b></div>
       <div class="row"><span>${t('ct_wallet')}</span><b>${money(O.walletBal(G, c.id))}</b></div>
       <div class="row"><span>${t('own_reserve')}</span><b>${money(pol.reserve)}</b></div>
       <div class="line"><label>${t('own_amount')}</label><input type="number" id="own-amt" min="0" step="1000" value="10000"></div>
-      <div class="row"><button class="btn" data-act="withdraw">${t('own_withdraw')}</button> <button class="btn" data-act="invest">${t('own_invest')}</button></div></div>`;
+      <div class="row"><button class="btn" data-act="invest">${t('own_invest')}</button></div></div>`;
   }
   const dots = (n) => '●'.repeat(n) + '○'.repeat(5 - n);
   function ownerView() {
@@ -990,7 +991,7 @@
   const watchBtn = (p) => `<button class="btn sm ghost" data-act="wt:${p.id}" title="${t('watch_on')}">${(co().watch || []).includes(p.id) ? '★' : '☆'}</button>`;
   function scoutBtn(p) {
     const club = myClub();
-    if (!club || X.potInfo(UI.G, co(), p).exact) return '';
+    if (!club || X.potInfo(UI.G, co(), p).exact) return '<button class="btn sm" style="visibility:hidden" tabindex="-1" disabled aria-hidden="true">🔎</button>'; // keeps the buy buttons aligned
     return `<button class="btn sm" data-act="scout:${p.id}" title="${t('scout_btn', { cost: CFG.scoutOne[club.div] })}">🔎</button>`;
   }
   function legends() { try { return JSON.parse(localStorage.getItem(LEGK) || '[]'); } catch (e) { return []; } }
