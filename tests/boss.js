@@ -206,9 +206,9 @@ t('prizes: human coach without a human owner gets 40% in SFOOT and the treasury 
   const G = Game.newGame({ seed: 4, coaches: [{ name: 'C', role: 'coach' }] }); const co = G.coaches[0], club = G.clubs[co.club];
   const m0 = G.bank.tminted;
   eq(Game.income(G, club.id, 10000, 'prize'), 10000);
-  eq(O.sfBal(G, co.id), 4000, 'coach 40%'); eq(G.bank.ttreasury, 6000, 'treasury 60%, not burned'); eq(G.bank.tminted - m0, 4000); conserved(G);
+  eq(O.sfBal(G, co.id), 4000, 'coach 40%'); eq(O.treasuryBal(G), 6000, 'treasury 60%, not burned'); eq(G.bank.tminted - m0, 10000, 'the whole prize is created: 40% to the coach, 60% into the treasury account'); conserved(G);
   const npc = G.clubIds.find((id) => !G.clubs[id].human), bp0 = G.bank.tburnedPrize || 0; Game.income(G, npc, 5000, 'prize');
-  eq(G.bank.ttreasury, 6000, 'a club with no human at all burns its prize'); eq(G.bank.tburnedPrize - bp0, 5000);
+  eq(O.treasuryBal(G), 6000, 'a club with no human at all burns its prize'); eq(G.bank.tburnedPrize - bp0, 5000);
   // a human owner on the same club: contract share decides
   club.owner = 777; G.coaches.push({ id: 777, role: 'owner', club: 0, name: 'Own' }); co.contract = co.contract || {}; co.contract.prizeShare = 0.25;
   Game.income(G, club.id, 8000, 'prize');

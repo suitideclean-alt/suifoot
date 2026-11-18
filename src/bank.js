@@ -3,7 +3,8 @@
  *  - SFOOT (tok): the real token: club investments (stadium, facilities, projects...) and prizes. Held by the human owner.
  * The two are never converted into each other.
  * The SFOOT side is shaped like a Sui Coin<SFOOT> treasury so it can later be swapped for the on-chain token:
- * tcredit() = mint, tdebit() = burn (paid to the project treasury), ttransfer() = move.
+ * tcredit() = mint, tdebit() = burn, ttransfer() = move. What a club spends is not burned: it moves to the
+ * project treasury account (SF.Owner.TREASURY), which online becomes an object the contract owns.
  * Phase A (this build): closed, off-chain, no real value. */
 (function () {
   const SF = globalThis.SF;
@@ -108,6 +109,18 @@
       G.bank.tok[to] = (G.bank.tok[to] || 0) + amt;
       SF.Bank.tlog(G, from, kind + '_out', -amt, clubFrom);
       SF.Bank.tlog(G, to, kind + '_in', amt, clubTo);
+      return amt;
+    },
+    /** a club spends SFOOT: it moves to the project instead of being destroyed, and the club's books keep
+     * seeing the plain kind ('academy', 'stadium'...), which is what the finance reports read */
+    tspend(G, from, to, amt, kind, clubId) {
+      if (!Number.isFinite(amt)) return 0;
+      amt = Math.round(amt);
+      if (!amt) return 0;
+      SF.Bank.ensureTok(G);
+      G.bank.tok[from] = (G.bank.tok[from] || 0) - amt;
+      G.bank.tok[to] = (G.bank.tok[to] || 0) + amt;
+      SF.Bank.tlog(G, from, kind, -amt, clubId);
       return amt;
     },
     tsupply(G) { return (G.bank.tminted || 0) - (G.bank.tburned || 0); },

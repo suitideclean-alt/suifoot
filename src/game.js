@@ -169,6 +169,7 @@
     G.table = {}; G.res = [];
     G.bank.sf = {};
     G.bank.tsf = {};
+    SF.Owner.setPrizeFactor(G); // what a prize is worth this season: all of it offline, a share of the pool online
     for (const id of G.clubIds) {
       const c = G.clubs[id];
       G.table[id] = { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 };

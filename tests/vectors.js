@@ -37,7 +37,7 @@ function digest(seed, role) {
   const parts = JSON.stringify({ table, bal, tok, clubs, players, coaches, cup: G.cup.winner, euro: G.eu.winner });
   return {
     seed, role, fnv1a: fnv1a(parts), season: G.season,
-    supply: SF.Bank.supply(G), tsupply: SF.Bank.tsupply(G), treasury: Math.round(G.bank.ttreasury || 0),
+    supply: SF.Bank.supply(G), tsupply: SF.Bank.tsupply(G), treasury: SF.Owner.treasuryBal(G),
     cup: G.cup.winner, euro: G.eu.winner,
     top3: table.slice().sort((a, b) => b[1] - a[1]).slice(0, 3),
   };

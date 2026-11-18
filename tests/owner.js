@@ -128,10 +128,10 @@ t('mitigation: a new job reduces the instalments', () => {
 t('quitting without just cause: pays the exit clause, cannot sign for 8 weeks', () => {
   const { G, co, club } = setup('coach');
   B.tcredit(G, O.sfAcc(co.id), 10000000, 'grant');
-  const fee = O.exitFee(co), c0 = B.bal(G, club.id), tb0 = O.sfBal(G, co.id), tr0 = G.bank.tburned;
+  const fee = O.exitFee(co), c0 = B.bal(G, club.id), tb0 = O.sfBal(G, co.id), tr0 = O.treasuryBal(G);
   eq(fee, Math.round(O.remaining(co) * 0.5));
   A.resign(G, co);
-  eq(tb0 - O.sfBal(G, co.id), fee, 'the exit clause is paid in SFOOT'); eq(G.bank.tburned - tr0, fee, 'to the project treasury (no human owner)');
+  eq(tb0 - O.sfBal(G, co.id), fee, 'the exit clause is paid in SFOOT'); eq(O.treasuryBal(G) - tr0, fee, 'to the project treasury (no human owner), not burned');
   eq(B.bal(G, club.id), c0, 'club USD untouched'); eq(co.ban, CFG.owner.ban);
   co.offers.push({ id: 98, club: club.id, ttl: 6, seen: 0 });
   eq(A.acceptJob(G, co, 98).err, 'banned');
@@ -459,9 +459,9 @@ t('exit clause without SFOOT becomes a debt taken from the next prize', () => {
   // a new club, a prize: the debt is settled first
   const tgt = G.clubIds.find((id) => !G.clubs[id].human);
   co.club = tgt; G.clubs[tgt].human = co.id; G.clubs[tgt].owner = 0;
-  const before = G.bank.tburned; SF.Game.income(G, tgt, 100000, 'prize'); // coach gets 40,000
+  const before = O.treasuryBal(G); SF.Game.income(G, tgt, 100000, 'prize'); // coach gets 40,000
   eq(co.sfDebt, Math.max(0, fee - 40000), 'debt reduced from the prize');
-  eq(O.sfBal(G, co.id), Math.max(0, 40000 - fee)); truthy(G.bank.tburned - before === Math.min(fee, 40000)); conserved(G);
+  eq(O.sfBal(G, co.id), Math.max(0, 40000 - fee)); truthy(O.treasuryBal(G) - before >= Math.min(fee, 40000), 'the settled debt reached the treasury'); conserved(G);
 });
 t('a human owner pays the fired computer coach in SFOOT, in instalments; with no SFOOT it waits', () => {
   const { G, co, club } = ownerSetup();

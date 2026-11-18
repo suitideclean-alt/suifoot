@@ -25,34 +25,98 @@
     const co = G.coaches.find((c) => c.id === club.owner);
     return co && ROLE(co) !== 'coach' ? co : null;
   };
+  /* The project's own SFOOT accounts. They are real accounts, not counters: whatever is owed to the project
+   * has to sit somewhere that the books can see, and online they become objects the contract owns. */
+  O.TREASURY = 't:treasury';   // what the project keeps: investments, its share of prizes, fines
+  O.POOL = 't:pool';           // the prize pool: entry fees go in, season prizes come out
+  O.treasuryBal = (G) => B.tbal(G, O.TREASURY);
+  O.poolBal = (G) => B.tbal(G, O.POOL);
+
   O.invBal = (G, club) => { const p = O.payer(G, club); return p ? O.sfBal(G, p.id) : B.bal(G, club.id); };
   O.invCan = (G, club, cost) => O.invBal(G, club) >= cost;
   O.invPay = function (G, club, cost, kind) {
     const p = O.payer(G, club);
-    if (p) return B.tdebit(G, O.sfAcc(p.id), cost, kind, club.id);
+    // SFOOT spent on the club is not destroyed: it moves to the project treasury, which is what the contract will do
+    if (p) return B.tspend(G, O.sfAcc(p.id), O.TREASURY, cost, kind, club.id);
     return B.debit(G, club.id, cost, kind);
   };
+
+  /* How much of a season's listed prize is actually paid.
+   * 'fixed'  - the offline game: the values in CFG, created as they are won. Nothing changes.
+   * 'pool'   - online: every prize is the same share of a pool that the entry fees filled, so the project can
+   *            never pay out more than came in. The factor is fixed when the season starts, so that a prize
+   *            won in week 3 is worth the same as one won in week 50. */
+  O.prizeFactor = function (G) {
+    if (CFG.prizeMode !== 'pool') return 1;
+    const f = G.bank && G.bank.pf;
+    return typeof f === 'number' && f >= 0 ? f : 0;
+  };
+  /** The most the pool could be asked for this season: what each club with a human behind it could win at
+   * its very best. A prize a computer club wins is never created, so it is not a liability. Dividing by the
+   * whole table instead would make a league of three humans pay out almost nothing while the pool sat full. */
+  O.seasonLiability = function (G) {
+    let total = 0;
+    for (const id of G.clubIds) {
+      const club = G.clubs[id];
+      if (!club.human && !club.owner) continue;
+      const d = club.div;
+      total += Math.round(CFG.prizeDiv[d] * CFG.prizeSplit[0]) + CFG.prizeCup + CFG.prizeScorer;
+      if (d === 0) total += CFG.euWinner + CFG.euQF + CFG.euSF + CFG.euFinal + CFG.euPartic + 6 * CFG.euWin;
+    }
+    return Math.min(total, CFG.prizeTotal);
+  };
+  /** called when a season starts: freezes what a prize is worth this season */
+  O.setPrizeFactor = function (G) {
+    if (CFG.prizeMode !== 'pool') { G.bank.pf = 1; return 1; }
+    const liability = O.seasonLiability(G);
+    const pool = O.poolBal(G);
+    // six decimal places, so every machine works out the same number
+    G.bank.pf = liability > 0 ? Math.min(1, Math.floor((pool / liability) * 1e6) / 1e6) : 1;
+    return G.bank.pf;
+  };
+  /** move prize money to a person: minted in fixed mode, taken out of the pool online */
+  function payPrize(G, toId, amt, clubId) {
+    if (amt <= 0) return 0;
+    if (CFG.prizeMode !== 'pool') return B.tcredit(G, toId, amt, 'prize', clubId);
+    const have = Math.max(0, O.poolBal(G));
+    const pay = Math.min(amt, have);
+    return pay > 0 ? B.ttransfer(G, O.POOL, toId, pay, 'prize', clubId, clubId) : 0;
+  }
+
   /** prizes are paid in SFOOT. Human owner alone: all to him. Human coach, no human owner: 40% to the coach, 60% to the project treasury.
    *  Human owner and human coach: split by the coach's contract (prizeShare). No human at all: the prize is never created (burned). */
   O.prize = function (G, club, amt) {
-    amt = Math.round(amt);
+    amt = Math.round(amt * O.prizeFactor(G));
     if (amt <= 0) return 0;
     const owner = O.payer(G, club), hc = G.coaches.find((c) => c.club === club.id && ROLE(c) === 'coach');
     if (owner && hc) {
       const sh = util.clamp(hc.contract && hc.contract.prizeShare != null ? hc.contract.prizeShare : CFG.coachPrize, 0, 1), part = Math.round(amt * sh);
-      B.tcredit(G, O.sfAcc(hc.id), part, 'prize', club.id);
-      B.tcredit(G, O.sfAcc(owner.id), amt - part, 'prize', club.id);
-    } else if (owner) B.tcredit(G, O.sfAcc(owner.id), amt, 'prize', club.id);
+      payPrize(G, O.sfAcc(hc.id), part, club.id);
+      payPrize(G, O.sfAcc(owner.id), amt - part, club.id);
+    } else if (owner) payPrize(G, O.sfAcc(owner.id), amt, club.id);
     else if (hc) {
       const part = Math.round(amt * CFG.coachPrize);
-      B.tcredit(G, O.sfAcc(hc.id), part, 'prize', club.id);
-      G.bank.ttreasury = (G.bank.ttreasury || 0) + (amt - part);
+      payPrize(G, O.sfAcc(hc.id), part, club.id);
+      payPrize(G, O.TREASURY, amt - part, club.id); // the project's share of a prize a coach wins without an owner
     } else { G.bank.tburnedPrize = (G.bank.tburnedPrize || 0) + amt; return 0; }
     for (const p of [hc, owner]) if (p && p.sfDebt > 0) { // an unpaid exit clause is settled from the prize
       const d = Math.min(p.sfDebt, Math.max(0, O.sfBal(G, p.id)));
-      if (d > 0) { B.tdebit(G, O.sfAcc(p.id), d, 'coach_exit', club.id); p.sfDebt -= d; }
+      if (d > 0) { B.tspend(G, O.sfAcc(p.id), O.TREASURY, d, 'coach_exit', club.id); p.sfDebt -= d; }
     }
     return amt;
+  };
+
+  /** a human club's entry fee for the season: part fills the prize pool, the rest keeps the project running */
+  O.payEntry = function (G, co, clubId) {
+    const club = G.clubs[clubId];
+    if (!club) return { ok: false, err: 'bad' };
+    const fee = CFG.entryFee[club.div];
+    if (!(fee > 0)) return { ok: true, fee: 0 };
+    if (O.sfBal(G, co.id) < fee) return { ok: false, err: 'no_funds_sf', cost: fee };
+    const toPool = Math.round(fee * CFG.poolShare);
+    B.tspend(G, O.sfAcc(co.id), O.POOL, toPool, 'entry', clubId);
+    B.tspend(G, O.sfAcc(co.id), O.TREASURY, fee - toPool, 'entry', clubId);
+    return { ok: true, fee, pool: toPool };
   };
   O.wageBill = (G, club) => util.sum(club.squad.map((id) => G.players[id].wage));
 
@@ -237,7 +301,7 @@
     if (payer) { // a human owner pays what a fired computer coach is owed in SFOOT, to the project treasury; with no SFOOT the instalment waits
       amt = Math.min(amt, Math.max(0, O.sfBal(G, payer.id)));
       if (amt <= 0) return 0;
-      B.tdebit(G, O.sfAcc(payer.id), amt, 'severance', o.club);
+      B.tspend(G, O.sfAcc(payer.id), O.TREASURY, amt, 'severance', o.club);
       o.left -= amt;
       return amt;
     }
@@ -271,7 +335,7 @@
     if (pay > 0) { // the exit clause is real money: to the human owner, or to the project treasury when the club has none
       const owner = O.payer(G, G.clubs[c.club]);
       if (owner && owner.id !== co.id) B.ttransfer(G, O.sfAcc(co.id), O.sfAcc(owner.id), pay, 'coach_exit', c.club, c.club);
-      else B.tdebit(G, O.sfAcc(co.id), pay, 'coach_exit', c.club);
+      else B.tspend(G, O.sfAcc(co.id), O.TREASURY, pay, 'coach_exit', c.club);
     }
     if (fee > pay) co.sfDebt = (co.sfDebt || 0) + (fee - pay); // what he could not pay is taken from his next prizes
     co.ban = OC.ban;

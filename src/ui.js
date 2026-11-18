@@ -146,7 +146,7 @@
         ${bonusOpt()}
         <div class="row end"><button class="btn pri" data-act="setup-start">${t('start')}</button></div>
         <p class="mut sm">${t('fictional_note')}</p></div>
-        <div class="card"><h2>${t('about_title')}</h2><p>${t('about_text')}</p><h3 class="sm mut" style="margin-top:10px">${t('token_title')}</h3><p class="sm">${t('token_note')}</p>${UI.G ? `<p class="mut sm">${t('supply')}: ${money(B.supply(UI.G))} USD · ${money(B.tsupply(UI.G))} SFOOT · ${t('treasury')}: ${money((UI.G.bank && UI.G.bank.ttreasury) || 0)} SFOOT</p>` : ''}<p class="mut sm">${t('roadmap')}</p>
+        <div class="card"><h2>${t('about_title')}</h2><p>${t('about_text')}</p><h3 class="sm mut" style="margin-top:10px">${t('token_title')}</h3><p class="sm">${t('token_note')}</p>${UI.G ? `<p class="mut sm">${t('supply')}: ${money(B.supply(UI.G))} USD · ${money(B.tsupply(UI.G))} SFOOT · ${t('treasury')}: ${money(SF.Owner.treasuryBal(UI.G))} SFOOT</p>` : ''}<p class="mut sm">${t('roadmap')}</p>
         ${has ? `<button class="btn" data-act="continue">${t('continue')}</button>` : ''}
         <label class="btn" style="display:inline-block">${t('import')}<input type="file" accept=".json,application/json" data-chg="import" hidden></label></div>${legendsCard()}</div></div>`;
   }
@@ -788,7 +788,7 @@
       <div class="row" style="margin-top:14px"><button class="btn pri" data-act="save">${t('save')}</button><button class="btn" data-act="export">${t('export')}</button>
       <label class="btn">${t('import')}<input type="file" accept=".json,application/json" data-chg="import" hidden></label>
       <button class="btn dng" data-act="newgame">${t('new_game')}</button></div></div>
-      <div class="card"><h2>${t('about_title')}</h2><p>${t('about_text')}</p><h3 class="sm mut" style="margin-top:10px">${t('token_title')}</h3><p class="sm">${t('token_note')}</p><p class="mut sm">${t('supply')}: ${money(B.supply(UI.G))} USD · ${money(B.tsupply(UI.G))} SFOOT · ${t('treasury')}: ${money((UI.G.bank && UI.G.bank.ttreasury) || 0)} SFOOT</p><p class="mut sm">${t('roadmap')}</p><p class="mut sm">${t('fictional_note')}</p></div></div>`;
+      <div class="card"><h2>${t('about_title')}</h2><p>${t('about_text')}</p><h3 class="sm mut" style="margin-top:10px">${t('token_title')}</h3><p class="sm">${t('token_note')}</p><p class="mut sm">${t('supply')}: ${money(B.supply(UI.G))} USD · ${money(B.tsupply(UI.G))} SFOOT · ${t('treasury')}: ${money(SF.Owner.treasuryBal(UI.G))} SFOOT</p><p class="mut sm">${t('roadmap')}</p><p class="mut sm">${t('fictional_note')}</p></div></div>`;
   }
 
   // ---------- season end celebration ----------

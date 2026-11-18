@@ -37,6 +37,14 @@
     upkeepPerSeat: 0.012, // weekly stadium upkeep per seat
     seatCost: 90, // cost to build one seat
     coachPrize: 0.4, // share of a prize a human coach gets when the club has no human owner (the rest goes to the project treasury)
+    /* How prizes are funded.
+     * 'fixed': the offline game. The values above are paid as they are won, created when they are won.
+     * 'pool':  online. Entry fees fill a pool and every prize is the same share of it, so the project can
+     *          never pay out more SFOOT than came in. Switched on when there are entry fees to collect. */
+    prizeMode: 'fixed',
+    prizeTotal: 1385500, // the most one season can hand out: 600k divisions + 140k cup + 50k scorer + 595.5k Europe at its fullest
+    poolShare: 0.75,     // of an entry fee, this much fills the prize pool and the rest keeps the project running
+    entryFee: [0, 0, 0, 0], // SFOOT per season per human club, by division. Zero offline; set when the token has a price
     startSfoot: 500000, // SFOOT given to a human owner at the start (testnet grant): it pays investments, prizes add to it
     expandStep: 2000,
     expandWeeks: 4,

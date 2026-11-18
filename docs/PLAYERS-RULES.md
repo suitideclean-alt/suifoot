@@ -54,7 +54,16 @@ Dono (roles `owner` e `both`; estado em `club.nz`) com caixa parada (> 16 unidad
   - nenhum humano no clube: o prémio **não é criado** (equivale a queimar).
 - Programa semanal (academia, marketing, comunidade) sem SFOOT suficiente: desliga-se com aviso.
 - Teste: cada dono humano recebe `CFG.startSfoot` (500 000) ao começar; jogos antigos recebem-no ao migrar.
-- Os valores dos prémios ainda são os antigos; a fórmula dos 75 % das entradas fica para a especificação económica.
+
+### Tesouraria e bolsa de prémios (v0.9.27)
+- A **tesouraria** (`t:treasury`) e a **bolsa de prémios** (`t:pool`) são contas SFOOT a sério, não contadores. O que um clube gasta não é destruído: muda de conta. Online passam a ser objetos do contrato.
+- `CFG.prizeMode` decide como os prémios são pagos:
+  - `fixed` (jogo offline, como hoje): os valores desta página, criados quando são ganhos;
+  - `pool` (online): cada prémio é a mesma fração de uma bolsa cheia pelas inscrições, por isso **nunca sai mais SFOOT do que entrou**.
+- A fração fica fixada no início da época (`G.bank.pf`), para um prémio ganho à 3.ª jornada valer o mesmo que um ganho à 50.ª. É `bolsa ÷ responsabilidade da época`, arredondada a seis casas para todas as máquinas darem o mesmo número.
+- A **responsabilidade da época** (`O.seasonLiability`) conta só os clubes com um humano atrás: o que cada um poderia ganhar no seu melhor. Um prémio de clube do computador nunca é criado, logo não é responsabilidade. Dividir pela tabela toda faria uma liga de três humanos pagar quase nada com a bolsa cheia.
+- Inscrição (`O.payEntry`): `CFG.poolShare` (75%) enche a bolsa, o resto fica na tesouraria. Os valores de `CFG.entryFee` são zero enquanto não houver preço para o token.
+- Teto de uma época: `CFG.prizeTotal` = 1 385 500 (600 000 divisões + 140 000 taça + 50 000 marcador + 595 500 de Liga dos Campeões no máximo). Um teste mede o que as épocas realmente pedem e falha se passar do teto.
 
 ### Prémios de liga (v0.9.19)
 - Cada divisão tem um prémio total na escala 8:4:2:1 (1.ª a 4.ª): 320 000 / 160 000 / 80 000 / 40 000 SFOOT. Campeão 70%, segundo 30%.
