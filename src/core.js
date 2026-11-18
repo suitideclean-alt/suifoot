@@ -97,6 +97,27 @@
 
   SF.util = {
     clamp: (x, a, b) => Math.max(a, Math.min(b, x)),
+    /** a number that came from outside the engine (a form field, a request): a finite number, or null.
+     * Everything else - NaN, Infinity, text, objects, booleans - is refused here and never reaches the game logic.
+     * This matters because NaN makes every comparison false, so a bad value slips past price and balance checks. */
+    num(x) {
+      if (typeof x === 'number') return Number.isFinite(x) ? x : null;
+      if (typeof x === 'string' && x.trim() !== '') { const n = Number(x); return Number.isFinite(n) ? n : null; }
+      return null;
+    },
+    /** a whole number from outside, rounded and kept inside [lo, hi]; null when it is not a number at all */
+    int(x, lo, hi) {
+      const n = SF.util.num(x);
+      if (n === null) return null;
+      return SF.util.clamp(Math.round(n), lo, hi);
+    },
+    /** an amount of money from outside: finite, not negative, rounded, and under a sane ceiling */
+    amount(x, max) {
+      const n = SF.util.num(x);
+      if (n === null || n < 0) return null;
+      const r = Math.round(n);
+      return r > (max == null ? 1e12 : max) ? null : r;
+    },
     sum: (a) => a.reduce((s, x) => s + x, 0),
     avg: (a) => (a.length ? a.reduce((s, x) => s + x, 0) / a.length : 0),
     money(n, compact) {

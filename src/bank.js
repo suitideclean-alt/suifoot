@@ -30,6 +30,7 @@
     },
     /** money enters the system (mint) */
     credit(G, id, amt, kind, memo) {
+      if (!Number.isFinite(amt)) return 0; // last line of defence: a bad number never becomes money
       amt = Math.round(amt);
       if (!amt) return 0;
       G.bank.acc[id] = (G.bank.acc[id] || 0) + amt;
@@ -39,6 +40,7 @@
     },
     /** money leaves the system (burn) */
     debit(G, id, amt, kind, memo) {
+      if (!Number.isFinite(amt)) return 0;
       amt = Math.round(amt);
       if (!amt) return 0;
       G.bank.acc[id] = (G.bank.acc[id] || 0) - amt;
@@ -48,6 +50,7 @@
     },
     /** club to club */
     transfer(G, from, to, amt, kind, memo) {
+      if (!Number.isFinite(amt)) return 0;
       amt = Math.round(amt);
       G.bank.acc[from] -= amt;
       G.bank.acc[to] = (G.bank.acc[to] || 0) + amt;
@@ -76,6 +79,7 @@
     },
     /** SFOOT enters the game (prize paid out, or the starting grant) */
     tcredit(G, id, amt, kind, clubId) {
+      if (!Number.isFinite(amt)) return 0;
       amt = Math.round(amt);
       if (!amt) return 0;
       SF.Bank.ensureTok(G);
@@ -86,6 +90,7 @@
     },
     /** SFOOT leaves the owner and goes to the project treasury (investment); clubId says which club it was spent on */
     tdebit(G, id, amt, kind, clubId) {
+      if (!Number.isFinite(amt)) return 0;
       amt = Math.round(amt);
       if (!amt) return 0;
       SF.Bank.ensureTok(G);
@@ -96,6 +101,7 @@
     },
     /** SFOOT between two humans: no mint, no burn */
     ttransfer(G, from, to, amt, kind, clubFrom, clubTo) {
+      if (!Number.isFinite(amt)) return 0;
       amt = Math.round(amt);
       if (!amt) return 0;
       SF.Bank.ensureTok(G);
@@ -117,13 +123,14 @@
       return Math.max(0, Math.round(rev * 0.6 - open));
     },
     debtOf(G, clubId) {
-      return G.bank.loans.filter((l) => l.club === clubId).reduce((s, l) => s + l.due, 0);
+      return G.bank.loans.filter((l) => l.club === clubId).reduce((s, l) => s + (Number.isFinite(l.due) ? l.due : 0), 0);
     },
     takeLoan(G, clubId, principal, seasons) {
       const lim = SF.Bank.creditLimit(G, clubId);
-      principal = Math.round(principal);
-      if (principal <= 0 || principal > lim) return { ok: false, err: 'loan_limit', max: lim };
-      seasons = SF.util.clamp(seasons | 0, 1, 3);
+      // written as positive checks on purpose: `principal > lim` lets NaN through, `principal <= lim` does not
+      principal = SF.util.amount(principal);
+      if (principal === null || !(principal > 0) || !(principal <= lim)) return { ok: false, err: 'loan_limit', max: lim };
+      seasons = SF.util.int(seasons, 1, 3) || 1;
       const due = Math.round(principal * (1 + SF.CFG.loanRate * seasons));
       const weeks = seasons * SF.CFG.TOTAL_WEEKS;
       const loan = { id: G.bank.nextLoan++, club: clubId, principal, due, total: due, weeks, left: weeks, weekly: Math.ceil(due / weeks) };

@@ -25,7 +25,8 @@
     if (p.loan) return no('on_loan');
     if (club.squad.length >= CFG.SQUAD_MAX) return no('squad_full');
     if (seller.squad.length <= CFG.SQUAD_MIN + 1) return no('seller_min');
-    fee = Math.round(fee);
+    fee = util.amount(fee); // a fee that is not a real number used to slip past every check below and buy the player for free
+    if (fee === null) return no('bad_amount');
     const ask = A.askPrice(G, coach, p);
     if (fee < E.clause(p)) { // paying the release clause skips the haggling
       if (fee < ask * 0.88) return no('rejected', { ask });
@@ -65,8 +66,10 @@
   A.listPlayer = function (G, coach, pid, price) {
     const p = G.players[pid];
     if (!p || p.club !== coach.club || p.loan) return no('bad');
-    if (price > 0) { const gt = SF.Owner.gate(G, coach, 'list', { pid, price: Math.round(price), name: p.n }); if (gt) return gt; }
-    p.listed = Math.max(0, Math.round(price));
+    const v = util.amount(price);
+    if (v === null) return no('bad_amount');
+    if (v > 0) { const gt = SF.Owner.gate(G, coach, 'list', { pid, price: v, name: p.n }); if (gt) return gt; }
+    p.listed = v;
     return ok();
   };
 
@@ -107,7 +110,8 @@
   A.renew = function (G, coach, pid, years) {
     const club = myClub(G, coach), p = G.players[pid];
     if (!club || !p || p.club !== club.id) return no('bad');
-    years = util.clamp(years | 0, 1, 4);
+    years = util.int(years == null ? 1 : years, 1, 4); // omitted means one season, as before
+    if (years === null) return no('bad_amount');
     if (SF.Extras.mood(p) < 25) return no('unhappy');
     if (p.ct >= 6) return no('max_contract');
     const wage = Math.round((E.wage(p) * (1 + 0.02 * years)) / 10) * 10;
@@ -161,7 +165,8 @@
 
   A.loanIn = function (G, coach, pid, seasons) {
     const club = myClub(G, coach), p = G.players[pid];
-    seasons = util.clamp(seasons | 0, 1, 2);
+    seasons = util.int(seasons == null ? 1 : seasons, 1, 2);
+    if (seasons === null) return no('bad_amount');
     if (!club) return no('no_club');
     if (coach.vac > 0) return no('vacation');
     if (!p || !p.club || p.club === club.id) return no('bad');
@@ -186,7 +191,8 @@
 
   A.loanOut = function (G, coach, pid, seasons) {
     const club = myClub(G, coach), p = G.players[pid];
-    seasons = util.clamp(seasons | 0, 1, 2);
+    seasons = util.int(seasons == null ? 1 : seasons, 1, 2);
+    if (seasons === null) return no('bad_amount');
     if (!club || !p || p.club !== club.id || p.loan) return no('bad');
     if (club.squad.length <= CFG.SQUAD_MIN) return no('squad_min');
     const fee = A.loanOutFee(G, coach, p, seasons);
@@ -208,7 +214,8 @@
   // ---------- holiday: the game runs by itself, staff renews contracts, no signings or sales ----------
   A.setVacation = function (G, coach, weeks) {
     if (!coach.club) return no('no_club');
-    weeks = weeks | 0;
+    weeks = util.int(weeks == null ? 0 : weeks, 0, 99);
+    if (weeks === null) return no('bad_amount');
     if (weeks <= 0) { coach.vac = 0; return ok(); }
     const left = G.sched.length - G.week + 1;
     coach.vac = weeks >= 99 ? left + 1 : Math.min(weeks, left);
@@ -221,6 +228,7 @@
   A.scoutReport = (G, c) => SF.Extras.scoutReport(G, c);
   A.promote = (G, c, pid) => SF.Extras.promote(G, c, pid);
   A.watch = function (G, coach, pid) {
+    if (!G.players[pid]) return no('bad');
     coach.watch = coach.watch || [];
     const i = coach.watch.indexOf(pid);
     if (i >= 0) { coach.watch.splice(i, 1); return ok({ on: false }); }
@@ -257,8 +265,10 @@
   A.setPrice = function (G, coach, price) {
     const club = myClub(G, coach);
     if (!club) return no('no_club');
+    const v = util.num(price);
+    if (v === null) return no('bad_amount');
     const ref = CFG.refPrice[club.div];
-    club.price = util.clamp(Math.round(price * 10) / 10, ref * 0.4, ref * 3);
+    club.price = util.clamp(Math.round(v * 10) / 10, ref * 0.4, ref * 3);
     return ok({ price: club.price });
   };
 
@@ -270,7 +280,8 @@
   A.expandStadium = function (G, coach, steps) {
     const club = myClub(G, coach);
     if (!club) return no('no_club');
-    steps = util.clamp(steps | 0, 1, 5);
+    steps = util.int(steps == null ? 1 : steps, 1, 5);
+    if (steps === null) return no('bad_amount');
     if (club.build) return no('building');
     if (club.cap + steps * A.expandStep(club) > 90000) return no('max_cap');
     const cost = A.stadiumCost(G, club, steps);
@@ -373,9 +384,11 @@
 
   A.takeLoan = function (G, coach, amount, seasons) {
     if (!coach.club) return no('no_club');
-    const gt = SF.Owner.gate(G, coach, 'loan', { key: 'x', cost: Math.round(amount) });
+    const amt = util.amount(amount);
+    if (amt === null || amt <= 0) return no('bad_amount');
+    const gt = SF.Owner.gate(G, coach, 'loan', { key: 'x', cost: amt });
     if (gt) return gt;
-    return B.takeLoan(G, coach.club, amount, seasons);
+    return B.takeLoan(G, coach.club, amt, seasons);
   };
   A.repayLoan = function (G, coach, id) { return coach.club ? B.repayLoan(G, coach.club, id) : no('no_club'); };
 

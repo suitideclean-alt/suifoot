@@ -90,7 +90,11 @@
     const club = G.clubs[co.club];
     if (!club || (ROLE(co) === 'coach') || club.owner !== co.id) return { ok: false, err: 'owner_only' };
     const pol = O.policy(G, club);
-    for (const k of NUM) if (patch[k] != null && isFinite(+patch[k]) && +patch[k] >= 0) pol[k] = k === 'minSalePct' ? util.clamp(+patch[k], 0, 1.5) : Math.round(+patch[k]);
+    for (const k of NUM) {
+      const v = util.num(patch[k]);
+      if (v === null || v < 0) continue;
+      pol[k] = k === 'minSalePct' ? util.clamp(v, 0, 1.5) : Math.min(Math.round(v), 1e12);
+    }
     if (Array.isArray(patch.untouchable)) pol.untouchable = patch.untouchable.filter((id) => G.players[id] && G.players[id].club === club.id);
     return { ok: true };
   };

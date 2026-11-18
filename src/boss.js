@@ -237,7 +237,9 @@
   Bo.setLine = function (G, co, k, lvl) {
     const club = G.clubs[co.club], b = club && club.boss;
     if (!b || !Bo.active(G, club) || !LINES.includes(k)) return { ok: false, err: 'bad' };
-    b.lines[k] = util.clamp(Math.round(+lvl), 0, BC.maxLine);
+    const n = util.int(lvl, 0, BC.maxLine);
+    if (n === null) return { ok: false, err: 'bad' };
+    b.lines[k] = n;
     return { ok: true };
   };
   Bo.setMerch = function (G, co, v) { const b = G.clubs[co.club].boss; if (!BC.merch[v]) return { ok: false }; b.merch = v; return { ok: true }; };
@@ -306,7 +308,9 @@
   Bo.sellStake = function (G, co, pct) {
     const club = G.clubs[co.club], b = club && club.boss;
     if (!b || !Bo.active(G, club)) return { ok: false, err: 'owner_only' };
-    pct = Math.round(+pct * 100) / 100;
+    const raw = util.num(pct);
+    if (raw === null) return { ok: false, err: 'bad' };
+    pct = Math.round(raw * 100) / 100;
     if (!(pct > 0) || 1 - Bo.stake(club) + pct > BC.stakeMax + 1e-9) return { ok: false, err: 'stake_max' };
     const amt = Bo.stakeOffer(G, club, pct);
     B.credit(G, club.id, amt, 'investor');
@@ -329,8 +333,8 @@
   Bo.issueBond = function (G, co, amt, years) {
     const club = G.clubs[co.club], b = club && club.boss;
     if (!b || !Bo.active(G, club)) return { ok: false, err: 'owner_only' };
-    amt = Math.round(+amt); years = util.clamp(Math.round(+years) || 1, 1, 3);
-    if (!(amt > 0) || amt > Bo.bondMax(G, club)) return { ok: false, err: 'bond_max' };
+    amt = util.amount(amt); years = util.int(years, 1, 3) || 1;
+    if (amt === null || !(amt > 0) || !(amt <= Bo.bondMax(G, club))) return { ok: false, err: 'bond_max' };
     const q = Bo.bondQuote(amt, years);
     B.credit(G, club.id, amt, 'bond');
     b.bonds.push({ id: b.nid++, amt, years, due: q.due, weekly: q.weekly, s: G.season });

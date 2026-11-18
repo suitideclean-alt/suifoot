@@ -633,6 +633,7 @@
     cs_career: [`Career and trophies`, `Carrière et trophées`, `Carreira e troféus`, `Karriere und Pokale`],
     sf_debt: [`Exit clause still owed: {amt} SFOOT (taken from your next prizes).`, `Clause de sortie encore due : {amt} SFOOT (prélevée sur tes prochains prix).`, `Cláusula de saída em dívida: {amt} SFOOT (descontada dos próximos prémios).`, `Ausstiegsklausel noch offen: {amt} SFOOT (wird von deinen nächsten Prämien abgezogen).`],
     err_no_funds: [`Not enough funds`, `Fonds insuffisants`, `Saldo insuficiente`, `Nicht genug Geld`],
+    err_bad_amount: [`That value is not a valid number.`, `Cette valeur n'est pas un nombre valide.`, `Esse valor não é um número válido.`, `Dieser Wert ist keine gültige Zahl.`],
     err_rejected: [`Offer rejected: too low`, `Offre refusée : trop basse`, `Oferta recusada: muito baixa`, `Angebot abgelehnt: zu niedrig`],
     err_counter: [`Almost! They want {ask}.`, `Presque ! Ils veulent {ask}.`, `Quase! Eles querem {ask}.`, `Fast! Sie wollen {ask}.`],
     err_squad_full: [`Squad is full (max {max})`, `Effectif complet (max {max})`, `Elenco cheio (máx. {max})`, `Kader voll (max. {max})`],
