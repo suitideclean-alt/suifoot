@@ -172,7 +172,7 @@ t('reputation: itemised log, sponsors like famous coaches', ()=>{
 });
 t('old v0.1 saves are upgraded when loaded', ()=>{
   const G=Game.newGame({seed:29,coaches:[{name:'A'}]}); Game.playWeekAuto(G);
-  const raw=JSON.parse(Game.serialize(G)); delete raw.euIds; delete raw.eu; for(const id of G.euIds) delete raw.clubs[id];
+  const raw=JSON.parse(Game.serialize(G)); delete raw.mig; delete raw.euIds; delete raw.eu; for(const id of G.euIds) delete raw.clubs[id];
   const G2=Game.deserialize(JSON.stringify(raw)); eq(G2.euIds.length,12); truthy(G2.eu); Game.simulateSeason(G2); eq(G2.phase,'seasonEnd'); Game.newSeason(G2); truthy(G2.eu.winner===null&&G2.eu.groups.length===4);
 });
 

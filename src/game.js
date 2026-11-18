@@ -52,7 +52,7 @@
   Game.newGame = function (o) {
     o = o || {};
     const seed = (o.seed != null ? o.seed : 1) >>> 0;
-    const G = { v: SF.VERSION, fmt: 2, seed, rs: seed, season: 1, week: 1, phase: 'play', news: [], coaches: [], offers: [], hall: [], nextOffer: 1, lang: o.lang || 'en', wk: null };
+    const G = { v: SF.VERSION, fmt: 2, mig: MIG, rules: CFG.rules, seed, rs: seed, season: 1, week: 1, phase: 'play', news: [], coaches: [], offers: [], hall: [], nextOffer: 1, lang: o.lang || 'en', wk: null };
     SF.setG(G);
     W.generate(G);
     G.free = G.free || [];
@@ -86,8 +86,7 @@
     return G;
   };
 
-  // Save checksum (cyrb53). It only DETECTS hand-edited or corrupted saves so the game can mark them unverified; a determined player can
-  // strip it, so it is not security. Real protection is that the online mode keeps the authoritative state on the server / chain.
+  // The checksum saves used before v0.9.26 (cyrb53). Kept only to read those files; new saves carry a root.
   const sum53 = (s) => {
     let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
     for (let i = 0; i < s.length; i++) { const c = s.charCodeAt(i); h1 = Math.imul(h1 ^ c, 2654435761); h2 = Math.imul(h2 ^ c, 1597334677); }
@@ -95,22 +94,37 @@
     h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
     return 4294967296 * (2097151 & h2) + (h1 >>> 0);
   };
+
+  /** Migration level. Upgrades below run once, when a save is older than this, and never again: loading a
+   * current save must leave it exactly as it was, or the same game would hash differently on two machines. */
+  const MIG = 1;
+  Game.MIG = MIG;
+
+  /* A save is written as canonical JSON (keys sorted) and carries the Merkle root of its own state. The root
+   * is what the online mode publishes on chain, so the same game always has to produce the same bytes.
+   * It still is not a defence against a player editing their own offline save - anyone can recompute a root
+   * for an edited file. What it gives is that nobody can change a save without the root changing with it. */
   Game.serialize = (G) => {
-    delete G.chk;
-    const chk = sum53(JSON.stringify(G));
-    return JSON.stringify(Object.assign({}, G, { chk }));
+    delete G.chk; delete G.root;
+    const root = SF.State.root(G);
+    return SF.Hash.canon(Object.assign({}, G, { root }));
   };
   Game.deserialize = function (s) {
     const G = JSON.parse(s);
     if (G.fmt !== 2) { const e = new Error('old league format'); e.old = true; throw e; } // saves from before v0.9 have 12 clubs per division
-    const chk = G.chk; delete G.chk;
-    if (chk !== undefined && sum53(JSON.stringify(G)) !== chk) G.unverified = 1; // edited by hand or corrupted: stays flagged for good
+    const root = G.root, chk = G.chk;
+    delete G.root; delete G.chk;
+    if (root !== undefined) { if (SF.State.root(G) !== root) G.unverified = 1; }
+    else if (chk !== undefined && sum53(JSON.stringify(G)) !== chk) G.unverified = 1; // edited by hand or corrupted: stays flagged for good
     SF.setG(G);
     Game.migrate(G);
     return G;
   };
   // saves from v0.1 get the foreign clubs; the European cup is played from the next season on
   Game.migrate = function (G) {
+    // Already current: a load must change nothing. The structural checks are there because a file can claim a
+    // level it does not have (edited by hand, or cut short); then the upgrades below run and repair it.
+    if (G.mig === MIG && G.euIds && G.eu && G.bank && G.bank.tok && G.tq) return G;
     if (!G.euIds) {
       G.euIds = [];
       let idx = 200;
@@ -127,6 +141,7 @@
     if (G.divs) { SF.Extras.pairRivals(G); for (const co of G.coaches) { co.goals = co.goals || []; co.ach = co.ach || {}; co.watch = co.watch || []; if (co.club) { SF.Extras.fillGoals(G, co); SF.Extras.autoCaptain(G, G.clubs[co.club]); } } }
     SF.Owner.initNpcCoaches(G);
     if (SF.Boss) SF.Boss.migrate(G);
+    G.mig = MIG;
     return G;
   };
 

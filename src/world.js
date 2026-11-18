@@ -97,7 +97,7 @@
       const club = {
         id, name: SF.World.clubName(used), div: 0, foreign: 1, nat,
         c1: `hsl(${hue} 62% 42%)`, c2: R.chance(0.5) ? '#ffffff' : '#111827',
-        squad: [], fans: 30000, cap: 40000, price: 3, facility: { youth: 3, train: 3 }, build: null, lastRevenue: 0, hist: [], title: 0, cups: 0, human: 0, form: [], rev: 0, style: R.weighted(['att', 'bal', 'def'], (x) => ({ att: 3, bal: 4, def: 3 }[x])),
+        squad: [], fans: 30000, cap: 40000, price: 3, facility: { youth: 3, train: 3 }, build: null, lastRevenue: 0, hist: [], title: 0, cups: 0, human: 0, form: [], rev: 0, rival: null, acad: [], style: R.weighted(['att', 'bal', 'def'], (x) => ({ att: 3, bal: 4, def: 3 }[x])),
       };
       G.clubs[id] = club;
       SF.World.makeSquad(G, club, CFG.divOvr[0] + R.gauss(0, 2.2));
