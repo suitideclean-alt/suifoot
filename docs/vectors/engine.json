@@ -1,5 +1,6 @@
 {
  "note": "Golden vectors for the SuiFoot engine. Doubles are IEEE-754 big-endian hex.",
+ "rules": 1,
  "math": {
   "exp": {
    "0": "3ff0000000000000",
@@ -54,9 +55,76 @@
  "seasons": [
   {
    "seed": 3,
-   "fnv1a": 1319858370,
+   "role": "coach",
+   "fnv1a": 1279000071,
    "season": 1,
    "supply": 42471712,
+   "tsupply": 0,
+   "treasury": 0,
+   "cup": "c7",
+   "euro": "c8",
+   "top3": [
+    [
+     "c69",
+     82,
+     68,
+     16
+    ],
+    [
+     "c34",
+     73,
+     63,
+     36
+    ],
+    [
+     "c62",
+     73,
+     62,
+     34
+    ]
+   ]
+  },
+  {
+   "seed": 3,
+   "role": "owner",
+   "fnv1a": 2627475216,
+   "season": 1,
+   "supply": 42936237,
+   "tsupply": 500000,
+   "treasury": 0,
+   "cup": "c9",
+   "euro": "e74",
+   "top3": [
+    [
+     "c69",
+     76,
+     66,
+     17
+    ],
+    [
+     "c51",
+     73,
+     72,
+     25
+    ],
+    [
+     "c8",
+     68,
+     68,
+     30
+    ]
+   ]
+  },
+  {
+   "seed": 3,
+   "role": "both",
+   "fnv1a": 1297008426,
+   "season": 1,
+   "supply": 42971700,
+   "tsupply": 500000,
+   "treasury": 0,
+   "cup": "c7",
+   "euro": "c8",
    "top3": [
     [
      "c69",
@@ -80,9 +148,76 @@
   },
   {
    "seed": 11,
-   "fnv1a": 3723802061,
+   "role": "coach",
+   "fnv1a": 3379882425,
    "season": 1,
    "supply": 42551188,
+   "tsupply": 0,
+   "treasury": 0,
+   "cup": "c2",
+   "euro": "c0",
+   "top3": [
+    [
+     "c0",
+     77,
+     66,
+     25
+    ],
+    [
+     "c24",
+     74,
+     74,
+     36
+    ],
+    [
+     "c3",
+     70,
+     68,
+     36
+    ]
+   ]
+  },
+  {
+   "seed": 11,
+   "role": "owner",
+   "fnv1a": 4110484578,
+   "season": 1,
+   "supply": 42764856,
+   "tsupply": 500000,
+   "treasury": 0,
+   "cup": "c16",
+   "euro": "e74",
+   "top3": [
+    [
+     "c0",
+     72,
+     61,
+     20
+    ],
+    [
+     "c24",
+     72,
+     84,
+     42
+    ],
+    [
+     "c53",
+     66,
+     63,
+     37
+    ]
+   ]
+  },
+  {
+   "seed": 11,
+   "role": "both",
+   "fnv1a": 1323577456,
+   "season": 1,
+   "supply": 43045979,
+   "tsupply": 500000,
+   "treasury": 0,
+   "cup": "c2",
+   "euro": "c0",
    "top3": [
     [
      "c0",
@@ -106,9 +241,76 @@
   },
   {
    "seed": 42,
-   "fnv1a": 3093962427,
+   "role": "coach",
+   "fnv1a": 231808170,
    "season": 1,
    "supply": 46528539,
+   "tsupply": 0,
+   "treasury": 0,
+   "cup": "c8",
+   "euro": "e75",
+   "top3": [
+    [
+     "c33",
+     77,
+     84,
+     36
+    ],
+    [
+     "c27",
+     72,
+     64,
+     32
+    ],
+    [
+     "c62",
+     71,
+     62,
+     30
+    ]
+   ]
+  },
+  {
+   "seed": 42,
+   "role": "owner",
+   "fnv1a": 1232995546,
+   "season": 1,
+   "supply": 47432946,
+   "tsupply": 500000,
+   "treasury": 0,
+   "cup": "c2",
+   "euro": "e81",
+   "top3": [
+    [
+     "c33",
+     76,
+     92,
+     37
+    ],
+    [
+     "c27",
+     73,
+     75,
+     27
+    ],
+    [
+     "c62",
+     73,
+     68,
+     34
+    ]
+   ]
+  },
+  {
+   "seed": 42,
+   "role": "both",
+   "fnv1a": 3086787111,
+   "season": 1,
+   "supply": 47022475,
+   "tsupply": 500000,
+   "treasury": 0,
+   "cup": "c8",
+   "euro": "e75",
    "top3": [
     [
      "c33",

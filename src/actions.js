@@ -325,10 +325,13 @@
   /** what price fills the most money into the till (current mood and fans)? */
   A.bestPrice = function (G, club) {
     const ref = CFG.refPrice[club.div];
+    // counted in tenths of a unit, as whole numbers: adding 0.1 over and over drifts and needed an epsilon to stop
+    const lo = Math.round(ref * 4), hi = Math.round(ref * 30);
     let best = club.price, bv = -1;
-    for (let pr = ref * 0.4; pr <= ref * 3 + 1e-9; pr += 0.1) {
+    for (let tenths = lo; tenths <= hi; tenths++) {
+      const pr = tenths / 10;
       const v = Game.attendance(Object.assign({}, club, { price: pr })) * pr;
-      if (v > bv) { bv = v; best = Math.round(pr * 10) / 10; }
+      if (v > bv) { bv = v; best = pr; }
     }
     return best;
   };

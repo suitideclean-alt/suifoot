@@ -5,14 +5,10 @@
   const { CFG, util, R } = SF;
   const Body = (SF.Body = {});
 
-  CFG.subs = 5;          // substitutions per match
-  CFG.penChance = 0.012; // a penalty is awarded on this share of attacks
-
   // ---------- temperament ----------
   Body.TP = ['gent', 'pro', 'hard'];
   const CARD = { gent: 0.5, pro: 1, hard: 1.8 }, RED = { gent: 0.2, pro: 1, hard: 3 }, VAL = { gent: 1.1, pro: 1, hard: 0.85 };
   const MIX = { GK: [40, 55, 5], DF: [18, 50, 32], MF: [25, 50, 25], FW: [30, 52, 18] };
-  Body.roll = (pos) => { const m = MIX[pos] || MIX.MF; return R.weighted([0, 1, 2], (i) => m[i]) === 0 ? 'gent' : R.weighted([0, 1], () => 1) === 0 ? 'pro' : 'pro'; };
   Body.roll = function (pos) {
     const m = MIX[pos] || MIX.MF, i = R.weighted([0, 1, 2], (k) => m[k]);
     return Body.TP[i];

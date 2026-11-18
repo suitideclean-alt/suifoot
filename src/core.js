@@ -52,7 +52,31 @@
     gamM: 0.036,
     baseAttack: 0.28, // attacking events per minute (both teams)
     baseGoal: 0.084,
+    subs: 5,          // substitutions per match
+    penChance: 0.012, // a penalty is awarded on this share of attacks
   };
+
+  /* The rules the owner layer runs on. They live here, with everything else, so that one object is the whole
+   * specification of the game: the same numbers have to go into the enclave and into the Move contract. */
+  SF.CFG.owner = {
+    W: SF.CFG.TOTAL_WEEKS,   // economy weeks per season
+    late: 3,                 // matchdays of unpaid wages that give just cause
+    exitPct: 0.5,            // coach exit clause default, share of the salary still owed
+    capWeeks: SF.CFG.TOTAL_WEEKS, // underperformance cap: 12 months = one season of salary
+    mutualLo: 0.4, mutualHi: 0.6,
+    share: 0.1,              // coach share of the profit on sales of players he developed
+    runwayMin: 4,            // weeks of cash below which a coach cannot add commitments
+    runwayWarn: 12,          // weeks of cash below which the coach is warned
+    ban: 8,                  // weeks a coach who quits without just cause cannot sign elsewhere
+    years: 3,
+    bonus: { title: 12, promo: 10, euro: 8 }, // in weeks of salary
+    approvalWeeks: 1,        // an open request expires after this many game weeks
+    tokenWeeks: 3,           // an approval can be used for this many weeks
+  };
+
+  /** Bumped whenever a number above changes. A saved game, a signed matchday and a contract all carry it,
+   * so two sides can tell at once whether they are playing by the same rules. */
+  SF.CFG.rules = 1;
 
   let G = null;
   SF.setG = (g) => { G = g; SF.cur = g; };
@@ -118,6 +142,9 @@
       const r = Math.round(n);
       return r > (max == null ? 1e12 : max) ? null : r;
     },
+    /** two decimal places: keeps values a person reads (reputation, board confidence) from drifting
+     * into things like 18.400000000000002 as small changes pile up season after season */
+    r2: (x) => Math.round(x * 100) / 100,
     sum: (a) => a.reduce((s, x) => s + x, 0),
     avg: (a) => (a.length ? a.reduce((s, x) => s + x, 0) / a.length : 0),
     money(n, compact) {

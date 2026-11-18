@@ -7,21 +7,7 @@
   const B = SF.Bank, E = SF.Econ;
   const O = (SF.Owner = {});
 
-  const OC = (CFG.owner = {
-    W: CFG.TOTAL_WEEKS,   // economy weeks per season
-    late: 3,              // matchdays of unpaid wages that give just cause
-    exitPct: 0.5,         // coach exit clause default, share of the salary still owed
-    capWeeks: CFG.TOTAL_WEEKS, // underperformance cap: 12 months = one season of salary
-    mutualLo: 0.4, mutualHi: 0.6,
-    share: 0.1,           // coach share of the profit on sales of players he developed
-    runwayMin: 4,         // weeks of cash below which a coach cannot add commitments
-    runwayWarn: 12,       // weeks of cash below which the coach is warned
-    ban: 8,               // weeks a coach who quits without just cause cannot sign elsewhere
-    years: 3,
-    bonus: { title: 12, promo: 10, euro: 8 }, // in weeks of salary
-    approvalWeeks: 1,     // an open request expires after this many game weeks
-    tokenWeeks: 3,        // an approval can be used for this many weeks
-  });
+  const OC = CFG.owner; // the numbers themselves live in core.js, with the rest of the rules
 
   const FREE = new Set(['lineup', 'captain', 'promote', 'scout', 'watch', 'search', 'vacation']);
   const OWNER_ONLY = new Set(['expand', 'fac', 'loan']);
@@ -812,7 +798,7 @@
       c.left--;
       // a club in the red is the coach's problem too: the board loses confidence every week
       if (B.bal(G, club.id) < 0) {
-        co.board = Math.max(0, co.board - 1.5);
+        co.board = util.r2(Math.max(0, co.board - 1.5));
         if (!co.redWarn || G.season !== co.redWarn) { co.redWarn = G.season; SF.Game.news(G, 'n_club_red', {}, co.id); }
       }
     }

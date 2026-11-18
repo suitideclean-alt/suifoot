@@ -33,7 +33,7 @@
   Game.addRep = function (G, co, d, k, x) {
     d = Math.round(d * 100) / 100;
     if (!d) return;
-    co.rep = util.clamp(co.rep + d, 0, 100);
+    co.rep = util.r2(util.clamp(co.rep + d, 0, 100));
     co.replog = co.replog || [];
     const e = co.replog.find((r) => r.s === G.season && r.k === k && (!x || r.x === x));
     if (e) e.d = Math.round((e.d + d) * 100) / 100;
@@ -461,12 +461,12 @@
     if (!coach) return;
     if (m.k === 'L') {
       const exp = util.clamp(1.35 + (own - opp) * 0.06 + (home ? 0.15 : -0.15), 0.2, 2.6);
-      coach.board = util.clamp(coach.board + (pts - exp) * 1.6 * (m.derby ? 2 : 1), 0, 100);
+      coach.board = util.r2(util.clamp(coach.board + (pts - exp) * 1.6 * (m.derby ? 2 : 1), 0, 100));
       if (m.derby && pts !== 1) Game.addRep(G, coach, pts === 3 ? 0.5 : -0.5, 'derby');
       if (pts === 3 && own < opp - 4) Game.addRep(G, coach, 0.25, 'upset');
       else if (pts === 0 && own > opp + 4) Game.addRep(G, coach, -0.25, 'flop');
     } else {
-      coach.board = util.clamp(coach.board + (pts === 3 ? 1.5 : -1), 0, 100);
+      coach.board = util.r2(util.clamp(coach.board + (pts === 3 ? 1.5 : -1), 0, 100));
     }
     coach.xp += pts === 3 ? 12 : pts === 1 ? 5 : 1;
     SF.Extras.onMatch(G, coach, { pts, gf: home ? m.res.hg : m.res.ag, ga: home ? m.res.ag : m.res.hg, home, k: m.k, derby: m.derby, upset: pts === 3 && own < opp - 3 });
@@ -760,7 +760,7 @@
       if (club.nextDiv < club.div) delta += 8;
       if (club.nextDiv > club.div) delta -= 12;
       delta += club.cupRound * 1.5;
-      co.board = util.clamp(co.board + delta, 0, 100);
+      co.board = util.r2(util.clamp(co.board + delta, 0, 100));
       Game.addRep(G, co, diff >= 0 ? 1 + diff * 0.8 : diff * 0.8, 'pos');
       if (club.pos === 1) Game.addRep(G, co, 5, 'title');
       if (club.nextDiv < club.div) Game.addRep(G, co, 3, 'promo');

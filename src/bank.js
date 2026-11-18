@@ -7,7 +7,6 @@
  * Phase A (this build): closed, off-chain, no real value. */
 (function () {
   const SF = globalThis.SF;
-  const MINT = new Set(['gate', 'tv', 'sponsor', 'prize', 'loan', 'bailout', 'sale_fee']);
 
   SF.Bank = {
     init(G) {
@@ -167,5 +166,4 @@
       return { ok: true, cost };
     },
   };
-  SF.Bank._MINT = MINT;
 })();
