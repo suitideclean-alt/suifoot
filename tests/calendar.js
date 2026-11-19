@@ -27,15 +27,32 @@ t('a game with no first day has no dates at all', () => {
   eq(Cal.phaseAt(G, 1, QUANDO), 'open', 'with no dates everything stays open;');
 });
 
-t('a first day sets every matchday, one real day apart, at the same hour', () => {
+t('a first day sets every matchday at the hours the config names', () => {
   const G = jogo();
   truthy(Cal.start(G, QUANDO + 13 * 3600000).ok, 'the first day was refused'); // mid-afternoon
   eq(G.t0, QUANDO, 'the first day was not snapped to midnight UTC;');
-  eq(Cal.text(Cal.kickoff(G, 1)), '2026-11-23T20:00:00Z', 'first whistle;');
-  eq(Cal.text(Cal.kickoff(G, 2)), '2026-11-24T20:00:00Z', 'second whistle;');
-  eq(Cal.text(Cal.lock(G, 1)), '2026-11-23T19:30:00Z', 'lineups close;');
-  eq(Cal.text(Cal.draw(G, 1)), '2026-11-23T19:45:00Z', 'the draw;');
-  eq(Cal.kickoff(G, 10) - Cal.kickoff(G, 9), DIA * CFG.daysPerWeek, 'two matchdays are not a day apart;');
+  eq(Cal.text(Cal.kickoff(G, 1)), '2026-11-23T12:00:00Z', 'first whistle;');
+  eq(Cal.text(Cal.kickoff(G, 2)), '2026-11-23T20:00:00Z', 'second whistle, the same day;');
+  eq(Cal.text(Cal.kickoff(G, 3)), '2026-11-24T12:00:00Z', 'third whistle, the next day;');
+  eq(Cal.text(Cal.lock(G, 2)), '2026-11-23T19:30:00Z', 'lineups close half an hour before;');
+  eq(Cal.text(Cal.draw(G, 2)), '2026-11-23T19:45:00Z', 'the draw a quarter of an hour before;');
+  eq((Cal.kickoff(G, 2) - Cal.kickoff(G, 1)) / 3600000, 8, 'hours between the two of one day;');
+  eq((Cal.kickoff(G, 3) - Cal.kickoff(G, 2)) / 3600000, 16, 'hours from the evening to the next midday;');
+});
+
+t('how many kick-off hours there are sets how long a season lasts', () => {
+  const antes = CFG.kickoffsUtc;
+  try {
+    const G = jogo();
+    Cal.start(G, QUANDO);
+    const n = G.sched.length;
+    CFG.kickoffsUtc = [20 * 60];
+    eq(Cal.days(G), n * CFG.daysPerWeek, 'one a day should take one day for each matchday;');
+    CFG.kickoffsUtc = [12 * 60, 20 * 60];
+    eq(Cal.days(G), Math.ceil(n / 2), 'two a day should halve the season;');
+    CFG.kickoffsUtc = [9 * 60, 14 * 60, 20 * 60];
+    eq(Cal.days(G), Math.ceil(n / 3), 'three a day should take a third of it;');
+  } finally { CFG.kickoffsUtc = antes; }
 });
 
 t('a first day that is not a number is refused', () => {
@@ -68,15 +85,15 @@ t('the season knows when it is time to play, and never before', () => {
   truthy(Cal.ready(G, Cal.kickoff(G, 2)), 'it would not play the next day');
 });
 
-t('a season of fifty weeks takes fifty days and the next starts after the break', () => {
+t('a season runs its days and the next starts after the break', () => {
   const G = jogo();
   Cal.start(G, QUANDO);
   const n = G.sched.length;
-  const dias = (Cal.seasonEnd(G) - Cal.kickoff(G, 1)) / DIA;
-  eq(dias, (n - 1) * CFG.daysPerWeek, 'the season does not last one day a week;');
-  truthy(n >= 45 && n <= 55, 'a season should be about fifty weeks, it has ' + n);
-  eq((Cal.nextSeasonStart(G) - G.t0) / DIA, n * CFG.daysPerWeek + CFG.breakDays, 'the break between seasons is wrong;');
-  console.log(`      (${n} jornadas, de ${Cal.text(Cal.kickoff(G, 1))} a ${Cal.text(Cal.seasonEnd(G))})`);
+  truthy(n >= 45 && n <= 55, 'a season should be about fifty matchdays, it has ' + n);
+  eq((Cal.nextSeasonStart(G) - G.t0) / DIA, Cal.days(G) + CFG.breakDays, 'the break between seasons is wrong;');
+  truthy(Cal.seasonEnd(G) > Cal.kickoff(G, 1), 'the season ends before it starts');
+  const horas = CFG.kickoffsUtc.map((m) => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0')).join(' e ');
+  console.log(`      (${n} jornadas em ${Cal.days(G)} dias, as ${horas} UTC, de ${Cal.text(Cal.kickoff(G, 1))} a ${Cal.text(Cal.seasonEnd(G))})`);
 });
 
 t('the whole season comes out as a list a keeper can work from', () => {

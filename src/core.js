@@ -22,8 +22,11 @@
     /* A game week against real time. Offline none of it is used; online it is what everyone's clock
      * has to agree on. One game week is one real day, so a season of 50 weeks runs for 50 days and
      * nobody waits more than a day for a match. All in UTC, so there is no summer time to argue about. */
-    daysPerWeek: 1,
-    kickoffUtc: 20 * 60, // minutes past midnight UTC: 20:00
+    daysPerWeek: 1,     // real days a round of kick-offs takes
+    /* The hours of the day a matchday is played, in minutes past midnight UTC, in order. Two of them
+     * means two matchdays a day, so a season of 50 runs for 25 days. One means one a day, and 50 days.
+     * All in UTC on purpose: summer time moves under people's feet and a deadline cannot afford that. */
+    kickoffsUtc: [12 * 60, 20 * 60], // 12:00 and 20:00
     lockBefore: 30,      // lineups stop being accepted this many minutes before the whistle
     drawBefore: 15,      // and the draw is taken this many minutes before it
     breakDays: 3,        // between the last matchday of a season and the first of the next

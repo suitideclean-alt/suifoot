@@ -24,13 +24,19 @@
     /** does this game run against real time at all? */
     dated: (G) => typeof G.t0 === 'number' && G.t0 > 0,
 
+    /** the hours a matchday is played at, in order */
+    slots: () => (SF.CFG.kickoffsUtc && SF.CFG.kickoffsUtc.length ? SF.CFG.kickoffsUtc : [20 * 60]),
     /** when the whistle goes for a game week (1-based), in ms UTC */
     kickoff(G, week) {
       if (!Cal.dated(G)) return null;
       const w = SF.util.int(week, 1, 4096);
       if (w === null) return null;
-      return G.t0 + (w - 1) * SF.CFG.daysPerWeek * DAY + SF.CFG.kickoffUtc * MIN;
+      const slots = Cal.slots();
+      const dia = Math.floor((w - 1) / slots.length) * SF.CFG.daysPerWeek;
+      return G.t0 + dia * DAY + slots[(w - 1) % slots.length] * MIN;
     },
+    /** how many real days a whole season takes */
+    days: (G) => (G.sched ? Math.ceil(G.sched.length / Cal.slots().length) * SF.CFG.daysPerWeek : 0),
     /** when lineups stop being accepted */
     lock: (G, week) => { const k = Cal.kickoff(G, week); return k === null ? null : k - SF.CFG.lockBefore * MIN; },
     /** when the draw for the matchday is taken: after the lineups are in, before the whistle */
@@ -61,7 +67,7 @@
     seasonEnd: (G) => (G.sched ? Cal.kickoff(G, G.sched.length) : null),
     nextSeasonStart(G) {
       if (!Cal.dated(G) || !G.sched) return null;
-      return G.t0 + (G.sched.length * SF.CFG.daysPerWeek + SF.CFG.breakDays) * DAY;
+      return G.t0 + (Cal.days(G) + SF.CFG.breakDays) * DAY;
     },
 
     /** plain ISO text for a moment, to show and to put in a contract */
