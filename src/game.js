@@ -61,7 +61,12 @@
     specs.forEach((sp, i) => {
       const c = makeCoach(G, sp.name || 'Coach ' + (i + 1), i + 1);
       let cid = sp.clubId && !taken.has(sp.clubId) ? sp.clubId : null;
-      if (!cid) { const pool = G.clubIds.filter((x) => !taken.has(x) && G.clubs[x].div === 3); cid = R.pick(pool); }
+      if (!cid) { // a new coach starts at the foot of the league, whatever shape it has
+        const fundo = (CFG.series && CFG.series.length ? CFG.series.length : CFG.DIVS) - 1;
+        let pool = G.clubIds.filter((x) => !taken.has(x) && G.clubs[x].div === fundo);
+        if (!pool.length) pool = G.clubIds.filter((x) => !taken.has(x));
+        cid = R.pick(pool);
+      }
       taken.add(cid);
       c.club = cid;
       const club = G.clubs[cid];
@@ -124,7 +129,7 @@
   Game.migrate = function (G) {
     // Already current: a load must change nothing. The structural checks are there because a file can claim a
     // level it does not have (edited by hand, or cut short); then the upgrades below run and repair it.
-    if (G.mig === MIG && G.euIds && G.eu && G.bank && G.bank.tok) return G;
+    if (G.mig === MIG && G.euIds && G.eu && G.bank && G.bank.tok && G.sers) return G;
     if (!G.euIds) {
       G.euIds = [];
       let idx = 200;
@@ -138,6 +143,9 @@
       for (const co of G.coaches) if (co.role && co.role !== 'coach') SF.Bank.tcredit(G, SF.Owner.sfAcc(co.id), CFG.startSfoot, 'grant');
     }
     if (!G.tq) G.tq = [];
+    // before the pyramid a club only had a division, which was also its series
+    if (!G.sers) G.sers = Game.buildSeries();
+    for (const id of G.clubIds) { const c = G.clubs[id]; if (c.ser == null) c.ser = c.div; if (c.nextSer == null) c.nextSer = c.nextDiv == null ? c.ser : c.nextDiv; }
     if (G.divs) { SF.Extras.pairRivals(G); for (const co of G.coaches) { co.goals = co.goals || []; co.ach = co.ach || {}; co.watch = co.watch || []; if (co.club) { SF.Extras.fillGoals(G, co); SF.Extras.autoCaptain(G, G.clubs[co.club]); } } }
     SF.Owner.initNpcCoaches(G);
     if (SF.Boss) SF.Boss.migrate(G);
@@ -163,9 +171,32 @@
     return rounds.concat(R.shuffle(second));
   }
 
+  /* The series of the league, numbered level by level: level 0 first, then level 1, and so on.
+   * Each one knows its level, the series above it and the series below it. With one series per level
+   * this is exactly the ladder of four divisions the game has always had. */
+  Game.buildSeries = function () {
+    const shape = CFG.series && CFG.series.length ? CFG.series : [1, 1, 1, 1];
+    const out = [], start = [];
+    let n = 0;
+    for (let lvl = 0; lvl < shape.length; lvl++) { start.push(n); for (let i = 0; i < shape[lvl]; i++) out.push({ lvl, parent: -1, kids: [] }); n += shape[lvl]; }
+    for (let lvl = 1; lvl < shape.length; lvl++) {
+      const ratio = shape[lvl] / shape[lvl - 1];
+      for (let i = 0; i < shape[lvl]; i++) {
+        const me = start[lvl] + i, parent = start[lvl - 1] + Math.floor(i / ratio);
+        out[me].parent = parent;
+        out[parent].kids.push(me);
+      }
+    }
+    return out;
+  };
+  /** which series a club plays in; old saves have only a division, which is the same thing there */
+  Game.serOf = (club) => (club.ser == null ? club.div : club.ser);
+  /** how many drop out of a series: one per child series, for each that climbs out */
+  Game.downFrom = (G, si) => CFG.promote * Math.max(1, (G.sers[si].kids || []).length);
+
   Game.startSeason = function (G) {
-    G.divs = [];
-    for (let d = 0; d < CFG.DIVS; d++) G.divs.push(G.clubIds.filter((id) => G.clubs[id].div === d));
+    G.sers = Game.buildSeries();
+    G.divs = G.sers.map((_, si) => G.clubIds.filter((id) => Game.serOf(G.clubs[id]) === si));
     G.table = {}; G.res = [];
     G.bank.sf = {};
     G.bank.tsf = {};
@@ -173,7 +204,7 @@
     for (const id of G.clubIds) {
       const c = G.clubs[id];
       G.table[id] = { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 };
-      c.rev = 0; c.form = []; c.cupRound = 0; c.nextDiv = c.div; c.dropped = 0;
+      c.rev = 0; c.form = []; c.cupRound = 0; c.nextDiv = c.div; c.nextSer = Game.serOf(c); c.dropped = 0;
     }
     for (const pid in G.players) { const p = G.players[pid]; p.g = 0; p.gl = 0; p.ap = 0; }
     const rr = G.divs.map((ids) => roundRobin(ids));
@@ -188,8 +219,8 @@
       if (ei >= 0) G.sched.push({ t: 'E', s: ei });
     }
     G.cup = { alive: G.clubIds.slice(), round: 0, drawn: -1, matches: [], byes: [], winner: null, finalist: null, hist: [] };
-    for (let d = 0; d < CFG.DIVS; d++) {
-      const sorted = G.divs[d].slice().sort((a, b) => E.strength(G, G.clubs[b]) - E.strength(G, G.clubs[a]));
+    for (let si = 0; si < G.divs.length; si++) {
+      const sorted = G.divs[si].slice().sort((a, b) => E.strength(G, G.clubs[b]) - E.strength(G, G.clubs[a]));
       sorted.forEach((id, i) => { G.clubs[id].target = i + 1; });
     }
     G.week = 1; G.phase = 'play'; G.wk = null; G.summary = null;
@@ -694,7 +725,9 @@
   }
 
   // ---------- end of season ----------
+  /** the table of one series (with one series per level, that is the same as a division) */
   Game.standings = function (G, div) {
+    if (!G.divs || !G.divs[div]) return [];
     return G.divs[div].slice().sort((a, b) => {
       const x = G.table[a], y = G.table[b];
       return y.pts - x.pts || (y.gf - y.ga) - (x.gf - x.ga) || y.gf - x.gf || (a < b ? -1 : 1);
@@ -702,7 +735,7 @@
   };
 
   Game.topScorers = function (G, div, n) {
-    const ids = new Set(G.divs[div]);
+    const ids = new Set(G.divs[div] || []);
     const out = [];
     for (const cid of ids) for (const pid of G.clubs[cid].squad) { const p = G.players[pid]; if (p.gl > 0) out.push(p); }
     return out.sort((a, b) => b.gl - a.gl || a.ap - b.ap).slice(0, n || 10);
@@ -722,25 +755,33 @@
   function endSeason(G) {
     const hall = { s: G.season, champ: [], scorer: [], cup: G.cup.winner, finalist: G.cup.finalist };
     const summary = { champions: [], promoted: [], relegated: [], scorers: [], cup: G.cup.winner, finalist: G.cup.finalist, prizes: {} };
-    for (let d = 0; d < CFG.DIVS; d++) {
-      const st = Game.standings(G, d);
+    for (let si = 0; si < G.divs.length; si++) {
+      const ser = G.sers[si], d = ser.lvl;
+      const st = Game.standings(G, si);
+      if (!st.length) continue;
       st.forEach((id, i) => { G.clubs[id].pos = i + 1; });
       const champ = st[0];
       hall.champ.push(champ); summary.champions.push(champ);
       G.clubs[champ].title++;
+      // the prize belongs to the level: every series of a level is worth the same
       const p1 = Math.round(CFG.prizeDiv[d] * CFG.prizeSplit[0]);
       Game.income(G, champ, p1, 'prize'); addPrize(summary, champ, p1, 'league', { d });
-      Game.income(G, st[1], CFG.prizeDiv[d] - p1, 'prize'); addPrize(summary, st[1], CFG.prizeDiv[d] - p1, 'league2', { d });
-      const ts = Game.topScorers(G, d, 1)[0];
+      if (st[1]) { Game.income(G, st[1], CFG.prizeDiv[d] - p1, 'prize'); addPrize(summary, st[1], CFG.prizeDiv[d] - p1, 'league2', { d }); }
+      const ts = Game.topScorers(G, si, 1)[0];
       if (ts) {
         hall.scorer.push({ name: ts.n, club: ts.club, g: ts.gl }); summary.scorers.push({ d, name: ts.n, club: ts.club, g: ts.gl });
       } else { hall.scorer.push(null); summary.scorers.push(null); }
-      if (d === 0) { G.euroQ = st.slice(0, CFG.EU_SLOTS); summary.euQ = G.euroQ.slice(); }
-      if (d > 0) {
-        for (const id of st.slice(0, 2)) { G.clubs[id].nextDiv = d - 1; summary.promoted.push(id); }
+      if (si === 0) { G.euroQ = st.slice(0, CFG.EU_SLOTS); summary.euQ = G.euroQ.slice(); } // the top series is the first division
+      // up into the series above; down spread one by one among the series below
+      if (ser.parent >= 0) {
+        for (const id of st.slice(0, CFG.promote)) { const c = G.clubs[id]; c.nextDiv = d - 1; c.nextSer = ser.parent; summary.promoted.push(id); }
       }
-      if (d < CFG.DIVS - 1) for (const id of st.slice(-2)) { G.clubs[id].nextDiv = d + 1; summary.relegated.push(id); }
-      else for (const id of st.slice(-2)) { G.clubs[id].dropped = 1; (summary.dropped = summary.dropped || []).push(id); } // nothing below the fourth division
+      const kids = ser.kids || [], down = Game.downFrom(G, si);
+      if (kids.length) {
+        st.slice(-down).forEach((id, i) => { const c = G.clubs[id]; c.nextDiv = d + 1; c.nextSer = kids[i % kids.length]; summary.relegated.push(id); });
+      } else {
+        for (const id of st.slice(-down)) { G.clubs[id].dropped = 1; (summary.dropped = summary.dropped || []).push(id); } // nothing below the bottom level
+      }
     }
     const top = Game.seasonScorer(G);
     if (top) {
@@ -875,6 +916,7 @@
       const c = G.clubs[id];
       const was = c.div;
       c.div = c.nextDiv;
+      c.ser = c.nextSer == null ? c.div : c.nextSer;
       // fans follow results
       const diff = c.target - c.pos;
       let fl = 1 + 0.01 * util.clamp(diff, -6, 6) + (c.pos === 1 ? 0.04 : 0);

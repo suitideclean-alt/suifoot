@@ -162,8 +162,8 @@
 
   // ---------- rivals ----------
   X.pairRivals = function (G) {
-    for (let d = 0; d < CFG.DIVS; d++) {
-      const ids = G.divs[d], keep = new Set();
+    for (let d = 0; d < G.divs.length; d++) {
+      const ids = G.divs[d] || [], keep = new Set();
       for (const id of ids) { const r = G.clubs[id].rival; if (r && G.clubs[r] && G.clubs[r].rival === id && G.clubs[r].div === d) keep.add(id); }
       const free = R.shuffle(ids.filter((i) => !keep.has(i)));
       for (let i = 0; i + 1 < free.length; i += 2) { G.clubs[free[i]].rival = free[i + 1]; G.clubs[free[i + 1]].rival = free[i]; }

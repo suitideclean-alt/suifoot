@@ -231,7 +231,7 @@
   function boardCard(c, club) {
     const b = Math.round(c.board);
     const cls = b < 30 ? 'red' : b < 50 ? 'yel' : '';
-    const pos = Game.standings(UI.G, club.div).indexOf(club.id) + 1;
+    const pos = Game.standings(UI.G, Game.serOf(club)).indexOf(club.id) + 1;
     return `<div class="card"><div class="row" style="justify-content:space-between"><h2 style="margin:0">${t('board')}</h2>${SF.Fx.shirt(club, 38)}</div><div class="bar ${cls}"><i style="width:${b}%"></i></div><div class="row" style="margin-top:6px"><b>${b}%</b><span class="mut">${t('objective')}: ${t('obj_text', { n: club.target })}</span></div>
       <p>${t('standing')}: <b>${pos}</b> · ${divName(club.div)} · ${t('pts')} ${UI.G.table[club.id].pts}</p>
       <p class="sm mut">${t('form')}: ${club.form.map((x) => `<span class="${x === 3 ? 'good' : x === 1 ? 'warn' : 'bad'}">${x === 3 ? t('col_w') : x === 1 ? t('col_d') : t('col_l')}</span>`).join(' ') || '-'}</p></div>`;
@@ -339,14 +339,16 @@
   // ---------- league ----------
   function leagueView() {
     const G = UI.G, club = myClub();
-    const div = UI.lgDiv != null ? UI.lgDiv : club ? club.div : 0;
+    const div = UI.lgDiv != null ? UI.lgDiv : club ? Game.serOf(club) : 0; // the series, which with one per level is the division
     const sub = ['table', 'results', 'scorers'];
     let body = '';
     if (UI.lg === 'table') {
       const st = Game.standings(G, div);
       body = tbl(['#', t('club'), '>' + t('col_p'), '>' + t('col_w'), '>' + t('col_d'), '>' + t('col_l'), '>' + t('col_gf'), '>' + t('col_ga'), '>' + t('col_gd'), '>' + t('col_pts')], st.map((id, i) => {
         const x = G.table[id];
-        return `<tr class="${club && id === club.id ? 'me' : ''} ${div > 0 && i < 2 ? 'up' : ''} ${div < 3 && i >= CFG.PER_DIV - 2 ? 'dn' : ''}"><td>${i + 1}</td><td>${ctag(id, 18)}</td><td class="r">${x.p}</td><td class="r">${x.w}</td><td class="r">${x.d}</td><td class="r">${x.l}</td><td class="r">${x.gf}</td><td class="r">${x.ga}</td><td class="r">${x.gf - x.ga}</td><td class="r"><b>${x.pts}</b></td></tr>`;
+        const ser = (G.sers && G.sers[div]) || { parent: div > 0 ? div - 1 : -1, kids: div < CFG.DIVS - 1 ? [div + 1] : [] };
+        const sobem = ser.parent >= 0 ? CFG.promote : 0, descem = (ser.kids || []).length ? Game.downFrom(G, div) : 0;
+        return `<tr class="${club && id === club.id ? 'me' : ''} ${i < sobem ? 'up' : ''} ${descem && i >= st.length - descem ? 'dn' : ''}"><td>${i + 1}</td><td>${ctag(id, 18)}</td><td class="r">${x.p}</td><td class="r">${x.w}</td><td class="r">${x.d}</td><td class="r">${x.l}</td><td class="r">${x.gf}</td><td class="r">${x.ga}</td><td class="r">${x.gf - x.ga}</td><td class="r"><b>${x.pts}</b></td></tr>`;
       }));
     } else if (UI.lg === 'results') {
       const last = G.res.length ? Math.max(...G.res.map((r) => r[0])) : 1;
@@ -561,7 +563,7 @@
   }
   function clubInfo(id) {
     const G = UI.G, cl = G.clubs[id];
-    const st = Game.standings(G, cl.div), pos = st.indexOf(id) + 1, tb = G.table[id];
+    const st = Game.standings(G, Game.serOf(cl)), pos = st.indexOf(id) + 1, tb = G.table[id];
     const best = Game.players(G, cl).sort((a, b) => b.ovr - a.ovr).slice(0, 5);
     const last = cl.hist.length ? cl.hist[cl.hist.length - 1] : null;
     return `<div class="sm"><p>${divName(cl.div)} · ${t('standing')}: <b>${pos}</b>/${CFG.PER_DIV} · ${t('pts')} ${tb.pts} (${tb.w}-${tb.d}-${tb.l})</p>
@@ -1128,7 +1130,7 @@
   // ---------- round recap ----------
   function snapshotBefore() {
     const G = UI.G, snap = {};
-    for (const co2 of G.coaches) if (co2.club) { const cl = G.clubs[co2.club]; snap[co2.id] = { pos: Game.standings(G, cl.div).indexOf(cl.id) + 1, div: cl.div }; }
+    for (const co2 of G.coaches) if (co2.club) { const cl = G.clubs[co2.club]; snap[co2.id] = { pos: Game.standings(G, Game.serOf(cl)).indexOf(cl.id) + 1, div: cl.div }; }
     return snap;
   }
   function buildRecap(before) {
@@ -1141,7 +1143,7 @@
     const pts = gf > ga ? 3 : gf === ga ? 1 : 0;
     const side = home ? 'h' : 'a';
     const evs = r.ev || [];
-    const st = Game.standings(G, club.div), pos = st.indexOf(club.id) + 1;
+    const st = Game.standings(G, Game.serOf(club)), pos = st.indexOf(club.id) + 1;
     const lg = wk.matches.filter((x) => x.res && x.div === club.div && x.k === 'L');
     const best = lg.slice().sort((a, b) => Math.abs(b.res.hg - b.res.ag) - Math.abs(a.res.hg - a.res.ag))[0];
     const un = Game.players(G, club).filter((p) => X.mood(p) < 25).length;

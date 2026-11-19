@@ -111,11 +111,11 @@
         SF.World.makeSquad(G, c, CFG.divOvr[0] + R.gauss(0, 2.2));
       }
     },
-    makeClub(G, idx, div) {
+    makeClub(G, idx, div, ser) {
       const used = (G._usedNames = G._usedNames || new Set());
       const hue = Math.round((idx * 137.508) % 360);
       const club = {
-        id: 'c' + idx, name: SF.World.clubName(used), div,
+        id: 'c' + idx, name: SF.World.clubName(used), div, ser: ser == null ? div : ser,
         c1: `hsl(${hue} 62% 42%)`, c2: R.chance(0.5) ? '#ffffff' : '#111827',
         squad: [], fans: 0, cap: 0, price: 0, facility: { youth: [3, 2, 1, 1][div], train: [3, 2, 1, 1][div] },
         build: null, lastRevenue: 0, hist: [], title: 0, cups: 0, human: 0, rival: null, capt: 0, acad: [],
@@ -134,7 +134,10 @@
       G.clubs = {}; G.players = {}; G.nextPid = 1; G.free = [];
       SF.Bank.init(G);
       let idx = 0;
-      for (let d = 0; d < CFG.DIVS; d++) for (let i = 0; i < CFG.PER_DIV; i++) SF.World.makeClub(G, idx++, d);
+      // one series of PER_DIV clubs for each series the shape asks for, level by level
+      const shape = CFG.series && CFG.series.length ? CFG.series : [1, 1, 1, 1];
+      let si = 0;
+      for (let d = 0; d < shape.length; d++) for (let k = 0; k < shape[d]; k++, si++) for (let i = 0; i < CFG.PER_DIV; i++) SF.World.makeClub(G, idx++, d, si);
       G.clubIds = Object.keys(G.clubs);
       G.euIds = [];
       for (let i = 0; i < CFG.EU_FOREIGN; i++) G.euIds.push(SF.World.makeForeign(G, idx++, i % CFG.euNat.length).id);

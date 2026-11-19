@@ -9,6 +9,13 @@
   SF.CFG = {
     DIVS: 4,
     PER_DIV: 18,
+    /* The shape of the league. One entry per level, saying how many series of PER_DIV clubs that level
+     * holds. [1,1,1,1] is the game as it has always been: four divisions of eighteen, one series each.
+     * Online it grows downwards - [1,4,16,64] is a pyramid where everyone can climb from the bottom.
+     * How many go down is not set here: it follows from the shape. A series relegates one club for each
+     * of its child series, times promote, so what goes up and what comes down always balance. */
+    series: [1, 1, 1, 1],
+    promote: 2, // how many climb out of each series
     LEAGUE_WEEKS: 34,
     CUP_ROUNDS: 7, // preliminary round (16 clubs), then 64, 32, 16, quarter-finals, semi-finals, final
     CUP_AFTER: [4, 9, 14, 18, 23, 28, 34], // a cup round is played after these league matchdays

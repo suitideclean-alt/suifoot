@@ -673,7 +673,7 @@
     club.obj = club.obj || {};
     if (o.pos != null && +o.pos >= 1) {
       club.obj.pos = util.clamp(Math.round(+o.pos), 1, CFG.PER_DIV); club.target = club.obj.pos;
-      if (SF.Boss) { const rk = SF.Game.standings(G, club.div).slice().sort((a, b) => SF.Game.strength(G, G.clubs[b]) - SF.Game.strength(G, G.clubs[a])).indexOf(club.id) + 1; SF.Boss.track(G, co, 'obj', { gap: rk - club.obj.pos }); }
+      if (SF.Boss) { const rk = SF.Game.standings(G, SF.Game.serOf(club)).slice().sort((a, b) => SF.Game.strength(G, G.clubs[b]) - SF.Game.strength(G, G.clubs[a])).indexOf(club.id) + 1; SF.Boss.track(G, co, 'obj', { gap: rk - club.obj.pos }); }
     }
     if (o.profit != null && o.profit !== '' && isFinite(+o.profit)) club.obj.profit = Math.round(+o.profit);
     if (o.cup != null) club.obj.cup = !!o.cup;
@@ -706,7 +706,7 @@
     let k, p = {};
     if (q === 'status') {
       const f = club.form.slice(-5), inj = squad.filter((x) => x.inj > 0).length;
-      k = 'ch_status'; p = { pos: SF.Game.standings(G, club.div).indexOf(club.id) + 1, n: (club.obj && club.obj.pos) || club.target, w: f.filter((x) => x === 3).length, d: f.filter((x) => x === 1).length, l: f.filter((x) => x === 0).length, inj };
+      k = 'ch_status'; p = { pos: SF.Game.standings(G, SF.Game.serOf(club)).indexOf(club.id) + 1, n: (club.obj && club.obj.pos) || club.target, w: f.filter((x) => x === 3).length, d: f.filter((x) => x === 1).length, l: f.filter((x) => x === 0).length, inj };
     } else if (q === 'money') {
       const wb = O.wageBill(G, club), bal = B.bal(G, club.id);
       k = bal < 0 ? 'ch_money_bad' : 'ch_money'; p = { bal: Math.round(bal), wsum: wb, cost: Math.max(0, O.policy(G, club).budget - O.policy(G, club).spent) };
