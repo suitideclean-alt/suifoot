@@ -12,7 +12,9 @@
 
   // ---------- market ----------
   A.askPrice = function (G, coach, p) {
-    return Math.round((E.value(p) * p.ask * (1 - 0.015 * coach.sk.neg) * (p.hot ? CFG.hotPremium : 1)) / 100) * 100;
+    // a player your scouts have seen comes cheaper: they already know the agent
+    const seen = SF.Extras.scoutedBy(p, coach) ? 1 - CFG.scoutDiscount : 1;
+    return Math.round((E.value(p) * p.ask * (1 - 0.015 * coach.sk.neg) * (p.hot ? CFG.hotPremium : 1) * seen) / 100) * 100;
   };
 
   A.buy = function (G, coach, pid, fee) {

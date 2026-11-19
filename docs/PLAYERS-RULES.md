@@ -55,6 +55,12 @@ Dono (roles `owner` e `both`; estado em `club.nz`) com caixa parada (> 16 unidad
 - Programa semanal (academia, marketing, comunidade) sem SFOOT suficiente: desliga-se com aviso.
 - Teste: cada dono humano recebe `CFG.startSfoot` (500 000) ao começar; jogos antigos recebem-no ao migrar.
 
+### Olheiros (v0.9.30)
+O que um olheiro dá deixou de ser só informação, porque na cadeia o potencial de todos os jogadores fica público e ninguém paga para saber o que está à vista. Um jogador observado:
+- **custa 10% menos** a comprar (`CFG.scoutDiscount`), e o desconto é só de quem pagou o olheiro;
+- **evolui mais depressa** no teu clube enquanto tiver 23 anos ou menos (`CFG.scoutGrowth`, +12% ao fator de progressão, `CFG.scoutGrowthAge`).
+No modo offline continua também a revelar o potencial exato, como antes.
+
 ### Tesouraria e bolsa de prémios (v0.9.27)
 - A **tesouraria** (`t:treasury`) e a **bolsa de prémios** (`t:pool`) são contas SFOOT a sério, não contadores. O que um clube gasta não é destruído: muda de conta. Online passam a ser objetos do contrato.
 - `CFG.prizeMode` decide como os prémios são pagos:

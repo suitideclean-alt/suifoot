@@ -118,6 +118,9 @@
 
   // ---------- scouting ----------
   /** exact potential is known for own players, veterans (pot = ovr) and scouted players; otherwise a 16-point range */
+  /** have this coach's scouts seen the player? */
+  X.scoutedBy = (p, co) => !!(co && p && (p.sc || []).includes(co.id));
+
   X.potInfo = function (G, co, p) {
     if (p.age >= 24 || (co && p.club && p.club === co.club) || (co && (p.sc || []).includes(co.id)) || (p.acad && co && G.clubs[co.club] && p.acad === co.club)) return { exact: true, v: p.pot };
     const lo = util.clamp(p.pot - 8 + (((p.id * 2654435761) >>> 0) % 9), 30, 95);

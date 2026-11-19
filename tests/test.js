@@ -261,4 +261,42 @@ t('save checksum: a normal save loads clean, a hand-edited one is flagged, and t
   const g3 = Game.deserialize(Game.serialize(g2)); eq(g3.unverified, 1, 'flag survives a re-save');
   const legacy = JSON.parse(s); delete legacy.chk; eq(Game.deserialize(JSON.stringify(legacy)).unverified, undefined, 'old saves without checksum are not flagged');
 });
+t('scouting pays even when the potential is public: cheaper to buy, faster to grow', ()=>{
+  const G=Game.newGame({seed:44,coaches:[{name:'A',role:'both'}]}); const co=G.coaches[0]; const club=G.clubs[co.club];
+  B.credit(G,club.id,5e6,'bailout');
+  const alvo=A.search(G,co,{limit:30,maxAge:21}).find(p=>p.club&&!G.clubs[p.club].human&&G.clubs[p.club].squad.length>CFG.SQUAD_MIN+2);
+  truthy(alvo,'no young player to scout');
+  // cheaper to buy
+  const antes=A.askPrice(G,co,alvo);
+  truthy(X.scoutPlayer(G,co,alvo.id).ok,'the scout could not be sent');
+  const depois=A.askPrice(G,co,alvo);
+  truthy(depois<antes,`scouting did not make him cheaper: ${antes} -> ${depois}`);
+  const esperado=Math.round(antes*(1-CFG.scoutDiscount)/100)*100;
+  truthy(Math.abs(depois-esperado)<=100,`the discount is not ${CFG.scoutDiscount*100}%: ${antes} -> ${depois}, about ${esperado} expected`);
+  // the discount belongs to whoever paid for the scout
+  const outro={id:999,club:co.club,sk:co.sk,watch:[]};
+  eq(A.askPrice(G,outro,alvo),antes,'another coach got the discount without paying for it;');
+  // and he grows faster once he is ours. Growth lands in whole points, so one player over one season
+  // cannot show a 12% difference; we average the whole crop of youngsters over several worlds, and
+  // we also crank the setting up to prove the wiring rather than the balance number.
+  const crescimento=(observado, forca)=>{
+    const antigo=CFG.scoutGrowth;
+    if(forca!=null) CFG.scoutGrowth=forca;
+    try{
+      let total=0, n=0;
+      for(const seed of [45,46,47,48,49,50]){
+        const H=Game.newGame({seed,coaches:[{name:'A',role:'both'}]}); const c2=H.coaches[0]; const cl2=H.clubs[c2.club];
+        const jovens=Game.players(H,cl2).filter(p=>p.age<=21);
+        const ovr0={}; for(const j of jovens){ ovr0[j.id]=j.ovr; if(observado) j.sc=[c2.id]; }
+        Game.simulateSeason(H); Game.newSeason(H);
+        for(const j of jovens){ const v=H.players[j.id]; if(v){ total+=v.ovr-ovr0[j.id]; n++; } }
+      }
+      return n?total/n:0;
+    } finally { CFG.scoutGrowth=antigo; }
+  };
+  const sem=crescimento(false), com=crescimento(true, 1.0);
+  truthy(com>sem,`the growth bonus is not wired up: ${com.toFixed(2)} against ${sem.toFixed(2)}`);
+  console.log(`      (jovens cresceram ${sem.toFixed(2)} pontos sem olheiro, ${com.toFixed(2)} com o bonus no maximo)`);
+});
+
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail?1:0);

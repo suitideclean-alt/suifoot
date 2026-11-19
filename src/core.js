@@ -19,7 +19,14 @@
     euPartic: 8000, euWin: 6000, euDraw: 2000, euQF: 17000, euSF: 26000, euFinal: 39000, euWinner: 150000, // winner prize = 15% of the prize pool (division 1 total = 32%)
     euGate: 1.5, // european gate multiplier (full stadium, premium ticket)
     starOvr: 80, starValue: 1.5, starWage: 1.35, starFlair: 0.5, starFree: 3, starPenalty: 0.03, // max 3 stars in XI (~27%)
-    scoutCost: [24000, 12000, 6000, 3000], scoutOne: [8000, 4000, 2000, 1000], derbyGate: 1.3, hotPremium: 1.1, watchMax: 15,
+    scoutCost: [24000, 12000, 6000, 3000], scoutOne: [8000, 4000, 2000, 1000],
+    /* What a scout is worth beyond telling you a number. Online the potential of every player is written
+     * on a public chain, so knowing it stops being worth paying for; these two are not, because they are
+     * about what you may do, not about what you know. */
+    scoutDiscount: 0.1,  // a player your scouts have seen costs this much less to buy
+    scoutGrowth: 0.12,   // and grows this much faster once he is yours, while he is still young
+    scoutGrowthAge: 23,  // up to this age
+    derbyGate: 1.3, hotPremium: 1.1, watchMax: 15,
     loanFee: 0.07, loanOutFee: 0.05, loanMaxIn: 3,
     SQUAD_MIN: 16,
     SQUAD_MAX: 26,

@@ -660,7 +660,9 @@
   function progress(G, p, club, coach) {
     const tl = club ? club.facility.train : 1;
     const cb = coach ? coach.sk.train : 0;
-    const boost = (1 + 0.06 * (SF.Actions.facEff(tl) - 1) + 0.05 * cb) * SF.Body.progressMul(club);
+    // a young player your own scouts picked out grows faster with you: they knew what to work on
+    const seen = p.age <= CFG.scoutGrowthAge && SF.Extras.scoutedBy(p, coach) ? 1 + CFG.scoutGrowth : 1;
+    const boost = (1 + 0.06 * (SF.Actions.facEff(tl) - 1) + 0.05 * cb) * SF.Body.progressMul(club) * seen;
     let d;
     if (p.age <= 24) {
       d = (p.pot - p.ovr) * R.range(0.12, 0.4) * boost;

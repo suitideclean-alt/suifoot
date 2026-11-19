@@ -1176,7 +1176,7 @@
   const mhead = () => [t('sq_name'), t('sq_pos'), t('sq_age'), t('sq_ovr'), t('sq_pot'), t('club'), '>' + t('asking_price'), ''];
   function scoutView(c, club) {
     const G = UI.G, gems = (c.gems || []).map((id) => G.players[id]).filter((p) => p && p.club && !G.clubs[p.club].human);
-    return `<div class="card" style="margin-bottom:14px"><p>${t('scout_info')}</p><button class="btn pri" data-act="scoutrep">🔎 ${t('scout_order', { cost: CFG.scoutCost[club.div] })}</button></div>
+    return `<div class="card" style="margin-bottom:14px"><p>${t('scout_info', { disc: Math.round(CFG.scoutDiscount * 100) })}</p><button class="btn pri" data-act="scoutrep">🔎 ${t('scout_order', { cost: CFG.scoutCost[club.div] })}</button></div>
       <div class="card"><h2>${t('gems_title')}</h2>${gems.length ? tbl(mhead(), gems.map((p) => mrow(p, c)), 'mkt') : `<span class="mut">${t('gems_none')}</span>`}</div>`;
   }
   function watchView(c) {
