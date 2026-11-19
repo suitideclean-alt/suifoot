@@ -55,6 +55,14 @@ Dono (roles `owner` e `both`; estado em `club.nz`) com caixa parada (> 16 unidad
 - Programa semanal (academia, marketing, comunidade) sem SFOOT suficiente: desliga-se com aviso.
 - Teste: cada dono humano recebe `CFG.startSfoot` (500 000) ao começar; jogos antigos recebem-no ao migrar.
 
+## Peças para o online (v0.9.31–32)
+Quatro pedaços novos, todos com teste, todos sem efeito no jogo offline:
+
+- **Pirâmide** (`CFG.series`, `CFG.promote`). Um nível tem tantas séries de 18 clubes quantas a forma pedir. `[1,1,1,1]` é a escada de sempre; `[1,4,16,64]` é a pirâmide de 1 530 clubes. Quantos descem não se configura: sai da forma — cada série desce um clube por cada série filha, para cada um que sobe, por isso as vagas abertas batem sempre com as reclamadas. O clube guarda o nível (`div`, que continua a decidir salários, adeptos e prémios) e a série (`ser`).
+- **Calendário** (`src/calendar.js`, `SF.Cal`). `G.t0` é a meia-noite UTC do primeiro dia. Uma semana de jogo é um dia real; apito às 20:00 UTC, escalações fecham às 19:30, sorteio às 19:45. Nunca lê o relógio: a hora entra sempre de fora, para dar a mesma resposta em qualquer máquina. Sem `G.t0` o jogo não tem datas e nada disto se aplica.
+- **Identidade** (`src/identity.js`, `SF.Id`). O dono passa a ter endereço Sui (0x e 64 hex, normalizado), ao lado do número interno que o jogo usa. Um endereço, uma pessoa; um endereço, um clube. Vender o clube é mudar o endereço, e o antigo dono sai de vez.
+- **Selo das escalações** (`src/seal.js`, `SF.Seal`). Antes do fecho publica-se só `sha256(escalação + número secreto)`; depois revela-se e qualquer um confere. Não se muda de ideias depois, nem se espreita antes. Quem não revela joga com o que jogaria na mesma. A escalação revelada continua a ser verificada: jogadores emprestados de outro clube e repetidos são postos fora.
+
 ### Olheiros (v0.9.30)
 O que um olheiro dá deixou de ser só informação, porque na cadeia o potencial de todos os jogadores fica público e ninguém paga para saber o que está à vista. Um jogador observado:
 - **custa 10% menos** a comprar (`CFG.scoutDiscount`), e o desconto é só de quem pagou o olheiro;

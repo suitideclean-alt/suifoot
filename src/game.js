@@ -345,6 +345,9 @@
     ensureSquad(G, club);
     const coach = Game.humanOf(G, clubId);
     let xi, bench, tactic = 'bal', tb = 0;
+    // online a lineup is sealed before the deadline and revealed after it; what was revealed is what plays
+    const selado = SF.Seal && SF.Seal.lineupFor(G, clubId, G.week);
+    if (selado) return { club: clubId, xi: selado.xi, bench: selado.bench, tactic: selado.tactic, tbonus: coach ? coach.sk.tact : 0 };
     if (coach) {
       const L = coach.lineup;
       tactic = L.tactic; tb = coach.sk.tact;

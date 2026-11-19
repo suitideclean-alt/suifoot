@@ -19,6 +19,14 @@
     LEAGUE_WEEKS: 34,
     CUP_ROUNDS: 7, // preliminary round (16 clubs), then 64, 32, 16, quarter-finals, semi-finals, final
     CUP_AFTER: [4, 9, 14, 18, 23, 28, 34], // a cup round is played after these league matchdays
+    /* A game week against real time. Offline none of it is used; online it is what everyone's clock
+     * has to agree on. One game week is one real day, so a season of 50 weeks runs for 50 days and
+     * nobody waits more than a day for a match. All in UTC, so there is no summer time to argue about. */
+    daysPerWeek: 1,
+    kickoffUtc: 20 * 60, // minutes past midnight UTC: 20:00
+    lockBefore: 30,      // lineups stop being accepted this many minutes before the whistle
+    drawBefore: 15,      // and the draw is taken this many minutes before it
+    breakDays: 3,        // between the last matchday of a season and the first of the next
     TOTAL_WEEKS: 41, // economy weeks per season = league matchdays + cup rounds (european weeks carry no wages/income ticks)
     EU_AFTER: [3, 9, 14, 19, 23, 27, 30, 32, 34], // european matchdays (6 group + QF + SF + final) are played after these league matchdays
     EU_TEAMS: 16, EU_FOREIGN: 12, EU_SLOTS: 4,
