@@ -39,6 +39,20 @@ t('a Merkle proof shows one club belongs to the root, and a wrong one is refused
   truthy(State.root(G) !== before, 'the root did not move when a player changed');
 });
 
+t('a game that has only just started already saves as a fixed point', () => {
+  // the catch this covers: a field created lazily (the toast queue) was missing from a brand new
+  // save, the load put it there, and the second save came out eight bytes longer
+  const G = Game.newGame({ seed: 3, coaches: [{ name: 'A', role: 'both' }] });
+  const s1 = Game.serialize(G);
+  const s2 = Game.serialize(Game.deserialize(s1));
+  eq(s1, s2, 'a fresh game changed when it was loaded;');
+  // and the same after a single week, before anything has had a chance to fill it
+  const H = Game.newGame({ seed: 4, coaches: [{ name: 'A', role: 'both' }] });
+  Game.playWeekAuto(H);
+  const t1 = Game.serialize(H);
+  eq(Game.serialize(Game.deserialize(t1)), t1, 'a game one week old changed when it was loaded;');
+});
+
 t('save, load, save gives exactly the same file', () => {
   for (const seed of [1, 7, 42]) {
     const G = Game.newGame({ seed, coaches: [{ name: 'A', role: 'both' }] });

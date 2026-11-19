@@ -9,7 +9,7 @@ const eq = (a, b, m) => { if (a !== b) throw new Error((m || '') + ` expected ${
 const truthy = (a, m) => { if (!a) throw new Error(m || 'expected truthy'); };
 const conserved = (G, m) => eq((G.bank.tminted || 0) - (G.bank.tburned || 0), B.ttotal(G), (m || '') + ' SFOOT not conserved;');
 
-const withMode = (mode, fn) => { const was = CFG.prizeMode, wasFee = CFG.entryFee; CFG.prizeMode = mode; try { return fn(); } finally { CFG.prizeMode = was; CFG.entryFee = wasFee; } };
+const withMode = (mode, fn) => { const was = CFG.prizeMode, wasRate = CFG.sfootPerUsd; CFG.prizeMode = mode; try { return fn(); } finally { CFG.prizeMode = was; CFG.sfootPerUsd = wasRate; } };
 
 t('the ceiling in the config is really the most a season can hand out', () => {
   let worst = 0;
@@ -52,15 +52,15 @@ t('an investment moves SFOOT to the treasury instead of destroying it', () => {
 t('online the prizes come out of the pool and the pool is never overdrawn', () => withMode('pool', () => {
   const G = Game.newGame({ seed: 7, coaches: [{ name: 'A', role: 'owner' }] });
   const co = G.coaches[0];
-  // an empty pool pays nothing at all
+  // a club nobody paid the season for draws nothing, whatever it wins
   Game.startSeason(G);
-  eq(O.prizeFactor(G), 0, 'an empty pool still pays;');
   const sf0 = O.sfBal(G, co.id);
   Game.income(G, co.club, 100000, 'prize');
-  eq(O.sfBal(G, co.id), sf0, 'a prize was paid out of an empty pool;');
+  eq(O.sfBal(G, co.id), sf0, 'an unpaid club was paid a prize;');
+  eq(O.poolBal(G), 0, 'the pool moved for an unpaid club;');
 
-  // fill it with entry fees and the prizes become a share of what came in
-  CFG.entryFee = [160000, 80000, 40000, 20000];
+  // pay the season and the prizes become a share of what came in
+  CFG.sfootPerUsd = 2000; // 90/40/20/10 dollars at this rate
   const r = O.payEntry(G, co, co.club);
   truthy(r.ok, 'the entry fee was refused: ' + JSON.stringify(r));
   eq(O.poolBal(G), Math.round(r.fee * CFG.poolShare), 'the pool did not take its share;');
@@ -83,7 +83,7 @@ t('online the prizes come out of the pool and the pool is never overdrawn', () =
 }));
 
 t('a whole season online never pays more than the pool holds', () => withMode('pool', () => {
-  CFG.entryFee = [160000, 80000, 40000, 20000];
+  CFG.sfootPerUsd = 2000; // 90/40/20/10 dollars at this rate
   const G = Game.newGame({ seed: 9, coaches: [{ name: 'A', role: 'owner' }, { name: 'B', role: 'both' }] });
   for (const co of G.coaches) O.payEntry(G, co, co.club);
   const inflow = O.poolBal(G);
@@ -100,7 +100,7 @@ t('a whole season online never pays more than the pool holds', () => withMode('p
 }));
 
 t('the factor is measured against the human clubs, not the whole table', () => withMode('pool', () => {
-  CFG.entryFee = [160000, 80000, 40000, 20000];
+  CFG.sfootPerUsd = 2000; // 90/40/20/10 dollars at this rate
   const G = Game.newGame({ seed: 14, coaches: [{ name: 'A', role: 'owner' }] });
   const co = G.coaches[0];
   O.payEntry(G, co, co.club);
@@ -112,6 +112,24 @@ t('the factor is measured against the human clubs, not the whole table', () => w
   const naive = Math.min(1, Math.floor((O.poolBal(G) / CFG.prizeTotal) * 1e6) / 1e6);
   truthy(f1 > naive, `dividing by the whole table pays less (${naive}) than by the human clubs (${f1})`);
   console.log(`      (um clube humano: fator ${f1}, contra ${naive} se dividisse pela tabela toda)`);
+}));
+
+t('only an owner pays the entry, and the price follows the division', () => withMode('pool', () => {
+  CFG.sfootPerUsd = 1;
+  const G = Game.newGame({ seed: 15, coaches: [{ name: 'D', role: 'owner' }, { name: 'T', role: 'coach' }] });
+  const dono = G.coaches[0], treinador = G.coaches[1];
+  eq(O.entryFee(G, G.clubs[dono.club]), CFG.entryFeeUsd[G.clubs[dono.club].div], 'the fee is the dollar price of the division;');
+  // the four divisions, first to fourth
+  eq(JSON.stringify(CFG.entryFeeUsd), JSON.stringify([90, 40, 20, 10]), 'the prices changed;');
+  // a coach cannot pay an entry: he is hired, he does not own
+  const r = O.payEntry(G, treinador, treinador.club);
+  truthy(!r.ok && r.err === 'owner_only', 'a coach was allowed to pay an entry: ' + JSON.stringify(r));
+  // the owner can, once
+  truthy(O.payEntry(G, dono, dono.club).ok, 'the owner could not pay');
+  truthy(O.entryPaid(G, G.clubs[dono.club]), 'the club was not marked as paid');
+  const again = O.payEntry(G, dono, dono.club);
+  truthy(again.ok && again.already, 'paying twice in one season should do nothing');
+  conserved(G);
 }));
 
 t('the treasury and the pool are real accounts the books can see', () => {

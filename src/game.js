@@ -52,7 +52,7 @@
   Game.newGame = function (o) {
     o = o || {};
     const seed = (o.seed != null ? o.seed : 1) >>> 0;
-    const G = { v: SF.VERSION, fmt: 2, mig: MIG, rules: CFG.rules, seed, rs: seed, season: 1, week: 1, phase: 'play', news: [], coaches: [], offers: [], hall: [], nextOffer: 1, lang: o.lang || 'en', wk: null };
+    const G = { v: SF.VERSION, fmt: 2, mig: MIG, rules: CFG.rules, seed, rs: seed, season: 1, week: 1, phase: 'play', news: [], coaches: [], offers: [], hall: [], tq: [], nextOffer: 1, lang: o.lang || 'en', wk: null };
     SF.setG(G);
     W.generate(G);
     G.free = G.free || [];
@@ -124,7 +124,7 @@
   Game.migrate = function (G) {
     // Already current: a load must change nothing. The structural checks are there because a file can claim a
     // level it does not have (edited by hand, or cut short); then the upgrades below run and repair it.
-    if (G.mig === MIG && G.euIds && G.eu && G.bank && G.bank.tok && G.tq) return G;
+    if (G.mig === MIG && G.euIds && G.eu && G.bank && G.bank.tok) return G;
     if (!G.euIds) {
       G.euIds = [];
       let idx = 200;

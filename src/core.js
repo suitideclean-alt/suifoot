@@ -44,7 +44,12 @@
     prizeMode: 'fixed',
     prizeTotal: 1385500, // the most one season can hand out: 600k divisions + 140k cup + 50k scorer + 595.5k Europe at its fullest
     poolShare: 0.75,     // of an entry fee, this much fills the prize pool and the rest keeps the project running
-    entryFee: [0, 0, 0, 0], // SFOOT per season per human club, by division. Zero offline; set when the token has a price
+    /* What it costs to own a club for a season, by division (first to fourth), in dollars. Only an owner
+     * pays: a coach is hired by an owner and pays nothing, he earns his share of what the club wins.
+     * The fee is charged in SFOOT, so it is converted at the rate below. The rate is 1 while the token has
+     * no price of its own; the day it has one, this is the single line that changes. */
+    entryFeeUsd: [90, 40, 20, 10],
+    sfootPerUsd: 1,
     startSfoot: 500000, // SFOOT given to a human owner at the start (testnet grant): it pays investments, prizes add to it
     expandStep: 2000,
     expandWeeks: 4,

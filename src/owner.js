@@ -55,10 +55,12 @@
    * its very best. A prize a computer club wins is never created, so it is not a liability. Dividing by the
    * whole table instead would make a league of three humans pay out almost nothing while the pool sat full. */
   O.seasonLiability = function (G) {
+    const pool = CFG.prizeMode === 'pool';
     let total = 0;
     for (const id of G.clubIds) {
       const club = G.clubs[id];
       if (!club.human && !club.owner) continue;
+      if (pool && !O.entryPaid(G, club)) continue; // a club nobody paid for cannot draw on the pool
       const d = club.div;
       total += Math.round(CFG.prizeDiv[d] * CFG.prizeSplit[0]) + CFG.prizeCup + CFG.prizeScorer;
       if (d === 0) total += CFG.euWinner + CFG.euQF + CFG.euSF + CFG.euFinal + CFG.euPartic + 6 * CFG.euWin;
@@ -78,6 +80,7 @@
   function payPrize(G, toId, amt, clubId) {
     if (amt <= 0) return 0;
     if (CFG.prizeMode !== 'pool') return B.tcredit(G, toId, amt, 'prize', clubId);
+    if (!O.entryPaid(G, G.clubs[clubId])) return 0; // only a club whose season was paid for draws on the pool
     const have = Math.max(0, O.poolBal(G));
     const pay = Math.min(amt, have);
     return pay > 0 ? B.ttransfer(G, O.POOL, toId, pay, 'prize', clubId, clubId) : 0;
@@ -106,16 +109,26 @@
     return amt;
   };
 
-  /** a human club's entry fee for the season: part fills the prize pool, the rest keeps the project running */
+  /** what owning this club costs for a season, in SFOOT: the dollar price of its division at the current rate */
+  O.entryFee = (G, club) => (club ? Math.round(CFG.entryFeeUsd[club.div] * CFG.sfootPerUsd) : 0);
+  /** has this club's season been paid for? only a paid club draws on the prize pool */
+  O.entryPaid = (G, club) => !!club && club.entry === G.season;
+
+  /** The season's entry fee. Only an owner pays it - a coach is hired and pays nothing. Part of it fills
+   * the prize pool and the rest keeps the project running. Offline nobody pays: prizes are fixed there. */
   O.payEntry = function (G, co, clubId) {
     const club = G.clubs[clubId];
     if (!club) return { ok: false, err: 'bad' };
-    const fee = CFG.entryFee[club.div];
-    if (!(fee > 0)) return { ok: true, fee: 0 };
+    if (ROLE(co) === 'coach') return { ok: false, err: 'owner_only' }; // the coach does not buy the club
+    if (club.owner !== co.id) return { ok: false, err: 'owner_only' };
+    if (O.entryPaid(G, club)) return { ok: true, fee: 0, already: true };
+    const fee = O.entryFee(G, club);
+    if (!(fee > 0)) { club.entry = G.season; return { ok: true, fee: 0 }; }
     if (O.sfBal(G, co.id) < fee) return { ok: false, err: 'no_funds_sf', cost: fee };
     const toPool = Math.round(fee * CFG.poolShare);
     B.tspend(G, O.sfAcc(co.id), O.POOL, toPool, 'entry', clubId);
     B.tspend(G, O.sfAcc(co.id), O.TREASURY, fee - toPool, 'entry', clubId);
+    club.entry = G.season;
     return { ok: true, fee, pool: toPool };
   };
   O.wageBill = (G, club) => util.sum(club.squad.map((id) => G.players[id].wage));

@@ -158,7 +158,8 @@ t('neglect also hits the owner+coach role', () => {
 });
 t('old saves migrate: no boss state yet, it is created', () => {
   const { G, co, club } = setup(5);
-  const s = JSON.parse(JSON.stringify(G)); delete s.owners; delete s.coaches[0].own;
+  // an old save carries no migration level, which is what makes the upgrade run
+  const s = JSON.parse(JSON.stringify(G)); delete s.mig; delete s.owners; delete s.coaches[0].own;
   const g2 = Game.migrate ? Game.migrate(s) : s; SF.setG(g2);
   truthy(g2.clubs[g2.coaches[0].club].boss && g2.owners, 'created');
 });
