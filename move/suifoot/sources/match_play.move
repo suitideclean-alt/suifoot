@@ -6,7 +6,7 @@
 /// seeds, and the same score, the same scorers, the same minutes on both sides.
 module suifoot::match_play;
 
-use suifoot::engine::{Self, Power};
+use suifoot::engine::{Self, Power, OnPitch};
 use suifoot::fx::{Self, Fx};
 use suifoot::player::{Self, Player};
 use suifoot::rng::{Self, Rng};
@@ -48,13 +48,6 @@ public struct Result has copy, drop, store {
     events: vector<Event>,
 }
 
-/// a man on the pitch: when he came on, and what he has already been booked for
-public struct OnPitch has copy, drop, store {
-    p: Player,
-    since: u64,
-    yellows: u8,
-}
-
 public struct Side has copy, drop, store {
     xi: vector<OnPitch>,
     bench: vector<Player>,
@@ -68,6 +61,12 @@ public struct Side has copy, drop, store {
     card_f: Fx,
     red_f: Fx,
     pw: Power,
+    /// What an attack by this side is worth, and - on the home side only - how often the ball comes
+    /// its way at all. Both follow from the two sides' strengths and nothing else, so they are
+    /// worked out when those change and not again every minute in between. The same numbers, found
+    /// once instead of ninety times.
+    pg: Fx,
+    attack_share: Fx,
 }
 
 public fun home_goals(r: &Result): u8 { r.home_goals }
@@ -103,7 +102,7 @@ fun make_side(xi: vector<Player>, bench: vector<Player>, tactic: u8, tbonus: u64
         let p = xi[i];
         card_sum = fx::add(&card_sum, &player::card_factor(&p));
         red_sum = fx::add(&red_sum, &player::red_factor(&p));
-        on.push_back(OnPitch { p, since: 0, yellows: 0 });
+        on.push_back(engine::on_pitch(p, 0));
         i = i + 1;
     };
     Side {
@@ -112,31 +111,47 @@ fun make_side(xi: vector<Player>, bench: vector<Player>, tactic: u8, tbonus: u64
         card_f: fx::div_int(&card_sum, n),
         red_f: fx::div_int(&red_sum, n),
         pw: engine::power(&vector::empty(), &vector::empty(), 0, BAL, 0),
+        pg: fx::zero(),
+        attack_share: fx::zero(),
     }
-}
-
-fun players_of(s: &Side): vector<Player> {
-    let mut out = vector::empty<Player>();
-    let mut i = 0;
-    while (i < s.xi.length()) { out.push_back(s.xi[i].p); i = i + 1; };
-    out
-}
-fun since_of(s: &Side): vector<u64> {
-    let mut out = vector::empty<u64>();
-    let mut i = 0;
-    while (i < s.xi.length()) { out.push_back(s.xi[i].since); i = i + 1; };
-    out
 }
 
 /// the tactics triangle: attacking beats balanced, balanced beats defensive, defensive beats attacking
 fun beats(t: u8): u8 { if (t == ATT) BAL else if (t == BAL) DEF else ATT }
 
 fun refresh(h: &mut Side, a: &mut Side, minute: u64) {
-    h.pw = engine::power(&players_of(h), &since_of(h), minute, h.tactic, h.tbonus);
-    a.pw = engine::power(&players_of(a), &since_of(a), minute, a.tactic, a.tbonus);
+    h.pw = engine::power_now(&h.xi, minute, h.tactic, h.tbonus);
+    a.pw = engine::power_now(&a.xi, minute, a.tactic, a.tbonus);
     let edge = fx::from_ratio(1025, 1000);
     if (beats(h.tactic) == a.tactic) h.pw = engine::scale(&h.pw, &edge);
     if (beats(a.tactic) == h.tactic) a.pw = engine::scale(&a.pw, &edge);
+
+    // Everything below follows from those four numbers each and nothing else, so it is worked out
+    // here rather than again inside every attack and every minute. The values are identical: they
+    // could only change when the strengths do, and the strengths only change here.
+    h.pg = goal_chance(&h.pw, &a.pw, true);
+    a.pg = goal_chance(&a.pw, &h.pw, false);
+
+    let gap = fx::sub(&fx::add(&engine::mp(&h.pw), &fx::from_ratio(18, 10)), &engine::mp(&a.pw));
+    h.attack_share = fx::div(
+        &fx::one(),
+        &fx::add(&fx::one(), &fx::exp(&fx::negate(&fx::mul(&fx::from_ratio(36, 1000), &gap)))),
+    );
+}
+
+/// How likely an attack is to end in a goal: the gap between this attack and that defence, softened
+/// by how good the keeper is, and then held between a fortieth and a half so that no mismatch ever
+/// becomes a certainty either way.
+fun goal_chance(att: &Power, def: &Power, home: bool): Fx {
+    let ratio = fx::exp(&fx::mul(&fx::from_ratio(36, 1000), &fx::sub(&engine::ap(att), &engine::dp(def))));
+    let floor15 = fx::from_int(15);
+    let keeper = if (fx::gt(&engine::gk(def), &floor15)) engine::gk(def) else floor15;
+    let gkf = fx::pow(&fx::div(&engine::dp(def), &keeper), &fx::from_ratio(6, 10));
+    let raw = fx::mul(
+        &fx::mul(&fx::mul(&fx::from_ratio(84, 1000), &ratio), &gkf),
+        &(if (home) fx::from_ratio(115, 100) else fx::one()),
+    );
+    fx::clamp(raw, fx::from_ratio(15, 1000), fx::from_ratio(50, 100))
 }
 
 // ---------- picking a man out of an eleven ----------
@@ -158,14 +173,14 @@ fun weighted(r: &mut Rng, weights: &vector<Fx>): u64 {
     n - 1
 }
 
-fun ovr_fx(o: &OnPitch): Fx { fx::from_int((player::ovr(&o.p) as u64)) }
+fun ovr_fx(o: &OnPitch): Fx { fx::from_int((player::ovr(engine::man(o)) as u64)) }
 
 /// who is likeliest to put it away: forwards most, then midfielders, defenders rarely, never the keeper
 fun scorer_weights(s: &Side): vector<Fx> {
     let mut w = vector::empty<Fx>();
     let mut i = 0;
     while (i < s.xi.length()) {
-        let pos = player::pos(&s.xi[i].p);
+        let pos = player::pos(engine::man(&s.xi[i]));
         let o = ovr_fx(&s.xi[i]);
         w.push_back(
             if (pos == player::gk()) fx::zero()
@@ -199,9 +214,7 @@ public fun play(
 
         // is there an attack at all this minute, and whose
         if (rng::next_fx(&mut r) < fx::raw(&fx::from_ratio(28, 100))) {
-            let gap = fx::sub(&fx::add(&engine::mp(&h.pw), &fx::from_ratio(18, 10)), &engine::mp(&a.pw));
-            let logistic = fx::div(&fx::one(), &fx::add(&fx::one(), &fx::exp(&fx::negate(&fx::mul(&fx::from_ratio(36, 1000), &gap)))));
-            let home_has_it = rng::next_fx(&mut r) < fx::raw(&logistic);
+            let home_has_it = rng::next_fx(&mut r) < fx::raw(&h.attack_share);
             attack(&mut r, &mut h, &mut a, home_has_it, minute, &mut events);
         };
 
@@ -232,7 +245,7 @@ fun side_mut(h: &mut Side, a: &mut Side, home: bool): &mut Side { if (home) h el
 fun keeper_ovr(s: &Side): u64 {
     let mut i = 0;
     while (i < s.xi.length()) {
-        if (player::is_keeper(&s.xi[i].p)) return (player::ovr(&s.xi[i].p) as u64);
+        if (player::is_keeper(engine::man(&s.xi[i]))) return (player::ovr(engine::man(&s.xi[i])) as u64);
         i = i + 1;
     };
     55 // nobody in goal: the engine still has to put a number against the penalty taker
@@ -240,7 +253,7 @@ fun keeper_ovr(s: &Side): u64 {
 fun keeper_num(s: &Side): u32 {
     let mut i = 0;
     while (i < s.xi.length()) {
-        if (player::is_keeper(&s.xi[i].p)) return player::num(&s.xi[i].p);
+        if (player::is_keeper(engine::man(&s.xi[i]))) return player::num(engine::man(&s.xi[i]));
         i = i + 1;
     };
     0
@@ -250,20 +263,7 @@ fun keeper_num(s: &Side): u32 {
 /// defence, softened by how good the keeper is, and then held between a fortieth and a half so that
 /// no mismatch ever becomes a certainty either way.
 fun attack(r: &mut Rng, h: &mut Side, a: &mut Side, home: bool, minute: u64, events: &mut vector<Event>) {
-    let att_pw = if (home) h.pw else a.pw;
-    let def_pw = if (home) a.pw else h.pw;
-
-    { let s = side_mut(h, a, home); s.poss = s.poss + 1; };
-
-    let ratio = fx::exp(&fx::mul(&fx::from_ratio(36, 1000), &fx::sub(&engine::ap(&att_pw), &engine::dp(&def_pw))));
-    let floor15 = fx::from_int(15);
-    let keeper = if (fx::gt(&engine::gk(&def_pw), &floor15)) engine::gk(&def_pw) else floor15;
-    let gkf = fx::pow(&fx::div(&engine::dp(&def_pw), &keeper), &fx::from_ratio(6, 10));
-    let raw_pg = fx::mul(
-        &fx::mul(&fx::mul(&fx::from_ratio(84, 1000), &ratio), &gkf),
-        &(if (home) fx::from_ratio(115, 100) else fx::one()),
-    );
-    let pg = fx::clamp(raw_pg, fx::from_ratio(15, 1000), fx::from_ratio(50, 100));
+    let pg = { let s = side_mut(h, a, home); s.poss = s.poss + 1; s.pg };
 
     // a penalty first: it replaces the attack rather than following it
     if (rng::next_fx(r) < fx::raw(&fx::from_ratio(12, 1000))) {
@@ -279,7 +279,7 @@ fun attack(r: &mut Rng, h: &mut Side, a: &mut Side, home: bool, minute: u64, eve
     if (rng::next_fx(r) < fx::raw(&pg)) {
         let weights = { let s = side_mut(h, a, home); scorer_weights(s) };
         let si = weighted(r, &weights);
-        let scorer = { let s = side_mut(h, a, home); player::num(&s.xi[si].p) };
+        let scorer = { let s = side_mut(h, a, home); player::num(engine::man(&s.xi[si])) };
 
         // and whether anybody made it for him: midfielders likeliest
         let mut assist = 0u32;
@@ -291,14 +291,14 @@ fun attack(r: &mut Rng, h: &mut Side, a: &mut Side, home: bool, minute: u64, eve
                 let mut i = 0;
                 while (i < s.xi.length()) {
                     if (i != si) {
-                        let pos = player::pos(&s.xi[i].p);
+                        let pos = player::pos(engine::man(&s.xi[i]));
                         let o = ovr_fx(&s.xi[i]);
                         w.push_back(
                             if (pos == player::gk()) fx::zero()
                             else if (pos == player::mf()) fx::mul(&fx::from_ratio(12, 10), &o)
                             else o
                         );
-                        nums.push_back(player::num(&s.xi[i].p));
+                        nums.push_back(player::num(engine::man(&s.xi[i])));
                     };
                     i = i + 1;
                 };
@@ -321,7 +321,7 @@ fun attack(r: &mut Rng, h: &mut Side, a: &mut Side, home: bool, minute: u64, eve
             let mut w = vector::empty<Fx>();
             let mut i = 0;
             while (i < s.xi.length()) {
-                let pos = player::pos(&s.xi[i].p);
+                let pos = player::pos(engine::man(&s.xi[i]));
                 let o = ovr_fx(&s.xi[i]);
                 w.push_back(
                     if (pos == player::gk()) fx::zero()
@@ -334,7 +334,7 @@ fun attack(r: &mut Rng, h: &mut Side, a: &mut Side, home: bool, minute: u64, eve
             w
         };
         let shi = weighted(r, &weights);
-        let shooter = { let s = side_mut(h, a, home); player::num(&s.xi[shi].p) };
+        let shooter = { let s = side_mut(h, a, home); player::num(engine::man(&s.xi[shi])) };
         let gkp = if (home) keeper_num(a) else keeper_num(h);
         rng::index(r, 6); // which of the six it was, drawn and then told in the browser
         events.push_back(Event { minute: (minute as u8), side: if (home) HOME else AWAY, kind: SHOT, who: shooter, other: gkp });
@@ -350,16 +350,16 @@ fun spot_kick(r: &mut Rng, h: &mut Side, a: &mut Side, home: bool, minute: u64, 
         let mut found = false;
         let mut i = 0;
         while (i < s.xi.length()) {
-            if (!player::is_keeper(&s.xi[i].p)) {
-                let v = (player::ovr(&s.xi[i].p) as u64) + (if (player::pos(&s.xi[i].p) == player::fw()) 3 else 0);
+            if (!player::is_keeper(engine::man(&s.xi[i]))) {
+                let v = (player::ovr(engine::man(&s.xi[i])) as u64) + (if (player::pos(engine::man(&s.xi[i])) == player::fw()) 3 else 0);
                 if (!found || v > best_v) { best = i; best_v = v; found = true };
             };
             i = i + 1;
         };
         best
     };
-    let taker_ovr = { let s = side_mut(h, a, home); (player::ovr(&s.xi[taker].p) as u64) };
-    let taker_num = { let s = side_mut(h, a, home); player::num(&s.xi[taker].p) };
+    let taker_ovr = { let s = side_mut(h, a, home); (player::ovr(engine::man(&s.xi[taker])) as u64) };
+    let taker_num = { let s = side_mut(h, a, home); player::num(engine::man(&s.xi[taker])) };
 
     // who conceded it: a defender most often, weighted by how freely he goes in
     let foul_weights = {
@@ -367,18 +367,18 @@ fun spot_kick(r: &mut Rng, h: &mut Side, a: &mut Side, home: bool, minute: u64, 
         let mut w = vector::empty<Fx>();
         let mut i = 0;
         while (i < d.xi.length()) {
-            let pos = player::pos(&d.xi[i].p);
+            let pos = player::pos(engine::man(&d.xi[i]));
             let base = if (pos == player::df()) fx::from_ratio(14, 10)
                 else if (pos == player::mf()) fx::one()
                 else if (pos == player::gk()) fx::from_ratio(3, 10)
                 else fx::from_ratio(4, 10);
-            w.push_back(fx::mul(&base, &player::card_factor(&d.xi[i].p)));
+            w.push_back(fx::mul(&base, &player::card_factor(engine::man(&d.xi[i]))));
             i = i + 1;
         };
         w
     };
     let foul = weighted(r, &foul_weights);
-    let foul_num = { let d = side_mut(h, a, !home); player::num(&d.xi[foul].p) };
+    let foul_num = { let d = side_mut(h, a, !home); player::num(engine::man(&d.xi[foul])) };
     let gk_ovr = if (home) keeper_ovr(a) else keeper_ovr(h);
 
     { let s = side_mut(h, a, home); s.shots = s.shots + 1; };
@@ -405,8 +405,8 @@ fun spot_kick(r: &mut Rng, h: &mut Side, a: &mut Side, home: bool, minute: u64, 
 fun book(h: &mut Side, a: &mut Side, home: bool, i: u64, minute: u64, events: &mut vector<Event>) {
     let (num, twice) = {
         let s = side_mut(h, a, home);
-        s.xi[i].yellows = s.xi[i].yellows + 1;
-        (player::num(&s.xi[i].p), s.xi[i].yellows >= 2)
+        engine::book(&mut s.xi[i]);
+        (player::num(engine::man(&s.xi[i])), engine::yellows(&s.xi[i]) >= 2)
     };
     let who = if (home) HOME else AWAY;
     if (twice) {
@@ -432,7 +432,7 @@ fun carried_off(h: &mut Side, a: &mut Side, home: bool, i: u64, minute: u64, eve
 
 fun replace_injured(h: &mut Side, a: &mut Side, home: bool, i: u64, minute: u64, events: &mut vector<Event>) {
     let s = side_mut(h, a, home);
-    let gone = s.xi[i].p;
+    let gone = *engine::man(&s.xi[i]);
     s.xi.remove(i);
     if (s.subs >= SUBS || s.bench.length() == 0) return;
 
@@ -462,7 +462,7 @@ fun replace_injured(h: &mut Side, a: &mut Side, home: bool, i: u64, minute: u64,
 
     let coming = s.bench.remove(pick);
     let num = player::num(&coming);
-    s.xi.push_back(OnPitch { p: coming, since: minute, yellows: 0 });
+    s.xi.push_back(engine::on_pitch(coming, minute));
     s.subs = s.subs + 1;
     events.push_back(Event {
         minute: (minute as u8), side: if (home) HOME else AWAY, kind: SUB,
@@ -482,12 +482,12 @@ fun incidents(r: &mut Rng, h: &mut Side, a: &mut Side, which: u8, minute: u64, e
             let mut w = vector::empty<Fx>();
             let mut i = 0;
             while (i < s.xi.length()) {
-                let pos = player::pos(&s.xi[i].p);
+                let pos = player::pos(engine::man(&s.xi[i]));
                 let base = if (pos == player::gk()) fx::from_ratio(2, 10)
                     else if (pos == player::df()) fx::from_ratio(13, 10)
                     else if (pos == player::mf()) fx::from_ratio(11, 10)
                     else fx::from_ratio(8, 10);
-                w.push_back(fx::mul(&base, &player::card_factor(&s.xi[i].p)));
+                w.push_back(fx::mul(&base, &player::card_factor(engine::man(&s.xi[i]))));
                 i = i + 1;
             };
             w
@@ -505,11 +505,11 @@ fun incidents(r: &mut Rng, h: &mut Side, a: &mut Side, which: u8, minute: u64, e
                 let s = side_mut(h, a, home);
                 let mut w = vector::empty<Fx>();
                 let mut i = 0;
-                while (i < s.xi.length()) { w.push_back(player::red_factor(&s.xi[i].p)); i = i + 1; };
+                while (i < s.xi.length()) { w.push_back(player::red_factor(engine::man(&s.xi[i]))); i = i + 1; };
                 w
             };
             let i = weighted(r, &weights);
-            let num = { let s = side_mut(h, a, home); player::num(&s.xi[i].p) };
+            let num = { let s = side_mut(h, a, home); player::num(engine::man(&s.xi[i])) };
             events.push_back(Event { minute: (minute as u8), side: if (home) HOME else AWAY, kind: RED, who: num, other: 0 });
             send_off(h, a, home, i, minute);
         };
@@ -525,14 +525,14 @@ fun incidents(r: &mut Rng, h: &mut Side, a: &mut Side, which: u8, minute: u64, e
                 let mut w = vector::empty<Fx>();
                 let mut i = 0;
                 while (i < s.xi.length()) {
-                    let c = (player::cond(&s.xi[i].p) as u64);
+                    let c = (player::cond(engine::man(&s.xi[i])) as u64);
                     w.push_back(fx::add(&fx::one(), &fx::div_int(&fx::from_int(100 - c), 60)));
                     i = i + 1;
                 };
                 w
             };
             let i = weighted(r, &weights);
-            let num = { let s = side_mut(h, a, home); player::num(&s.xi[i].p) };
+            let num = { let s = side_mut(h, a, home); player::num(engine::man(&s.xi[i])) };
             events.push_back(Event { minute: (minute as u8), side: if (home) HOME else AWAY, kind: INJURY, who: num, other: 0 });
             carried_off(h, a, home, i, minute, events);
         };
@@ -565,15 +565,15 @@ fun swap_in(h: &mut Side, a: &mut Side, home: bool, minute: u64): (bool, u32, u3
     let mut found = false;
     let mut i = 0;
     while (i < s.xi.length()) {
-        if (!player::is_keeper(&s.xi[i].p)) {
-            let v = fx::add(&ovr_fx(&s.xi[i]), &player::cond_adj(&s.xi[i].p));
+        if (!player::is_keeper(engine::man(&s.xi[i]))) {
+            let v = fx::add(&ovr_fx(&s.xi[i]), &player::cond_adj(engine::man(&s.xi[i])));
             if (!found || fx::lt(&v, &out_v)) { out = i; out_v = v; found = true };
         };
         i = i + 1;
     };
     if (!found) return (false, 0, 0);
 
-    let want = player::pos(&s.xi[out].p);
+    let want = player::pos(engine::man(&s.xi[out]));
     let mut pick = 0u64;
     let mut best = 0u16;
     let mut got = false;
@@ -593,10 +593,10 @@ fun swap_in(h: &mut Side, a: &mut Side, home: bool, minute: u64): (bool, u32, u3
     );
     if (fx::lt(&cand_v, &fx::sub(&out_v, &fx::from_int(4)))) return (false, 0, 0);
 
-    let going_off = player::num(&s.xi[out].p);
+    let going_off = player::num(engine::man(&s.xi[out]));
     let coming = s.bench.remove(pick);
     let num = player::num(&coming);
-    *(&mut s.xi[out]) = OnPitch { p: coming, since: minute, yellows: 0 };
+    *(&mut s.xi[out]) = engine::on_pitch(coming, minute);
     s.subs = s.subs + 1;
     (true, num, going_off)
 }

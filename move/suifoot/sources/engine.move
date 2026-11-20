@@ -20,6 +20,21 @@ const STAR_FREE: u64 = 3;
 const ATT: u8 = 0;
 const DEF: u8 = 2;
 
+/// A man on the pitch: which minute he came on, and what he has already been booked for. It lives
+/// here rather than beside the match loop so that working out what a side is worth can read the
+/// eleven where they already are, instead of being handed a copy of them each time.
+public struct OnPitch has copy, drop, store {
+    p: Player,
+    since: u64,
+    yellows: u8,
+}
+
+public fun on_pitch(p: Player, since: u64): OnPitch { OnPitch { p, since, yellows: 0 } }
+public fun man(o: &OnPitch): &Player { &o.p }
+public fun since(o: &OnPitch): u64 { o.since }
+public fun yellows(o: &OnPitch): u8 { o.yellows }
+public fun book(o: &mut OnPitch) { o.yellows = o.yellows + 1 }
+
 /// What a side is worth, in four numbers: the keeper on his own, and then the attack, the defence
 /// and the midfield as the engine weighs them.
 public struct Power has copy, drop, store {
@@ -40,6 +55,17 @@ public fun mp(p: &Power): Fx { p.mp }
 /// for the legs of the man he replaced. A side with nobody in goal puts an outfield player there
 /// and gets about a third of its best man out of him.
 public fun power(xi: &vector<Player>, on: &vector<u64>, minute: u64, tactic: u8, tbonus: u64): Power {
+    let mut pitch = vector::empty<OnPitch>();
+    let mut i = 0;
+    while (i < xi.length()) {
+        pitch.push_back(OnPitch { p: xi[i], since: if (i < on.length()) on[i] else 0, yellows: 0 });
+        i = i + 1;
+    };
+    power_now(&pitch, minute, tactic, tbonus)
+}
+
+/// the same thing, reading the eleven where they stand
+public fun power_now(xi: &vector<OnPitch>, minute: u64, tactic: u8, tbonus: u64): Power {
     let mut keeper = fx::zero();
     let mut back = fx::zero();
     let mut middle = fx::zero();
@@ -49,8 +75,8 @@ public fun power(xi: &vector<Player>, on: &vector<u64>, minute: u64, tactic: u8,
     let n = xi.length();
     let mut i = 0;
     while (i < n) {
-        let p = &xi[i];
-        let came_on = if (i < on.length()) on[i] else 0;
+        let p = &xi[i].p;
+        let came_on = xi[i].since;
         let played = if (minute > came_on) minute - came_on else 0;
         let o = player::rating(p, played);
 
@@ -103,16 +129,11 @@ public fun power(xi: &vector<Player>, on: &vector<u64>, minute: u64, tactic: u8,
     }
 }
 
-/// the tactics triangle gives the side that picked well a small lift across the board
-public fun scale(p: &Power, k: &Fx): Power {
-    Power { gk: p.gk, ap: fx::mul(&p.ap, k), dp: fx::mul(&p.dp, k), mp: fx::mul(&p.mp, k) }
-}
-
-fun count_stars(xi: &vector<Player>): u64 {
+fun count_stars(xi: &vector<OnPitch>): u64 {
     let mut n = 0;
     let mut i = 0;
     while (i < xi.length()) {
-        if (player::ovr(&xi[i]) >= STAR_OVR) n = n + 1;
+        if (player::ovr(&xi[i].p) >= STAR_OVR) n = n + 1;
         i = i + 1;
     };
     n
