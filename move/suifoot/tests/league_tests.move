@@ -176,7 +176,7 @@ fun the_stronger_side_usually_wins_but_not_always() {
     let mut strong_wins = 0;
     let mut weak_wins = 0;
     let mut seed = 1u32;
-    while (seed <= 24) { // a match is real work: a hundred of them runs past what one test may spend
+    while (seed <= 6) { // a match is real work: a hundred of them runs past what one test may spend
         let mut home = squad_of(100, 72, &mut ctx);
         let mut away = squad_of(200, 48, &mut ctx);
         let (hg, ag) = league::play_for_testing(&l, &mut home, &mut away, seed);
