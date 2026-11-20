@@ -18,6 +18,7 @@ use sui::random::{Self, Random};
 use suifoot::club::{Self, Club};
 use suifoot::lineup::{Self, Lineup};
 use suifoot::match_play;
+use suifoot::money;
 
 const DAY: u64 = 86400000;
 const MIN: u64 = 60000;
@@ -193,6 +194,7 @@ entry fun play_fixture(
     club::record(away, (ag as u16), (hg as u16));
     club::set_last_week(home, week);
     club::set_last_week(away, week);
+    money::collect_gate(home, false); // the home club takes the gate; the away club takes nothing
 
     event::emit(MatchPlayed {
         season: l.season, week,
@@ -213,6 +215,13 @@ fun team_of(c: &Club, week: u16): (vector<suifoot::player::Player>, vector<suifo
     };
     let (xi, bench) = club::best_eleven(c);
     (xi, bench, lineup::bal())
+}
+
+/// The week's books for one club: wages and upkeep out, television and the sponsor in. One club at a
+/// time, so a league of any size is still a string of small transactions rather than one huge one.
+public fun settle_week(l: &League, c: &mut Club, ctx: &TxContext) {
+    assert!(ctx.sender() == l.admin, ENotAdmin);
+    money::settle_week(c);
 }
 
 /// the matchday is over and the next one begins
@@ -242,6 +251,7 @@ public fun play_for_testing(
     club::record(away, (ag as u16), (hg as u16));
     club::set_last_week(home, week);
     club::set_last_week(away, week);
+    money::collect_gate(home, false);
     (hg, ag)
 }
 
