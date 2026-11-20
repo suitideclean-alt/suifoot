@@ -1,0 +1,110 @@
+# Publish the contract to the Sui testnet and actually play a match on it.
+#
+# Tests prove the rules. This proves the thing runs on a real chain: that the objects can be made,
+# that the randomness arrives, and what a matchday really costs in gas - the one number that unit
+# tests cannot tell us.
+#
+# The key is made fresh inside the run and thrown away with it. Testnet coins are worthless, nothing
+# is stored, and nobody has to hold a secret for this to work. The published package therefore has no
+# upgrade authority that outlives the run, which is correct: this is a rehearsal, not a deployment.
+name: testnet
+on:
+  workflow_dispatch:
+env:
+  SUI_VERSION: testnet-v1.84.1
+jobs:
+  rehearse:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache the Sui CLI
+        id: cache-sui
+        uses: actions/cache@v4
+        with:
+          path: ~/.sui/bin
+          key: sui-${{ env.SUI_VERSION }}-ubuntu-x86_64
+
+      - name: Install the Sui CLI
+        if: steps.cache-sui.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.sui/bin" "$HOME/.sui/unpack"
+          curl -sSLf -o sui.tgz \
+            "https://github.com/MystenLabs/sui/releases/download/${SUI_VERSION}/sui-${SUI_VERSION}-ubuntu-x86_64.tgz"
+          tar -xzf sui.tgz -C "$HOME/.sui/unpack"
+          find "$HOME/.sui/unpack" -name 'sui' -type f -exec mv {} "$HOME/.sui/bin/sui" \;
+          chmod +x "$HOME/.sui/bin/sui"
+
+      - name: An address of its own, and coins from the faucet
+        run: |
+          set -euo pipefail
+          echo "$HOME/.sui/bin" >> "$GITHUB_PATH"
+          export PATH="$HOME/.sui/bin:$PATH"
+          sui client --yes new-env --alias tn --rpc https://fullnode.testnet.sui.io:443 || true
+          sui client switch --env tn
+          ADDR=$(sui client active-address)
+          echo "address: $ADDR"
+          echo "ADDR=$ADDR" >> "$GITHUB_ENV"
+          for i in 1 2 3 4 5; do
+            sui client faucet --url https://faucet.testnet.sui.io/v2/gas && break || sleep 20
+          done
+          sleep 15
+          sui client gas || true
+
+      - name: Publish
+        run: |
+          set -euo pipefail
+          export PATH="$HOME/.sui/bin:$PATH"
+          sui client publish --gas-budget 2000000000 --json move/suifoot > publish.json
+          PKG=$(jq -r '.objectChanges[] | select(.type=="published") | .packageId' publish.json)
+          echo "package: $PKG"
+          echo "PKG=$PKG" >> "$GITHUB_ENV"
+          echo "publish cost (MIST):"
+          jq -r '.effects.gasUsed | "computation \(.computationCost)  storage \(.storageCost)  rebate \(.storageRebate)"' publish.json
+
+      - name: Make a league and two clubs
+        run: |
+          set -euo pipefail
+          export PATH="$HOME/.sui/bin:$PATH"
+          NOW=$(( $(date +%s) * 1000 ))
+          # a league whose first matchday kicked off yesterday, so a fixture can be played at once
+          T0=$(( NOW - 172800000 ))
+          sui client call --package "$PKG" --module league --function create \
+            --args "$T0" "[720,1200]" 34 3 --gas-budget 500000000 --json > league.json
+          LEAGUE=$(jq -r '.objectChanges[] | select(.objectType != null and (.objectType | test("::league::League$"))) | .objectId' league.json)
+          echo "league: $LEAGUE"
+          echo "LEAGUE=$LEAGUE" >> "$GITHUB_ENV"
+          echo "league cost (MIST):"
+          jq -r '.effects.gasUsed | "computation \(.computationCost)  storage \(.storageCost)"' league.json
+
+          for N in 1 2; do
+            sui client call --package "$PKG" --module world --function create_club \
+              --args "$LEAGUE" "$N" 3 0 0x8 --gas-budget 2000000000 --json > "club$N.json"
+            CID=$(jq -r '.objectChanges[] | select(.objectType != null and (.objectType | test("::club::Club$"))) | .objectId' "club$N.json")
+            echo "club $N: $CID"
+            echo "CLUB$N=$CID" >> "$GITHUB_ENV"
+            echo "club $N cost (MIST):"
+            jq -r '.effects.gasUsed | "computation \(.computationCost)  storage \(.storageCost)"' "club$N.json"
+          done
+
+      - name: Play a match on the chain
+        run: |
+          set -euo pipefail
+          export PATH="$HOME/.sui/bin:$PATH"
+          sui client call --package "$PKG" --module league --function play_fixture \
+            --args "$LEAGUE" "$CLUB1" "$CLUB2" 0x8 0x6 --gas-budget 2000000000 --json > match.json
+          echo "=============================================="
+          echo "the result, as the chain recorded it:"
+          jq -r '.events[]? | .parsedJson | "  \(.home) \(.home_goals) - \(.away_goals) \(.away)   seed \(.seed)"' match.json
+          echo ""
+          echo "what ninety minutes cost, in MIST (1 SUI = 1,000,000,000):"
+          jq -r '.effects.gasUsed | "  computation \(.computationCost)\n  storage     \(.storageCost)\n  rebate      \(.storageRebate)"' match.json
+          echo "=============================================="
+
+      - name: Keep the record
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: testnet-run
+          path: "*.json"
