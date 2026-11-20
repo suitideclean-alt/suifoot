@@ -24,7 +24,8 @@ fun charging_more_empties_the_ground() {
     club::set_fans(&mut c, 4000); // room to move, so the ground is not simply full either way
     let at_the_usual = money::attendance(&c);
 
-    club::set_ticket_cents(&mut c, club::ticket_cents(&c) * 2);
+    let dearer_price = club::ticket_cents(&c) * 2;
+    club::set_ticket_cents(&mut c, dearer_price);
     let at_double = money::attendance(&c);
     assert!(at_double < at_the_usual, 0);
 
@@ -40,7 +41,8 @@ fun doubling_the_price_does_not_double_the_gate() {
     let mut c = a_club(2, &mut ctx);
     club::set_fans(&mut c, 4000);
     let plain = money::gate(&c, false);
-    club::set_ticket_cents(&mut c, club::ticket_cents(&c) * 2);
+    let dearer_price = club::ticket_cents(&c) * 2;
+    club::set_ticket_cents(&mut c, dearer_price);
     let dearer = money::gate(&c, false);
     // it may be more or less, but it is nowhere near twice: emptier seats eat the rise
     assert!(dearer < plain * 2, 0);
@@ -109,7 +111,8 @@ fun a_week_moves_money_both_ways() {
 fun a_club_with_nothing_is_taken_to_nothing_and_no_further() {
     let mut ctx = tx_context::dummy();
     let mut c = a_club(0, &mut ctx); // a first-division wage bill
-    club::debit(&mut c, club::balance(&c)); // and not a penny
+    let everything = club::balance(&c);
+    club::debit(&mut c, everything); // and not a penny
     assert!(club::balance(&c) == 0, 0);
 
     money::settle_week(&mut c);
