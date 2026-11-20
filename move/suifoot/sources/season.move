@@ -139,3 +139,13 @@ public fun apply_to(s: &Standings, c: &mut Club, up_to: u16, down_to: u16) {
     };
     club::new_season(c, pos);
 }
+
+#[test_only]
+public fun open_for_testing(season: u16, series: u16, level: u8, promote: u64, relegate: u64, ctx: &mut TxContext): Standings {
+    Standings { id: object::new(ctx), season, series, level, promote, relegate, rows: vector::empty(), settled: false, admin: ctx.sender() }
+}
+#[test_only]
+public fun destroy_for_testing(s: Standings) {
+    let Standings { id, season: _, series: _, level: _, promote: _, relegate: _, rows: _, settled: _, admin: _ } = s;
+    id.delete();
+}
