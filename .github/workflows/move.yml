@@ -1,25 +1,39 @@
 # The contract is compiled and tested here, not on the machine it is written on.
+#
+# The toolchain is pinned. Asking the API for the newest release made the build depend on both the
+# rate limit and on whatever Mysten shipped that morning, and it broke on the first of those.
 name: move
 on: [push, pull_request]
+env:
+  SUI_VERSION: testnet-v1.84.1
 jobs:
   move:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
+      - name: Cache the Sui CLI
+        id: cache-sui
+        uses: actions/cache@v4
+        with:
+          path: ~/.sui/bin
+          key: sui-${{ env.SUI_VERSION }}-ubuntu-x86_64
+
       - name: Install the Sui CLI
+        if: steps.cache-sui.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
-          TAG=$(curl -sS https://api.github.com/repos/MystenLabs/sui/releases \
-                | grep -o '"tag_name": *"testnet-v[^"]*"' | head -1 | sed 's/.*"testnet-v/testnet-v/;s/"//')
-          echo "release: $TAG"
-          curl -sSL -o sui.tgz "https://github.com/MystenLabs/sui/releases/download/${TAG}/sui-${TAG}-ubuntu-x86_64.tgz"
-          mkdir -p "$HOME/.sui/bin" && tar -xzf sui.tgz -C "$HOME/.sui/bin"
-          find "$HOME/.sui/bin" -name 'sui' -type f -exec chmod +x {} \; -exec mv {} "$HOME/.sui/bin/sui" \; || true
-          echo "$HOME/.sui/bin" >> "$GITHUB_PATH"
+          mkdir -p "$HOME/.sui/bin" "$HOME/.sui/unpack"
+          curl -sSLf -o sui.tgz \
+            "https://github.com/MystenLabs/sui/releases/download/${SUI_VERSION}/sui-${SUI_VERSION}-ubuntu-x86_64.tgz"
+          tar -xzf sui.tgz -C "$HOME/.sui/unpack"
+          find "$HOME/.sui/unpack" -name 'sui' -type f -exec mv {} "$HOME/.sui/bin/sui" \;
+          chmod +x "$HOME/.sui/bin/sui"
 
       - name: Version
-        run: sui --version
+        run: |
+          echo "$HOME/.sui/bin" >> "$GITHUB_PATH"
+          "$HOME/.sui/bin/sui" --version
 
       - name: Build
         working-directory: move/suifoot
