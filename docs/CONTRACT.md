@@ -18,6 +18,10 @@ of its own. A round trip is about a minute.
 | `engine` | what eleven men are worth | bit for bit against the same sums in JavaScript |
 | `match_play` | ninety minutes | **the same match the browser plays** |
 | `league` | the season, the shared clock, the matchday | the three deadlines, to the minute |
+| `world` | clubs, squads and the men in them, drawn on chain | six thousand clubs, six thousand names |
+| `market` | being given a club, or buying one | a ticket names one club and only that one |
+| `season` | the table, and who goes up and down | the order, and that a champion is never dropped |
+| `money` | wages, upkeep, television, a sponsor, the gate | a derby is worth a third again |
 
 ## The two things that had to be true
 
@@ -65,21 +69,36 @@ storage question rather than a speed one.
 
 ## What a match costs
 
-In the Move test runner, one match costs on the order of a quarter of a million units, and six of
-them is what fits inside a single test. That figure decides how many matches belong in one
-transaction. It has not yet been measured against a real network, which is the only measurement that
-settles it.
+Measured, not estimated. The package was published to the Sui testnet, a league and two clubs were
+made on it, and a match was played: **2-1**, on a seed the chain drew. Package
+`0x21bf64df2e77f629a7473ed5736069b36fd2c6ef7ae2ab7a1c300415313ef265`, and the `testnet` workflow
+does the whole thing again from nothing whenever it is asked to.
+
+| | computation (MIST) | storage (MIST) |
+|---|---|---|
+| publishing the package | 2,830,000 | 277,080,800 |
+| making the league | 1,000,000 | 1,960,800 |
+| making a club, with its twenty-two men | ~90,000,000 | ~8,600,000 |
+| **playing ninety minutes** | **210,700,000** | 12,661,600, nearly all rebated |
+
+At the reference gas price of 1000 MIST a unit, a match is about **211,000 computation units against
+the 5,000,000 one transaction may spend** - four per cent of it. So a match fits with room to spare,
+and something like twenty of them could share a single transaction if there were ever a reason to put
+them together. The Move test runner's own figure, a quarter of a million units, turns out to have
+been within a fifth of the truth.
+
+A matchday of one series is nine matches, which is about 1.9 SUI, and a season of thirty-four
+matchdays is around sixty-five. Who pays that, and out of what, is a question for the part of this
+that does not exist yet.
 
 ## What is not built
 
-- **World generation.** No clubs, squads or players are created on chain yet. The contract can play a
-  season; nothing yet makes one.
-- **Money.** Clubs hold a balance, but nothing earns, spends, pays wages or pays prizes.
-- **Entering and buying.** The rules exist and are tested in JavaScript (`src/market.js`); they are not
-  in Move.
+- **Prizes.** Wages, upkeep, television, a sponsor and the gate all move money now. Prizes do not,
+  because they are paid in the token and the token does not exist.
+- **Transfers.** Nobody can buy or sell a player.
 - **The token.** Nothing of SFOOT exists. It is a package of its own and comes after this one.
 - **The browser talking to the chain.** Today the game is still one browser, one world, one person.
-  Nothing connects the two.
+  Nothing connects the two. This is now the largest thing missing.
 - **Knockouts.** Extra time and penalty shootouts are not ported; league matches are.
 
 ## Two bugs this work found
