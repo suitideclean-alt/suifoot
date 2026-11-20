@@ -1,0 +1,30 @@
+# The contract is compiled and tested here, not on the machine it is written on.
+name: move
+on: [push, pull_request]
+jobs:
+  move:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the Sui CLI
+        run: |
+          set -euo pipefail
+          TAG=$(curl -sS https://api.github.com/repos/MystenLabs/sui/releases \
+                | grep -o '"tag_name": *"testnet-v[^"]*"' | head -1 | sed 's/.*"testnet-v/testnet-v/;s/"//')
+          echo "release: $TAG"
+          curl -sSL -o sui.tgz "https://github.com/MystenLabs/sui/releases/download/${TAG}/sui-${TAG}-ubuntu-x86_64.tgz"
+          mkdir -p "$HOME/.sui/bin" && tar -xzf sui.tgz -C "$HOME/.sui/bin"
+          find "$HOME/.sui/bin" -name 'sui' -type f -exec chmod +x {} \; -exec mv {} "$HOME/.sui/bin/sui" \; || true
+          echo "$HOME/.sui/bin" >> "$GITHUB_PATH"
+
+      - name: Version
+        run: sui --version
+
+      - name: Build
+        working-directory: move/suifoot
+        run: sui move build
+
+      - name: Test
+        working-directory: move/suifoot
+        run: sui move test
