@@ -1,0 +1,217 @@
+/// The season, the clock everyone shares, and the matchday itself.
+///
+/// Offline a season is a list of weeks and nothing more. Online every matchday needs an hour the
+/// whole world agrees on, and three moments inside it:
+///
+///   T-30  lineups stop being accepted. Up to here you publish only a seal.
+///   T-15  the window to show your lineup closes. Nobody can still be deciding after this.
+///   T     the whistle. Only now is the random number drawn, so neither manager could have known it
+///         while there was still anything he could change.
+///
+/// That order is the whole reason the game can be played between strangers for money. Draw the
+/// number any earlier and whoever saw it first would know whether to turn up.
+module suifoot::league;
+
+use sui::clock::{Self, Clock};
+use sui::event;
+use sui::random::{Self, Random};
+use suifoot::club::{Self, Club};
+use suifoot::lineup::{Self, Lineup};
+use suifoot::match_play;
+
+const DAY: u64 = 86400000;
+const MIN: u64 = 60000;
+
+const OPEN: u8 = 0;
+const LOCKED: u8 = 1;
+const DRAWN: u8 = 2;
+const PLAYED: u8 = 3;
+
+#[error]
+const ETooLate: vector<u8> = b"lineups for this matchday are closed";
+#[error]
+const ETooEarly: vector<u8> = b"this matchday has not kicked off yet";
+#[error]
+const ENotYet: vector<u8> = b"it is not time to show a lineup yet";
+#[error]
+const EAlreadyPlayed: vector<u8> = b"one of these clubs has already played this matchday";
+#[error]
+const ESameClub: vector<u8> = b"a club cannot play itself";
+#[error]
+const ENotAdmin: vector<u8> = b"only the league may do that";
+#[error]
+const EWrongWeek: vector<u8> = b"that is not the matchday being played";
+
+public struct League has key {
+    id: UID,
+    season: u16,
+    week: u16,
+    /// midnight UTC of the first matchday
+    t0: u64,
+    /// the hours a matchday is played at, in minutes past midnight UTC, in order
+    kickoffs: vector<u64>,
+    days_per_week: u64,
+    lock_before: u64,
+    draw_before: u64,
+    weeks_in_season: u16,
+    admin: address,
+}
+
+/// what the browser listens for: everything it needs to replay the ninety minutes it did not watch
+public struct MatchPlayed has copy, drop {
+    season: u16,
+    week: u16,
+    home: u32,
+    away: u32,
+    home_goals: u8,
+    away_goals: u8,
+    seed: u32,
+}
+
+public fun new(t0_ms: u64, kickoffs: vector<u64>, weeks_in_season: u16, ctx: &mut TxContext): League {
+    League {
+        id: object::new(ctx),
+        season: 1,
+        week: 1,
+        t0: (t0_ms / DAY) * DAY, // snapped to midnight, so a season never starts mid-day
+        kickoffs,
+        days_per_week: 1,
+        lock_before: 30,
+        draw_before: 15,
+        weeks_in_season,
+        admin: ctx.sender(),
+    }
+}
+
+public fun share(l: League) { transfer::share_object(l) }
+
+public fun season(l: &League): u16 { l.season }
+public fun week(l: &League): u16 { l.week }
+public fun t0(l: &League): u64 { l.t0 }
+
+// ---------- the clock ----------
+
+/// when the whistle goes for a matchday, counting from one
+public fun kickoff_at(l: &League, week: u16): u64 {
+    let slots = l.kickoffs.length();
+    let w = (week as u64) - 1;
+    let day = (w / slots) * l.days_per_week;
+    l.t0 + day * DAY + l.kickoffs[w % slots] * MIN
+}
+public fun lock_at(l: &League, week: u16): u64 { kickoff_at(l, week) - l.lock_before * MIN }
+public fun draw_at(l: &League, week: u16): u64 { kickoff_at(l, week) - l.draw_before * MIN }
+
+public fun phase_at(l: &League, week: u16, now: u64): u8 {
+    if (now >= kickoff_at(l, week)) PLAYED
+    else if (now >= draw_at(l, week)) DRAWN
+    else if (now >= lock_at(l, week)) LOCKED
+    else OPEN
+}
+public fun open(): u8 { OPEN }
+public fun locked(): u8 { LOCKED }
+public fun drawn(): u8 { DRAWN }
+public fun played(): u8 { PLAYED }
+
+// ---------- what a manager does ----------
+
+/// Before the deadline: publish the seal of your lineup and nothing else.
+public fun commit(l: &League, c: &mut Club, week: u16, seal: vector<u8>, clock: &Clock, ctx: &TxContext) {
+    assert!(phase_at(l, week, clock::timestamp_ms(clock)) == OPEN, ETooLate);
+    club::put_seal(c, ctx.sender(), week, seal);
+}
+
+/// After it: show the lineup and your number. The contract checks them against the seal itself, so
+/// nobody has to be trusted and nobody has to be watching.
+public fun reveal(
+    l: &League, c: &mut Club, week: u16,
+    xi: vector<u32>, bench: vector<u32>, tactic: u8, salt: u64,
+    clock: &Clock, ctx: &TxContext,
+) {
+    let now = clock::timestamp_ms(clock);
+    assert!(now >= lock_at(l, week), ENotYet);
+    assert!(now < draw_at(l, week), ETooLate);
+    club::reveal(c, ctx.sender(), week, lineup::new(xi, bench, tactic), salt);
+}
+
+// ---------- the matchday ----------
+
+/// Play a fixture.
+///
+/// Anyone may call this once the whistle has gone - it takes no side and needs no permission, so a
+/// season does not stop because the people who run it were asleep. The random number is drawn here
+/// and nowhere earlier. This is an entry function on purpose: that is what stops it being wrapped in
+/// a larger transaction that looks at the result and throws the whole thing away if it does not like
+/// it, which would turn one draw into as many as somebody cared to pay for.
+entry fun play_fixture(
+    l: &League, home: &mut Club, away: &mut Club, r: &Random, clock: &Clock, ctx: &mut TxContext,
+) {
+    assert!(club::num(home) != club::num(away), ESameClub);
+    let week = l.week;
+    assert!(phase_at(l, week, clock::timestamp_ms(clock)) == PLAYED, ETooEarly);
+    assert!(club::last_week(home) < week && club::last_week(away) < week, EAlreadyPlayed);
+
+    let mut gen = random::new_generator(r, ctx);
+    let seed = random::generate_u32(&mut gen);
+
+    let (h_xi, h_bench, h_tac) = team_of(home, week);
+    let (a_xi, a_bench, a_tac) = team_of(away, week);
+
+    let result = match_play::play(h_xi, h_bench, h_tac, 0, a_xi, a_bench, a_tac, 0, seed);
+    let hg = match_play::home_goals(&result);
+    let ag = match_play::away_goals(&result);
+
+    club::record(home, (hg as u16), (ag as u16));
+    club::record(away, (ag as u16), (hg as u16));
+    club::set_last_week(home, week);
+    club::set_last_week(away, week);
+
+    event::emit(MatchPlayed {
+        season: l.season, week,
+        home: club::num(home), away: club::num(away),
+        home_goals: hg, away_goals: ag, seed,
+    });
+}
+
+/// What a club actually puts out: what it showed for this matchday, failing that the last team it
+/// played, and failing that the best eleven in the squad. A manager who never turns up still has a
+/// team on the pitch, because the rest of the league has a season to get through.
+fun team_of(c: &Club, week: u16): (vector<suifoot::player::Player>, vector<suifoot::player::Player>, u8) {
+    let team = club::team_for(c, week);
+    if (team.is_some()) {
+        let l: Lineup = *team.borrow();
+        let (xi, bench) = club::team_players(c, &l);
+        if (xi.length() == 11) return (xi, bench, lineup::tactic(&l))
+    };
+    let (xi, bench) = club::best_eleven(c);
+    (xi, bench, lineup::bal())
+}
+
+/// the matchday is over and the next one begins
+public fun advance(l: &mut League, ctx: &TxContext) {
+    assert!(ctx.sender() == l.admin, ENotAdmin);
+    l.week = l.week + 1;
+}
+
+public fun start_next_season(l: &mut League, ctx: &TxContext) {
+    assert!(ctx.sender() == l.admin, ENotAdmin);
+    l.season = l.season + 1;
+    l.week = 1;
+    l.t0 = l.t0 + ((l.weeks_in_season as u64) / l.kickoffs.length()) * l.days_per_week * DAY;
+}
+
+#[test_only]
+public fun play_for_testing(
+    l: &League, home: &mut Club, away: &mut Club, seed: u32,
+): (u8, u8) {
+    let week = l.week;
+    let (h_xi, h_bench, h_tac) = team_of(home, week);
+    let (a_xi, a_bench, a_tac) = team_of(away, week);
+    let result = match_play::play(h_xi, h_bench, h_tac, 0, a_xi, a_bench, a_tac, 0, seed);
+    let hg = match_play::home_goals(&result);
+    let ag = match_play::away_goals(&result);
+    club::record(home, (hg as u16), (ag as u16));
+    club::record(away, (ag as u16), (hg as u16));
+    club::set_last_week(home, week);
+    club::set_last_week(away, week);
+    (hg, ag)
+}

@@ -58,6 +58,8 @@ public struct Club has key, store {
     current_week: u16,
     /// the last lineup actually played, which stands in for anyone who reveals nothing
     last_played: Option<Lineup>,
+    /// the last matchday this club actually played, so no fixture can be run through twice
+    last_week: u16,
 }
 
 public fun new(num: u32, name: String, level: u8, series: u16, balance: u64, ctx: &mut TxContext): Club {
@@ -76,6 +78,7 @@ public fun new(num: u32, name: String, level: u8, series: u16, balance: u64, ctx
         current: option::none(),
         current_week: 0,
         last_played: option::none(),
+        last_week: 0,
     }
 }
 
@@ -96,6 +99,8 @@ public fun goals_for(c: &Club): u16 { c.goals_for }
 public fun goals_against(c: &Club): u16 { c.goals_against }
 public fun last_pos(c: &Club): u8 { c.last_pos }
 public fun entry_paid(c: &Club): bool { c.entry_paid }
+public fun last_week(c: &Club): u16 { c.last_week }
+public(package) fun set_last_week(c: &mut Club, w: u16) { c.last_week = w }
 
 /// nobody runs it: free to be given to a newcomer or sold to a buyer
 public fun is_free(c: &Club): bool { c.owner.is_none() && c.coach.is_none() }
@@ -199,6 +204,71 @@ public fun team_for(c: &Club, week: u16): Option<Lineup> {
 }
 
 public(package) fun remember_team(c: &mut Club, l: Lineup) { c.last_played = option::some(l) }
+
+/// The eleven and the bench as actual players, looked up out of the squad. A name on the sheet that
+/// is no longer at the club - sold since, or injured out - is simply left out, and the engine plays
+/// whoever is left; that is better than refusing to play the fixture at all.
+public fun team_players(c: &Club, l: &Lineup): (vector<Player>, vector<Player>) {
+    (collect(c, lineup::xi(l)), collect(c, lineup::bench(l)))
+}
+
+fun collect(c: &Club, nums: &vector<u32>): vector<Player> {
+    let mut out = vector::empty<Player>();
+    let mut i = 0;
+    while (i < nums.length()) {
+        let mut j = 0;
+        while (j < c.squad.length()) {
+            if (player::num(&c.squad[j]) == nums[i]) { out.push_back(c.squad[j]); break };
+            j = j + 1;
+        };
+        i = i + 1;
+    };
+    out
+}
+
+/// whoever is fit and willing when nothing was sealed and nothing was ever played: the best eleven
+/// the squad has, a keeper first and then down the list
+public fun best_eleven(c: &Club): (vector<Player>, vector<Player>) {
+    let mut xi = vector::empty<Player>();
+    let mut bench = vector::empty<Player>();
+    let mut taken = vector::empty<bool>();
+    let n = c.squad.length();
+    let mut i = 0;
+    while (i < n) { taken.push_back(false); i = i + 1; };
+
+    // a keeper above all, because an eleven without one is thrown away
+    let mut k = 0;
+    let mut best = 0u16;
+    let mut got = false;
+    while (k < n) {
+        if (player::is_keeper(&c.squad[k])) {
+            let o = player::ovr(&c.squad[k]);
+            if (!got || o > best) { best = o; got = true; i = k };
+        };
+        k = k + 1;
+    };
+    if (got) { xi.push_back(c.squad[i]); *(&mut taken[i]) = true };
+
+    // and then simply the best of the rest
+    let mut filled = if (got) 1 else 0;
+    while (filled < 18 && filled < n) {
+        let mut pick = n;
+        let mut pick_o = 0u16;
+        let mut m = 0;
+        while (m < n) {
+            if (!taken[m]) {
+                let o = player::ovr(&c.squad[m]);
+                if (pick == n || o > pick_o) { pick = m; pick_o = o };
+            };
+            m = m + 1;
+        };
+        if (pick == n) break;
+        *(&mut taken[pick]) = true;
+        if (xi.length() < 11) xi.push_back(c.squad[pick]) else bench.push_back(c.squad[pick]);
+        filled = filled + 1;
+    };
+    (xi, bench)
+}
 
 public fun has_sealed(c: &Club, week: u16): bool { c.seal_week == week && c.seal.length() == 32 }
 public fun has_revealed(c: &Club, week: u16): bool { c.current_week == week && c.current.is_some() }
