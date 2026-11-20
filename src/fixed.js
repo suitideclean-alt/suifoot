@@ -108,7 +108,7 @@
   /** floor(sqrt(n)) for whole n >= 0, exact: Newton over whole numbers, no scale involved */
   function isqrt(n) {
     if (n < 2n) return n < 0n ? 0n : n;
-    let r = n, p = (n >> 1n) + 1n;
+    let r = n, p = (n + 1n) >> 1n; // (n>>1)+1 looks equivalent and is not: at n = 2 it never enters the loop
     while (p < r) { r = p; p = (p + n / p) >> 1n; }
     return r;
   }

@@ -41,6 +41,10 @@ t('matches the published values of the functions', () => {
   near(X.to(X.cos(X.HALF_PI)), 0, 1e-8, 'cos of a right angle');
   near(X.to(X.pow(X.from(2), X.from(10))), 1024, 1e-4, 'two to the ten');
   eq(X.isqrt(1000000n), 1000n); eq(X.isqrt(999999n), 999n); eq(X.ilog2(1024n), 10n);
+  // against the engine's own, every value: the specification drifting from it is how a bug reaches
+  // the contract, and at n = 2 it did exactly that
+  for (let n = 0; n < 3000; n++) eq(Number(X.isqrt(BigInt(n))), Q.isqrt(n), 'isqrt ' + n + ';');
+  for (let n = 1; n < 3000; n++) eq(Number(X.ilog2(BigInt(n))), Q.ilog2(n), 'ilog2 ' + n + ';');
 });
 
 t('agrees with the engine across the ranges the game really uses', () => {
