@@ -54,9 +54,11 @@ public fun from_int(n: u64): Fx {
     Fx { m: n << SH, neg: false }
 }
 
-/// a ratio written in hundredths: 250 meaning 2.50
+/// A ratio written in hundredths: 250 meaning 2.50. This rounds rather than truncates, because it
+/// is how a constant is carried to the scale, and the specification's own conversion rounds. The
+/// series below truncate instead - that is division inside a calculation, which is a different thing.
 public fun from_cents(c: u64, neg: bool): Fx {
-    let m = (((c as u128) << SH) / 100) as u64;
+    let m = ((((c as u128) << SH) + 50) / 100) as u64;
     Fx { m, neg: neg && m != 0 }
 }
 
