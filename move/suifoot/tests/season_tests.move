@@ -104,21 +104,31 @@ fun the_top_two_go_up_and_the_bottom_two_go_down() {
 #[test]
 fun nobody_is_promoted_out_of_the_top_level() {
     let mut ctx = tx_context::dummy();
-    let mut st = season::open_for_testing(1, 0, 0, 2, 2, &mut ctx);
+    // the first division: nowhere above it, so nothing is promoted and only the last club drops
+    let mut st = season::open_for_testing(1, 0, 0, 0, 1, &mut ctx);
     let mut champion = with_record(1, 0, 10, 0, 0, 25, 4, &mut ctx);
-    let mut bottom = with_record(2, 0, 0, 0, 10, 3, 28, &mut ctx);
+    let mut second = with_record(2, 0, 7, 0, 3, 18, 10, &mut ctx);
+    let mut third = with_record(3, 0, 4, 0, 6, 11, 17, &mut ctx);
+    let mut bottom = with_record(4, 0, 0, 0, 10, 3, 28, &mut ctx);
 
     season::submit(&mut st, &champion);
+    season::submit(&mut st, &second);
+    season::submit(&mut st, &third);
     season::submit(&mut st, &bottom);
     season::settle(&mut st, &ctx);
     season::apply_to(&st, &mut champion, 0, 1);
+    season::apply_to(&st, &mut second, 0, 1);
+    season::apply_to(&st, &mut third, 0, 1);
     season::apply_to(&st, &mut bottom, 0, 1);
 
     assert!(club::level(&champion) == 0, 0); // there is nowhere above the first division
     assert!(club::last_pos(&champion) == 1, 1);
-    assert!(club::level(&bottom) == 1, 2);   // but there is somewhere below it
+    assert!(club::level(&second) == 0, 2);
+    assert!(club::level(&bottom) == 1, 3);   // but there is somewhere below it
+    assert!(club::last_pos(&bottom) == 4, 4);
 
-    club::destroy_for_testing(champion); club::destroy_for_testing(bottom);
+    club::destroy_for_testing(champion); club::destroy_for_testing(second);
+    club::destroy_for_testing(third); club::destroy_for_testing(bottom);
     season::destroy_for_testing(st);
 }
 
