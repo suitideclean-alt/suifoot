@@ -66,6 +66,7 @@ public struct Side has copy, drop, store {
     /// worked out when those change and not again every minute in between. The same numbers, found
     /// once instead of ninety times.
     pg: Fx,
+    pg_known: bool,
     attack_share: Fx,
 }
 
@@ -112,6 +113,7 @@ fun make_side(xi: vector<Player>, bench: vector<Player>, tactic: u8, tbonus: u64
         red_f: fx::div_int(&red_sum, n),
         pw: engine::power(&vector::empty(), &vector::empty(), 0, BAL, 0),
         pg: fx::zero(),
+        pg_known: false,
         attack_share: fx::zero(),
     }
 }
@@ -129,8 +131,10 @@ fun refresh(h: &mut Side, a: &mut Side, minute: u64) {
     // Everything below follows from those four numbers each and nothing else, so it is worked out
     // here rather than again inside every attack and every minute. The values are identical: they
     // could only change when the strengths do, and the strengths only change here.
-    h.pg = goal_chance(&h.pw, &a.pw, true);
-    a.pg = goal_chance(&a.pw, &h.pw, false);
+    // marked as needing working out again, rather than worked out now: a side that never gets
+    // forward before the next change never needs it at all
+    h.pg_known = false;
+    a.pg_known = false;
 
     let gap = fx::sub(&fx::add(&engine::mp(&h.pw), &fx::from_ratio(18, 10)), &engine::mp(&a.pw));
     h.attack_share = fx::div(
@@ -263,7 +267,17 @@ fun keeper_num(s: &Side): u32 {
 /// defence, softened by how good the keeper is, and then held between a fortieth and a half so that
 /// no mismatch ever becomes a certainty either way.
 fun attack(r: &mut Rng, h: &mut Side, a: &mut Side, home: bool, minute: u64, events: &mut vector<Event>) {
-    let pg = { let s = side_mut(h, a, home); s.poss = s.poss + 1; s.pg };
+    let pg = {
+        let att = if (home) &h.pw else &a.pw;
+        let def = if (home) &a.pw else &h.pw;
+        let known = { let s = side_mut(h, a, home); s.pg_known };
+        let v = if (known) { let s = side_mut(h, a, home); s.pg } else goal_chance(att, def, home);
+        let s = side_mut(h, a, home);
+        s.pg = v;
+        s.pg_known = true;
+        s.poss = s.poss + 1;
+        v
+    };
 
     // a penalty first: it replaces the attack rather than following it
     if (rng::next_fx(r) < fx::raw(&fx::from_ratio(12, 1000))) {

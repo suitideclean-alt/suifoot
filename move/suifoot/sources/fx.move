@@ -165,11 +165,16 @@ public fun exp(x: &Fx): Fx {
     let k_ln2 = Fx { m: ((k as u128) * (LN2_RAW as u128)) as u64, neg: k_neg && k != 0 };
     let r = sub(x, &k_ln2);
 
+    // Sixteen terms is what the specification writes, but at this scale the term falls to exactly
+    // zero by the ninth at the very widest the engine reaches, and a term of zero makes every term
+    // after it zero too. Stopping there adds nothing and leaves nothing out: the sum is the same
+    // number, found sooner.
     let mut term = one();
     let mut sum = one();
     let mut i = 1u64;
     while (i <= 16) {
         term = div_int(&mul(&term, &r), i);
+        if (is_zero(&term)) break;
         sum = add(&sum, &term);
         i = i + 1;
     };
@@ -214,12 +219,14 @@ public fun ln(x: &Fx): Fx {
     let z = div(&sub(&mf, &one_f), &add(&mf, &one_f));
     let z2 = mul(&z, &z);
 
+    // twenty-four terms written, ten ever reached: the same stopping rule as exp, and the same reason
     let mut p = z;
     let mut sum = zero();
     let mut i = 0u64;
     while (i < 24) {
         sum = add(&sum, &div_int(&p, 2 * i + 1));
         p = mul(&p, &z2);
+        if (is_zero(&p)) break;
         i = i + 1;
     };
 
@@ -243,10 +250,14 @@ public fun sqrt(x: &Fx): Fx {
     while (t < ONE_RAW) { t = t << 2; g = g >> 1; };
     if (g == 0) g = 1;
     let xf = Fx { m: x.m, neg: false };
+    // Newton doubles its correct digits each turn and settles well inside ten; once the guess stops
+    // moving, every turn after it would land on the same number
     let mut i = 0u64;
     while (i < 10) {
         let gf = Fx { m: g, neg: false };
-        g = (g + div(&xf, &gf).m) >> 1;
+        let next = (g + div(&xf, &gf).m) >> 1;
+        if (next == g) break;
+        g = next;
         i = i + 1;
     };
     Fx { m: g, neg: false }
@@ -267,6 +278,7 @@ public fun cos(t: &Fx): Fx {
     let mut i = 1u64;
     while (i <= 12) {
         term = negate(&div_int(&mul(&term, &t2), (2 * i - 1) * (2 * i)));
+        if (is_zero(&term)) break;
         sum = add(&sum, &term);
         i = i + 1;
     };
