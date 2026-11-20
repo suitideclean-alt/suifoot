@@ -37,6 +37,10 @@ public struct Club has key, store {
     squad: vector<Player>,
     /// in-game dollars; the real token is never mixed in here
     balance: u64,
+    /// how many people follow it, how many the ground holds, and what a ticket costs in cents
+    fans: u32,
+    capacity: u32,
+    ticket_cents: u64,
     owner: Option<address>,
     coach: Option<address>,
     /// where it finished last season, which is what the bottom-half rule reads before a table means anything
@@ -63,11 +67,19 @@ public struct Club has key, store {
 }
 
 public fun new(num: u32, name: String, level: u8, series: u16, balance: u64, ctx: &mut TxContext): Club {
+    new_with_ground(num, name, level, series, balance, 3000, 4500, 150, ctx)
+}
+
+public fun new_with_ground(
+    num: u32, name: String, level: u8, series: u16, balance: u64,
+    fans: u32, capacity: u32, ticket_cents: u64, ctx: &mut TxContext,
+): Club {
     Club {
         id: object::new(ctx),
         num, name, level, series,
         squad: vector::empty(),
         balance,
+        fans, capacity, ticket_cents,
         owner: option::none(),
         coach: option::none(),
         last_pos: 0,
@@ -89,6 +101,19 @@ public fun name(c: &Club): &String { &c.name }
 public fun level(c: &Club): u8 { c.level }
 public fun series(c: &Club): u16 { c.series }
 public fun balance(c: &Club): u64 { c.balance }
+public fun fans(c: &Club): u32 { c.fans }
+public fun capacity(c: &Club): u32 { c.capacity }
+public fun ticket_cents(c: &Club): u64 { c.ticket_cents }
+public(package) fun set_ticket_cents(c: &mut Club, cents: u64) { c.ticket_cents = cents }
+public(package) fun set_fans(c: &mut Club, fans: u32) { c.fans = fans }
+
+/// what the whole squad is paid in a week
+public fun wage_bill(c: &Club): u64 {
+    let mut total = 0;
+    let mut i = 0;
+    while (i < c.squad.length()) { total = total + player::wage(&c.squad[i]); i = i + 1; };
+    total
+}
 public fun squad(c: &Club): &vector<Player> { &c.squad }
 public fun squad_size(c: &Club): u64 { c.squad.length() }
 public fun owner(c: &Club): Option<address> { c.owner }
@@ -282,7 +307,7 @@ public fun set_goals_for_testing(c: &mut Club, gf: u16, ga: u16) { c.goals_for =
 #[test_only]
 public fun destroy_for_testing(c: Club) {
     let Club { id, num: _, name: _, level: _, series: _, squad: _, balance: _, owner: _, coach: _,
-        last_pos: _, played: _, won: _, drawn: _, lost: _, goals_for: _, goals_against: _, points: _,
+        fans: _, capacity: _, ticket_cents: _, last_pos: _, played: _, won: _, drawn: _, lost: _, goals_for: _, goals_against: _, points: _,
         entry_paid: _, seal: _, seal_week: _, current: _, current_week: _, last_played: _, last_week: _ } = c;
     id.delete();
 }

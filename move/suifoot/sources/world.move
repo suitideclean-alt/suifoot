@@ -27,6 +27,10 @@ const N_FW: u64 = 6;
 const DIV_OVR: vector<u64> = vector[71, 62, 54, 47];
 /// and what a club at that level starts with in the bank
 const START_CASH: vector<u64> = vector[900000, 380000, 150000, 60000];
+/// how many follow a club at that level, how many its ground holds, and what it charges in cents
+const FANS: vector<u64> = vector[24000, 12000, 6000, 3000];
+const CAPACITY: vector<u64> = vector[28000, 15000, 8000, 4500];
+const TICKET_CENTS: vector<u64> = vector[300, 240, 190, 150];
 
 /// a rating at or above this makes a man a star, and stars are paid more
 const STAR_OVR: u16 = 80;
@@ -122,7 +126,16 @@ public fun new_club(
     let spread = fx::add(&fx::from_ratio(8, 10), &fx::mul(&fx::from_raw((rng::next_u32(&mut r) as u64), false), &fx::from_ratio(45, 100)));
     let balance = fx::to_int_round(&fx::mul(&fx::from_int(cash), &spread));
 
-    let mut c = club::new(num, club_name(num), level, series, balance, ctx);
+    // a following and a ground, neither of them the same as the club next door's
+    let fan_spread = fx::add(&fx::from_ratio(8, 10), &fx::mul(&fx::from_raw((rng::next_u32(&mut r) as u64), false), &fx::from_ratio(45, 100)));
+    let fans = fx::to_int_round(&fx::mul(&fx::from_int(FANS[(level as u64)]), &fan_spread));
+    let cap_spread = fx::add(&fx::from_ratio(85, 100), &fx::mul(&fx::from_raw((rng::next_u32(&mut r) as u64), false), &fx::from_ratio(35, 100)));
+    let seats = fx::to_int_round(&fx::div_int(&fx::mul(&fx::from_int(CAPACITY[(level as u64)]), &cap_spread), 500)) * 500;
+
+    let mut c = club::new_with_ground(
+        num, club_name(num), level, series, balance,
+        (fans as u32), (seats as u32), TICKET_CENTS[(level as u64)], ctx,
+    );
 
     let mut pid = num * 100; // the player numbers of a club sit under the club's own
     fill(&mut c, &mut r, &mut pid, player::gk(), N_GK, &club_mean);
