@@ -169,24 +169,47 @@ fun a_club_that_never_sealed_anything_still_puts_a_team_out() {
     league::destroy_for_testing(l);
 }
 
+/// Six matches is what fits: one costs something like a quarter of a million units to play, so a
+/// hundred of them runs past what a single test may spend. That figure is worth keeping in sight -
+/// it is the thing that decides how many matches fit in one transaction.
 #[test]
-fun the_stronger_side_usually_wins_but_not_always() {
+fun a_far_stronger_side_wins_nearly_every_time() {
     let mut ctx = tx_context::dummy();
     let l = a_league(&mut ctx);
     let mut strong_wins = 0;
-    let mut weak_wins = 0;
     let mut seed = 1u32;
-    while (seed <= 6) { // a match is real work: a hundred of them runs past what one test may spend
+    while (seed <= 6) {
         let mut home = squad_of(100, 72, &mut ctx);
         let mut away = squad_of(200, 48, &mut ctx);
         let (hg, ag) = league::play_for_testing(&l, &mut home, &mut away, seed);
         if (hg > ag) strong_wins = strong_wins + 1;
-        if (ag > hg) weak_wins = weak_wins + 1;
         club::destroy_for_testing(home);
         club::destroy_for_testing(away);
         seed = seed + 1;
     };
-    assert!(strong_wins > weak_wins, strong_wins);   // the better side comes out ahead
-    assert!(weak_wins > 0, weak_wins);               // and yet it is still football
+    assert!(strong_wins >= 5, strong_wins);
+    league::destroy_for_testing(l);
+}
+
+/// And between two sides of the same strength it is still football: six matches do not all come out
+/// the same way, which is what would happen if the result were really just the stronger badge.
+#[test]
+fun evenly_matched_sides_do_not_all_end_alike() {
+    let mut ctx = tx_context::dummy();
+    let l = a_league(&mut ctx);
+    let mut home_wins = 0;
+    let mut not_home_wins = 0;
+    let mut seed = 50u32;
+    while (seed < 56) {
+        let mut home = squad_of(100, 56, &mut ctx);
+        let mut away = squad_of(200, 56, &mut ctx);
+        let (hg, ag) = league::play_for_testing(&l, &mut home, &mut away, seed);
+        if (hg > ag) home_wins = home_wins + 1 else not_home_wins = not_home_wins + 1;
+        club::destroy_for_testing(home);
+        club::destroy_for_testing(away);
+        seed = seed + 1;
+    };
+    assert!(home_wins > 0, 0);
+    assert!(not_home_wins > 0, 1);
     league::destroy_for_testing(l);
 }
