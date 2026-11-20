@@ -46,16 +46,13 @@ jobs:
           ADDR=$(sui client active-address)
           echo "address: $ADDR"
           echo "ADDR=$ADDR" >> "$GITHUB_ENV"
-          # The faucet wants its base URL and does its own proof of work from there. It hands over one
-          # SUI at a time and publishing a package this size costs most of one, so ask three times.
-          for i in 1 2 3 4 5 6; do
+          # The faucet wants its base URL and does its own proof of work from there. It hands over
+          # one SUI at a time and publishing a package this size costs most of one, so ask three
+          # times and leave it at that rather than trying to read the balance back.
+          for i in 1 2 3; do
             sui client faucet --url https://faucet.testnet.sui.io || true
-            sleep 12
-            MIST=$(sui client gas --json | jq '[.[].mistBalance // .[].gasBalance // 0] | add // 0')
-            echo "balance so far: $MIST MIST"
-            [ "${MIST:-0}" -ge 2500000000 ] && break
+            sleep 14
           done
-          sleep 10
           sui client gas || true
 
       - name: Publish
