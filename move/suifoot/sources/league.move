@@ -22,6 +22,9 @@ use suifoot::money;
 use suifoot::progress;
 use suifoot::player::Player;
 
+/// which side of an event is the home one, as the match records it
+const HOME_SIDE: u8 = 0;
+
 const DAY: u64 = 86400000;
 const MIN: u64 = 60000;
 
@@ -237,9 +240,9 @@ fun mark_the_players(
         let kind = match_play::ev_kind(e);
         let who = match_play::ev_who(e);
         if (kind == match_play::sub()) {
-            if (match_play::ev_side(e) == HOME) h_played.push_back(who) else a_played.push_back(who);
+            if (match_play::ev_side(e) == HOME_SIDE) h_played.push_back(who) else a_played.push_back(who);
         } else if (kind == match_play::goal()) {
-            if (match_play::ev_side(e) == HOME) progress::scored(home, who) else progress::scored(away, who);
+            if (match_play::ev_side(e) == HOME_SIDE) progress::scored(home, who) else progress::scored(away, who);
         };
         i = i + 1;
     };
