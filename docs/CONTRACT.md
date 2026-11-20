@@ -69,27 +69,51 @@ storage question rather than a speed one.
 
 ## What a match costs
 
-Measured, not estimated. The package was published to the Sui testnet, a league and two clubs were
-made on it, and a match was played: **2-1**, on a seed the chain drew. Package
-`0x21bf64df2e77f629a7473ed5736069b36fd2c6ef7ae2ab7a1c300415313ef265`, and the `testnet` workflow
-does the whole thing again from nothing whenever it is asked to.
+Measured on the Sui testnet, not estimated. The `testnet` workflow publishes the package from
+nothing, makes a league and two clubs on it and plays a match, whenever it is asked to.
 
-| | computation (MIST) | storage (MIST) |
-|---|---|---|
-| publishing the package | 2,830,000 | 277,080,800 |
-| making the league | 1,000,000 | 1,960,800 |
-| making a club, with its twenty-two men | ~90,000,000 | ~8,600,000 |
-| **playing ninety minutes** | **210,700,000** | 12,661,600, nearly all rebated |
+| | before | after | |
+|---|---|---|---|
+| publishing the package | 2,830,000 | 2,830,000 | once, ever |
+| making the league | 1,000,000 | 1,000,000 | once a league |
+| making a club and its twenty-two men | ~90,000,000 | **~8,100,000** | eleven times cheaper |
+| **playing ninety minutes** | 210,700,000 | **100,600,000** | **twice as cheap** |
 
-At the reference gas price of 1000 MIST a unit, a match is about **211,000 computation units against
-the 5,000,000 one transaction may spend** - four per cent of it. So a match fits with room to spare,
-and something like twenty of them could share a single transaction if there were ever a reason to put
-them together. The Move test runner's own figure, a quarter of a million units, turns out to have
-been within a fifth of the truth.
+Figures in MIST, where a SUI is a thousand million of them. Storage on a match is about 12,661,600
+and almost all of it comes back as rebate, so computation is the whole of it.
 
-A matchday of one series is nine matches, which is about 1.9 SUI, and a season of thirty-four
-matchdays is around sixty-five. Who pays that, and out of what, is a question for the part of this
-that does not exist yet.
+At the reference gas price a match is about **101,000 computation units against the 5,000,000 one
+transaction may spend** - two per cent. Some fifty matches would fit in a single transaction.
+
+What it adds up to, for one series of eighteen clubs:
+
+| | |
+|---|---|
+| a matchday, nine matches | 0.91 SUI |
+| a season, thirty-four matchdays | **31 SUI** |
+| per club, per season | **1.7 SUI** |
+
+Setting the series up in the first place - eighteen clubs with their squads - is 0.15 SUI, once.
+
+### Where the saving came from
+
+Nothing was approximated and no rule was touched. The whole of it was work that was being done more
+than once:
+
+- **The series stop when their terms reach zero.** The exponential is written with sixteen terms and
+  the logarithm with twenty-four, but at this scale the term falls to exactly zero by the ninth and
+  the tenth at the very widest the engine reaches. A term of zero makes every term after it zero, so
+  stopping leaves nothing out. This was most of it, and it is why making a club fell elevenfold: a
+  squad is twenty-two men drawn from bell curves, and a bell curve is a logarithm, a square root and
+  a cosine each.
+- **The eleven are read where they stand** rather than copied into a fresh vector every time a side
+  is weighed: two hundred and sixty-four player copies a match, for nothing.
+- **The chances drawn against every minute are written out** instead of being worked out five
+  hundred and forty times a match to reach the same nine numbers.
+- **A side's card factor is settled when the side is named**, because it never changes afterwards.
+
+The seed-42 test still demands all seventeen of that match's events in order, with the same scorers
+at the same minutes. None of this could have changed a number without it saying so.
 
 ## What is not built
 
