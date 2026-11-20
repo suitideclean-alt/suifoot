@@ -12,6 +12,8 @@
 module suifoot::fx;
 
 const SH: u8 = 32;
+const U64_MAX: u128 = 18446744073709551615;
+const U64_MAX_RAW: u64 = 18446744073709551615;
 const ONE_RAW: u64 = 1 << 32;
 
 /// round(ln 2 * 2^32), and the rest of the constants the series need
@@ -95,7 +97,7 @@ public fun clamp(a: Fx, lo: Fx, hi: Fx): Fx {
 public fun add(a: &Fx, b: &Fx): Fx {
     if (a.neg == b.neg) {
         let s = (a.m as u128) + (b.m as u128);
-        assert!(s <= (0xFFFFFFFFFFFFFFFF as u128), EOverflow);
+        assert!(s <= U64_MAX, EOverflow);
         Fx { m: s as u64, neg: a.neg && s != 0 }
     } else if (a.m >= b.m) {
         let m = a.m - b.m;
@@ -110,7 +112,7 @@ public fun sub(a: &Fx, b: &Fx): Fx { add(a, &negate(b)) }
 
 public fun mul(a: &Fx, b: &Fx): Fx {
     let p = ((a.m as u128) * (b.m as u128)) >> SH;
-    assert!(p <= (0xFFFFFFFFFFFFFFFF as u128), EOverflow);
+    assert!(p <= U64_MAX, EOverflow);
     let m = p as u64;
     Fx { m, neg: (a.neg != b.neg) && m != 0 }
 }
@@ -118,7 +120,7 @@ public fun mul(a: &Fx, b: &Fx): Fx {
 public fun div(a: &Fx, b: &Fx): Fx {
     if (b.m == 0) return zero();
     let q = ((a.m as u128) << SH) / (b.m as u128);
-    assert!(q <= (0xFFFFFFFFFFFFFFFF as u128), EOverflow);
+    assert!(q <= U64_MAX, EOverflow);
     let m = q as u64;
     Fx { m, neg: (a.neg != b.neg) && m != 0 }
 }
@@ -130,7 +132,7 @@ public fun div_int(a: &Fx, n: u64): Fx {
 }
 public fun mul_int(a: &Fx, n: u64): Fx {
     let p = (a.m as u128) * (n as u128);
-    assert!(p <= (0xFFFFFFFFFFFFFFFF as u128), EOverflow);
+    assert!(p <= U64_MAX, EOverflow);
     let m = p as u64;
     Fx { m, neg: a.neg && m != 0 }
 }
@@ -141,7 +143,7 @@ public fun mul_int(a: &Fx, n: u64): Fx {
 public fun exp(x: &Fx): Fx {
     // outside the range Q32.32 can hold, saturate rather than abort: e^21 is near the ceiling and
     // e^-21 is already smaller than the smallest step the scale has
-    if (!x.neg && x.m > EXP_LIM_RAW) return Fx { m: 0xFFFFFFFFFFFFFFFF, neg: false };
+    if (!x.neg && x.m > EXP_LIM_RAW) return Fx { m: U64_MAX_RAW, neg: false };
     if (x.neg && x.m > EXP_LIM_RAW) return zero();
 
     // k = round(x / ln2), worked out as floor((x + ln2/2) / ln2)
@@ -166,10 +168,10 @@ public fun exp(x: &Fx): Fx {
     if (k_neg) {
         if (k >= 64) zero() else Fx { m: sum.m >> (k as u8), neg: false }
     } else {
-        if (k >= 64) Fx { m: 0xFFFFFFFFFFFFFFFF, neg: false }
+        if (k >= 64) Fx { m: U64_MAX_RAW, neg: false }
         else {
             let s = (sum.m as u128) << (k as u8);
-            if (s > (0xFFFFFFFFFFFFFFFF as u128)) Fx { m: 0xFFFFFFFFFFFFFFFF, neg: false }
+            if (s > U64_MAX) Fx { m: U64_MAX_RAW, neg: false }
             else Fx { m: s as u64, neg: false }
         }
     }
@@ -231,7 +233,7 @@ public fun sqrt(x: &Fx): Fx {
     while (t < ONE_RAW) { t = t << 2; g = g >> 1; };
     if (g == 0) g = 1;
     let xf = Fx { m: x.m, neg: false };
-    let mut i = 0;
+    let mut i = 0u64;
     while (i < 10) {
         let gf = Fx { m: g, neg: false };
         g = (g + div(&xf, &gf).m) >> 1;
@@ -265,7 +267,7 @@ public fun cos(t: &Fx): Fx {
 public fun isqrt(n: u64): u64 {
     if (n < 2) return n;
     let mut r = n;
-    let mut p = (n >> 1) + 1;
+    let mut p = (n >> 1) + (n & 1); // ceil(n/2); (n>>1)+1 lands on the answer at n = 2 and never improves it
     while (p < r) { r = p; p = (p + n / p) >> 1; };
     r
 }

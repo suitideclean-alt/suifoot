@@ -112,6 +112,6 @@ fun whole_number_roots_and_logs_are_exact() {
 #[test]
 fun the_ends_saturate_instead_of_aborting() {
     assert!(fx::is_zero(&fx::exp(&n(100 << 32))), 0);          // e^-100 is below the smallest step
-    assert!(fx::raw(&fx::exp(&p(100 << 32))) == 0xFFFFFFFFFFFFFFFF, 1); // and e^100 is above the ceiling
+    assert!(fx::raw(&fx::exp(&p(100 << 32))) == 18446744073709551615, 1); // and e^100 is above the ceiling
     assert!(fx::is_neg(&fx::ln(&fx::zero())), 2);
 }
