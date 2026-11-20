@@ -297,7 +297,7 @@
     if (L.auto) return Game.pickXI(UI.G, club, L.form);
     return { xi: L.xi, bench: L.bench };
   }
-  const tpChip = (p) => { const k = SF.Body.tp(p); if (k === 'pro') return ''; return `<span class="chip tp-${k}" title="${esc(t('tp_' + k + '_d'))}">${t('tp_' + k)}</span> `; };
+  const tpChip = (p) => { const k = SF.Body.tp(p); return `<span class="chip tp-${k}" title="${esc(t('tp_' + k + '_d'))}">${t('tp_' + k)}</span> `; };
   const condBar = (p) => { const c = SF.Body.cond(p); return `<span class="cbar" title="${t('cond_label')} ${c}%"><i class="${c < 55 ? 'red' : c < 75 ? 'yel' : ''}" style="width:${c}%"></i></span> <span class="sm mut">${c}</span>`; };
   function trainCard(club, own) {
     const B_ = SF.Body, mode = B_.mode(club), manual = B_.manual(UI.G, club);
