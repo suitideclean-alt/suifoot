@@ -54,6 +54,14 @@ public fun from_int(n: u64): Fx {
     Fx { m: n << SH, neg: false }
 }
 
+/// A constant written as a plain fraction, which is how every number in the engine's rule book is
+/// carried to the scale: from_ratio(45, 100) for 0.45, from_ratio(15, 1000) for 0.015. Writing them
+/// this way leaves no decimal to be misread on the way across.
+public fun from_ratio(n: u64, d: u64): Fx {
+    let m = ((((n as u128) << SH) + ((d as u128) / 2)) / (d as u128)) as u64;
+    Fx { m, neg: false }
+}
+
 /// A ratio written in hundredths: 250 meaning 2.50. This rounds rather than truncates, because it
 /// is how a constant is carried to the scale, and the specification's own conversion rounds. The
 /// series below truncate instead - that is division inside a calculation, which is a different thing.
