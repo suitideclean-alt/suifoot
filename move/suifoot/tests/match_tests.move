@@ -128,3 +128,20 @@ fun a_different_seed_gives_a_different_match() {
     assert!(mp::home_goals(&a) != mp::home_goals(&b) || mp::away_goals(&a) != mp::away_goals(&b)
         || mp::events(&a).length() != mp::events(&b).length(), 0);
 }
+
+/// The chances written out at the top of the module have to be the chances the rules actually say.
+/// Written-out numbers are the sort of thing that drifts quietly, so this holds each one against the
+/// arithmetic it stands in for.
+#[test]
+fun the_written_out_chances_are_the_ones_the_rules_give() {
+    use suifoot::fx;
+    assert!(mp::attack_rate() == fx::raw(&fx::from_ratio(28, 100)), 0);
+    assert!(mp::penalty_rate() == fx::raw(&fx::from_ratio(12, 1000)), 1);
+    assert!(mp::shot_rate() == fx::raw(&fx::from_ratio(72, 100)), 2);
+    assert!(mp::assist_rate() == fx::raw(&fx::from_ratio(70, 100)), 3);
+    assert!(mp::tell_rate() == fx::raw(&fx::from_ratio(34, 100)), 4);
+    assert!(mp::card_rate() == fx::raw(&fx::from_ratio(19, 1000)), 5);
+    assert!(mp::red_rate() == fx::raw(&fx::from_ratio(5, 10000)), 6);
+    assert!(mp::injury_rate() == fx::raw(&fx::from_ratio(6, 10000)), 7);
+    assert!(mp::book_foul_rate() == fx::raw(&fx::from_ratio(35, 100)), 8);
+}

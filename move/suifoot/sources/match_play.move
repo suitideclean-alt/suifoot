@@ -30,6 +30,22 @@ const PENALTY: u8 = 6;
 /// at most five changes a side
 const SUBS: u64 = 5;
 
+/// The chances that are drawn against every minute or every attack, carried already at the scale.
+///
+/// Written out rather than worked out, because working them out means a multiply and a divide in a
+/// hundred and twenty-eight bits, and three of these are reached twice a minute for ninety minutes:
+/// five hundred and forty times a match, to arrive at the same nine numbers. A test below checks
+/// each one against the arithmetic it stands in for, so they cannot quietly drift from the rules.
+const ATTACK_RATE: u64 = 1202590843;     // 0.28 attacking moves a minute, between the two sides
+const PENALTY_RATE: u64 = 51539608;      // 0.012 of attacks are a penalty
+const SHOT_RATE: u64 = 3092376453;       // 0.72 of attacks produce a shot of some kind
+const ASSIST_RATE: u64 = 3006477107;     // 0.70 of goals have somebody to thank
+const TELL_RATE: u64 = 1460288881;       // 0.34 of the rest are worth telling about
+const CARD_RATE: u64 = 81604379;         // 0.019 a side a minute, before temperament
+const RED_RATE: u64 = 2147484;           // 0.0005, and rarer still for a gentleman
+const INJURY_RATE: u64 = 2576980;        // 0.0006, likelier the more tired the man
+const BOOK_FOUL_RATE: u64 = 1503238554;  // 0.35 of penalties also cost a booking
+
 public struct Event has copy, drop, store {
     minute: u8,
     side: u8,
@@ -90,6 +106,16 @@ public fun red(): u8 { RED }
 public fun injury(): u8 { INJURY }
 public fun sub(): u8 { SUB }
 public fun penalty_kind(): u8 { PENALTY }
+
+public fun attack_rate(): u64 { ATTACK_RATE }
+public fun penalty_rate(): u64 { PENALTY_RATE }
+public fun shot_rate(): u64 { SHOT_RATE }
+public fun assist_rate(): u64 { ASSIST_RATE }
+public fun tell_rate(): u64 { TELL_RATE }
+public fun card_rate(): u64 { CARD_RATE }
+public fun red_rate(): u64 { RED_RATE }
+public fun injury_rate(): u64 { INJURY_RATE }
+public fun book_foul_rate(): u64 { BOOK_FOUL_RATE }
 
 // ---------- building a side ----------
 
@@ -217,7 +243,7 @@ public fun play(
         minute = minute + 1;
 
         // is there an attack at all this minute, and whose
-        if (rng::next_fx(&mut r) < fx::raw(&fx::from_ratio(28, 100))) {
+        if (rng::next_fx(&mut r) < ATTACK_RATE) {
             let home_has_it = rng::next_fx(&mut r) < fx::raw(&h.attack_share);
             attack(&mut r, &mut h, &mut a, home_has_it, minute, &mut events);
         };
@@ -280,12 +306,12 @@ fun attack(r: &mut Rng, h: &mut Side, a: &mut Side, home: bool, minute: u64, eve
     };
 
     // a penalty first: it replaces the attack rather than following it
-    if (rng::next_fx(r) < fx::raw(&fx::from_ratio(12, 1000))) {
+    if (rng::next_fx(r) < PENALTY_RATE) {
         spot_kick(r, h, a, home, minute, events);
         return
     };
 
-    if (rng::next_fx(r) < fx::raw(&fx::from_ratio(72, 100))) {
+    if (rng::next_fx(r) < SHOT_RATE) {
         let s = side_mut(h, a, home);
         s.shots = s.shots + 1;
     };
@@ -297,7 +323,7 @@ fun attack(r: &mut Rng, h: &mut Side, a: &mut Side, home: bool, minute: u64, eve
 
         // and whether anybody made it for him: midfielders likeliest
         let mut assist = 0u32;
-        if (rng::next_fx(r) < fx::raw(&fx::from_ratio(70, 100))) {
+        if (rng::next_fx(r) < ASSIST_RATE) {
             let (aw, nums) = {
                 let s = side_mut(h, a, home);
                 let mut w = vector::empty<Fx>();
@@ -329,7 +355,7 @@ fun attack(r: &mut Rng, h: &mut Side, a: &mut Side, home: bool, minute: u64, eve
 
     // not a goal, but worth telling: saved, wide, off the woodwork or blocked
     let had_shots = { let s = side_mut(h, a, home); s.shots > 0 };
-    if (had_shots && rng::next_fx(r) < fx::raw(&fx::from_ratio(34, 100))) {
+    if (had_shots && rng::next_fx(r) < TELL_RATE) {
         let weights = {
             let s = side_mut(h, a, home);
             let mut w = vector::empty<Fx>();
@@ -410,7 +436,7 @@ fun spot_kick(r: &mut Rng, h: &mut Side, a: &mut Side, home: bool, minute: u64, 
         s.goals = s.goals + 1;
         events.push_back(Event { minute: (minute as u8), side: if (home) HOME else AWAY, kind: GOAL, who: taker_num, other: 0 });
     };
-    if (rng::next_fx(r) < fx::raw(&fx::from_ratio(35, 100))) {
+    if (rng::next_fx(r) < BOOK_FOUL_RATE) {
         book(h, a, !home, foul, minute, events);
     };
 }
@@ -489,7 +515,7 @@ fun incidents(r: &mut Rng, h: &mut Side, a: &mut Side, which: u8, minute: u64, e
     let home = which == 0;
 
     // a booking
-    let card_p = { let s = side_mut(h, a, home); fx::mul(&fx::from_ratio(19, 1000), &s.card_f) };
+    let card_p = { let s = side_mut(h, a, home); fx::mul(&fx::from_raw(CARD_RATE, false), &s.card_f) };
     if (rng::next_fx(r) < fx::raw(&card_p)) {
         let weights = {
             let s = side_mut(h, a, home);
@@ -513,7 +539,7 @@ fun incidents(r: &mut Rng, h: &mut Side, a: &mut Side, which: u8, minute: u64, e
     // a straight red, which is rare and never leaves a side below nine
     let enough = { let s = side_mut(h, a, home); s.xi.length() > 8 };
     if (enough) {
-        let red_p = { let s = side_mut(h, a, home); fx::mul(&fx::from_ratio(5, 10000), &s.red_f) };
+        let red_p = { let s = side_mut(h, a, home); fx::mul(&fx::from_raw(RED_RATE, false), &s.red_f) };
         if (rng::next_fx(r) < fx::raw(&red_p)) {
             let weights = {
                 let s = side_mut(h, a, home);
@@ -530,8 +556,7 @@ fun incidents(r: &mut Rng, h: &mut Side, a: &mut Side, which: u8, minute: u64, e
     };
 
     // an injury, likelier the more tired the man is
-    let inj_p = fx::from_ratio(6, 10000);
-    if (rng::next_fx(r) < fx::raw(&inj_p)) {
+    if (rng::next_fx(r) < INJURY_RATE) {
         let enough_now = { let s = side_mut(h, a, home); s.xi.length() > 8 };
         if (enough_now) {
             let weights = {
