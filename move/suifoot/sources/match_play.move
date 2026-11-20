@@ -581,7 +581,7 @@ fun fresh_legs(h: &mut Side, a: &mut Side, home: bool, minute: u64, events: &mut
     let going_off = player::num(&s.xi[out].p);
     let coming = s.bench.remove(pick);
     let num = player::num(&coming);
-    s.xi[out] = OnPitch { p: coming, since: minute, yellows: 0 };
+    *(&mut s.xi[out]) = OnPitch { p: coming, since: minute, yellows: 0 };
     s.subs = s.subs + 1;
     events.push_back(Event {
         minute: (minute as u8), side: if (home) HOME else AWAY, kind: SUB, who: num, other: going_off,
