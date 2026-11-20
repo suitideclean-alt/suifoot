@@ -135,9 +135,10 @@ fun wages_rise_with_rating_and_jump_for_a_star() {
     assert!(world::wage_for(30) == 120, 0);
     assert!(world::wage_for(40) > world::wage_for(30), 1);
     assert!(world::wage_for(60) > world::wage_for(50), 2);
-    assert!(world::wage_for(20) == 40, 3); // nobody is paid less than the floor
+    assert!(world::wage_for(20) == 60, 3);
+    assert!(world::wage_for(10) == 40, 4); // the floor only binds right at the bottom
     // crossing eighty is worth a third again on top of the curve
     let below = world::wage_for(79);
     let above = world::wage_for(80);
-    assert!(above > below * 13 / 10, 4);
+    assert!(above > below * 13 / 10, 5);
 }
