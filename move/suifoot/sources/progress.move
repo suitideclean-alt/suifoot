@@ -185,7 +185,8 @@ public(package) fun season_turn(c: &mut Club, seed: u32) {
     let extra = if (rng::int(&mut r, 0, 99) < 45) 1 else 0;
     let mut k = 0;
     while (k < 1 + extra) {
-        club::add_player(c, youngster(&mut r, c, level));
+        let lad = youngster(&mut r, c, level); // made before the club is borrowed to take him
+        club::add_player(c, lad);
         k = k + 1;
     };
 }
