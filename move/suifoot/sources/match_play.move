@@ -267,11 +267,11 @@ fun keeper_num(s: &Side): u32 {
 /// defence, softened by how good the keeper is, and then held between a fortieth and a half so that
 /// no mismatch ever becomes a certainty either way.
 fun attack(r: &mut Rng, h: &mut Side, a: &mut Side, home: bool, minute: u64, events: &mut vector<Event>) {
+    let att_pw = if (home) h.pw else a.pw; // copied, so neither side stays borrowed
+    let def_pw = if (home) a.pw else h.pw;
     let pg = {
-        let att = if (home) &h.pw else &a.pw;
-        let def = if (home) &a.pw else &h.pw;
         let known = { let s = side_mut(h, a, home); s.pg_known };
-        let v = if (known) { let s = side_mut(h, a, home); s.pg } else goal_chance(att, def, home);
+        let v = if (known) { let s = side_mut(h, a, home); s.pg } else goal_chance(&att_pw, &def_pw, home);
         let s = side_mut(h, a, home);
         s.pg = v;
         s.pg_known = true;
