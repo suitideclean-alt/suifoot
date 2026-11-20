@@ -103,6 +103,11 @@ public fun power(xi: &vector<Player>, on: &vector<u64>, minute: u64, tactic: u8,
     }
 }
 
+/// the tactics triangle gives the side that picked well a small lift across the board
+public fun scale(p: &Power, k: &Fx): Power {
+    Power { gk: p.gk, ap: fx::mul(&p.ap, k), dp: fx::mul(&p.dp, k), mp: fx::mul(&p.mp, k) }
+}
+
 fun count_stars(xi: &vector<Player>): u64 {
     let mut n = 0;
     let mut i = 0;
