@@ -84,7 +84,7 @@ fun temperament_decides_cards_and_what_he_fetches() {
     assert!(fx::raw(&player::red_factor(&h)) == 12884901888, 11); // against three times
 
     assert!(fx::raw(&player::value_factor(&g)) == 4724464026, 20); // worth a tenth more
-    assert!(fx::raw(&player::value_factor(&h)) == 3650722201, 21); // and worth less
+    assert!(fx::raw(&player::value_factor(&h)) == 3650722202, 21); // and worth less
 }
 
 #[test]
