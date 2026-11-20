@@ -166,7 +166,8 @@ fun the_turn_of_a_season_ages_everyone_and_sends_up_the_next_lot() {
 fun last_seasons_goals_belong_to_last_season() {
     let mut ctx = tx_context::dummy();
     let mut c = world::new_club(1, 2, 0, 31, &mut ctx);
-    progress::scored(&mut c, player::num(club::player_at(&c, 20)));
+    let him = player::num(club::player_at(&c, 20));
+    progress::scored(&mut c, him);
     assert!(player::goals(club::player_at(&c, 20)) == 1, 0);
     progress::season_turn(&mut c, 1);
     let mut total = 0;
