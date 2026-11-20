@@ -41,4 +41,4 @@ jobs:
 
       - name: Test
         working-directory: move/suifoot
-        run: sui move test
+        run: sui move test --gas-limit 2000000000
