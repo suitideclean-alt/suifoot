@@ -215,3 +215,10 @@ public fun play_for_testing(
     club::set_last_week(away, week);
     (hg, ag)
 }
+
+#[test_only]
+public fun destroy_for_testing(l: League) {
+    let League { id, season: _, week: _, t0: _, kickoffs: _, days_per_week: _, lock_before: _,
+        draw_before: _, weeks_in_season: _, admin: _ } = l;
+    id.delete();
+}

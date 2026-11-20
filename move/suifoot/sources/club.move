@@ -275,3 +275,11 @@ public fun has_revealed(c: &Club, week: u16): bool { c.current_week == week && c
 
 #[test_only]
 public fun share_for_testing(c: Club) { transfer::share_object(c) }
+
+#[test_only]
+public fun destroy_for_testing(c: Club) {
+    let Club { id, num: _, name: _, level: _, series: _, squad: _, balance: _, owner: _, coach: _,
+        last_pos: _, played: _, won: _, drawn: _, lost: _, goals_for: _, goals_against: _, points: _,
+        entry_paid: _, seal: _, seal_week: _, current: _, current_week: _, last_played: _, last_week: _ } = c;
+    id.delete();
+}
