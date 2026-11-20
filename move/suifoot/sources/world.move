@@ -14,6 +14,8 @@ use suifoot::club::{Self, Club};
 use suifoot::fx::{Self, Fx};
 use suifoot::player::{Self, Player};
 use suifoot::rng::{Self, Rng};
+use sui::random::{Self, Random};
+use suifoot::league::{Self, League};
 
 /// how many of each the squad holds: twenty-two men, two of them keepers
 const N_GK: u64 = 2;
@@ -182,4 +184,21 @@ fun digits(mut n: u64): String {
     let mut i = back.length();
     while (i > 0) { i = i - 1; out.push_back(back[i]); };
     string::utf8(out)
+}
+
+// ---------- setting a league up ----------
+
+
+#[error]
+const ENotAdmin: vector<u8> = b"only the league may add a club to it";
+
+/// Add a club to the league. The seed is drawn here, so the squad is not something anybody chose -
+/// not the person running the league either.
+entry fun create_club(l: &mut League, num: u32, level: u8, series: u16, r: &Random, ctx: &mut TxContext) {
+    assert!(ctx.sender() == league::admin(l), ENotAdmin);
+    let mut gen = random::new_generator(r, ctx);
+    let seed = random::generate_u32(&mut gen);
+    let c = new_club(num, level, series, seed, ctx);
+    if (level == league::bottom_level(l)) league::register_free(l, object::id(&c));
+    transfer::public_share_object(c);
 }

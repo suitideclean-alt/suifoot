@@ -55,6 +55,11 @@ public struct League has key {
     draw_before: u64,
     weeks_in_season: u16,
     admin: address,
+    /// which level is the foot of the pyramid, where newcomers start
+    bottom_level: u8,
+    /// the free clubs at that foot, so a newcomer can be given one without the chain having to go
+    /// looking for them: a shared object cannot be searched for, only handed over
+    free_at_foot: vector<ID>,
 }
 
 /// what the browser listens for: everything it needs to replay the ninety minutes it did not watch
@@ -80,12 +85,36 @@ public fun new(t0_ms: u64, kickoffs: vector<u64>, weeks_in_season: u16, ctx: &mu
         draw_before: 15,
         weeks_in_season,
         admin: ctx.sender(),
+        bottom_level: 3,
+        free_at_foot: vector::empty(),
     }
+}
+
+entry fun create(t0_ms: u64, kickoffs: vector<u64>, weeks_in_season: u16, bottom_level: u8, ctx: &mut TxContext) {
+    let mut l = new(t0_ms, kickoffs, weeks_in_season, ctx);
+    l.bottom_level = bottom_level;
+    transfer::share_object(l);
 }
 
 public fun share(l: League) { transfer::share_object(l) }
 
 public fun season(l: &League): u16 { l.season }
+public fun admin(l: &League): address { l.admin }
+public fun bottom_level(l: &League): u8 { l.bottom_level }
+public fun free_at_foot(l: &League): u64 { l.free_at_foot.length() }
+
+/// A club at the foot that nobody runs goes on the list newcomers are drawn from.
+public(package) fun register_free(l: &mut League, id: ID) {
+    if (!l.free_at_foot.contains(&id)) l.free_at_foot.push_back(id);
+}
+
+/// and comes off it the moment somebody takes it
+public(package) fun forget_free(l: &mut League, id: &ID) {
+    let (found, i) = l.free_at_foot.index_of(id);
+    if (found) { l.free_at_foot.remove(i); };
+}
+
+public(package) fun free_at(l: &League, i: u64): ID { l.free_at_foot[i] }
 public fun week(l: &League): u16 { l.week }
 public fun t0(l: &League): u64 { l.t0 }
 
