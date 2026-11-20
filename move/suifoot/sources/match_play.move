@@ -73,9 +73,12 @@ public struct Side has copy, drop, store {
     goals: u64,
     shots: u64,
     poss: u64,
-    /// how freely this eleven collects cards, averaged over the men who started
-    card_f: Fx,
-    red_f: Fx,
+    /// How freely this eleven collects cards, averaged over the men who started, already multiplied
+    /// into the chance it is drawn against. The average is taken once when the side is named and
+    /// never changes, so the chance never changes either - it was being worked out afresh twice a
+    /// minute for ninety minutes.
+    card_p: Fx,
+    red_p: Fx,
     pw: Power,
     /// What an attack by this side is worth, and - on the home side only - how often the ball comes
     /// its way at all. Both follow from the two sides' strengths and nothing else, so they are
@@ -135,8 +138,8 @@ fun make_side(xi: vector<Player>, bench: vector<Player>, tactic: u8, tbonus: u64
     Side {
         xi: on, bench, tactic, tbonus,
         subs: 0, goals: 0, shots: 0, poss: 0,
-        card_f: fx::div_int(&card_sum, n),
-        red_f: fx::div_int(&red_sum, n),
+        card_p: fx::mul(&fx::from_raw(CARD_RATE, false), &fx::div_int(&card_sum, n)),
+        red_p: fx::mul(&fx::from_raw(RED_RATE, false), &fx::div_int(&red_sum, n)),
         pw: engine::power(&vector::empty(), &vector::empty(), 0, BAL, 0),
         pg: fx::zero(),
         pg_known: false,
@@ -515,8 +518,8 @@ fun incidents(r: &mut Rng, h: &mut Side, a: &mut Side, which: u8, minute: u64, e
     let home = which == 0;
 
     // a booking
-    let card_p = { let s = side_mut(h, a, home); fx::mul(&fx::from_raw(CARD_RATE, false), &s.card_f) };
-    if (rng::next_fx(r) < fx::raw(&card_p)) {
+    let card_p = { let s = side_mut(h, a, home); fx::raw(&s.card_p) };
+    if (rng::next_fx(r) < card_p) {
         let weights = {
             let s = side_mut(h, a, home);
             let mut w = vector::empty<Fx>();
@@ -539,8 +542,8 @@ fun incidents(r: &mut Rng, h: &mut Side, a: &mut Side, which: u8, minute: u64, e
     // a straight red, which is rare and never leaves a side below nine
     let enough = { let s = side_mut(h, a, home); s.xi.length() > 8 };
     if (enough) {
-        let red_p = { let s = side_mut(h, a, home); fx::mul(&fx::from_raw(RED_RATE, false), &s.red_f) };
-        if (rng::next_fx(r) < fx::raw(&red_p)) {
+        let red_p = { let s = side_mut(h, a, home); fx::raw(&s.red_p) };
+        if (rng::next_fx(r) < red_p) {
             let weights = {
                 let s = side_mut(h, a, home);
                 let mut w = vector::empty<Fx>();
