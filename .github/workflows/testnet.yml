@@ -46,8 +46,9 @@ jobs:
           ADDR=$(sui client active-address)
           echo "address: $ADDR"
           echo "ADDR=$ADDR" >> "$GITHUB_ENV"
+          # the faucet wants its base URL and does its own proof of work from there
           for i in 1 2 3 4 5; do
-            sui client faucet --url https://faucet.testnet.sui.io/v2/gas && break || sleep 20
+            sui client faucet --url https://faucet.testnet.sui.io && break || sleep 20
           done
           sleep 15
           sui client gas || true
