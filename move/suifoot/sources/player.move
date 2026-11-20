@@ -66,6 +66,14 @@ public(package) fun set_cond(p: &mut Player, c: u8) { p.cond = c }
 public(package) fun set_mood(p: &mut Player, m: u8) { p.mood = m }
 public(package) fun add_goal(p: &mut Player) { p.goals = p.goals + 1 }
 public(package) fun add_app(p: &mut Player) { p.apps = p.apps + 1 }
+public(package) fun set_ovr(p: &mut Player, o: u16) { p.ovr = o }
+public(package) fun set_pot(p: &mut Player, o: u16) { p.pot = o }
+public(package) fun add_year(p: &mut Player) {
+    p.age = p.age + 1;
+    if (p.contract_weeks > 52) p.contract_weeks = p.contract_weeks - 52 else p.contract_weeks = 0;
+}
+/// a new season: last season's goals and games belong to last season
+public(package) fun reset_season(p: &mut Player) { p.goals = 0; p.apps = 0 }
 
 /// A player who does not want to be here plays worse. Nothing above 35, then a twelfth of a point
 /// for each point below it.

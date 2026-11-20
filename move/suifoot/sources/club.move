@@ -64,6 +64,8 @@ public struct Club has key, store {
     last_played: Option<Lineup>,
     /// the last matchday this club actually played, so no fixture can be run through twice
     last_week: u16,
+    /// how hard the week's training is: 0 light, 1 balanced, 2 hard
+    training: u8,
 }
 
 public fun new(num: u32, name: String, level: u8, series: u16, balance: u64, ctx: &mut TxContext): Club {
@@ -91,6 +93,7 @@ public fun new_with_ground(
         current_week: 0,
         last_played: option::none(),
         last_week: 0,
+        training: 1,
     }
 }
 
@@ -125,6 +128,10 @@ public fun goals_against(c: &Club): u16 { c.goals_against }
 public fun last_pos(c: &Club): u8 { c.last_pos }
 public fun entry_paid(c: &Club): bool { c.entry_paid }
 public fun last_week(c: &Club): u16 { c.last_week }
+public fun training(c: &Club): u8 { c.training }
+public(package) fun set_training(c: &mut Club, mode: u8) { if (mode <= 2) c.training = mode }
+public fun squad_mut(c: &mut Club): &mut vector<Player> { &mut c.squad }
+public(package) fun drop_player_at(c: &mut Club, i: u64): Player { c.squad.remove(i) }
 public(package) fun set_last_week(c: &mut Club, w: u16) { c.last_week = w }
 
 /// nobody runs it: free to be given to a newcomer or sold to a buyer
@@ -308,6 +315,6 @@ public fun set_goals_for_testing(c: &mut Club, gf: u16, ga: u16) { c.goals_for =
 public fun destroy_for_testing(c: Club) {
     let Club { id, num: _, name: _, level: _, series: _, squad: _, balance: _, owner: _, coach: _,
         fans: _, capacity: _, ticket_cents: _, last_pos: _, played: _, won: _, drawn: _, lost: _, goals_for: _, goals_against: _, points: _,
-        entry_paid: _, seal: _, seal_week: _, current: _, current_week: _, last_played: _, last_week: _ } = c;
+        training: _, entry_paid: _, seal: _, seal_week: _, current: _, current_week: _, last_played: _, last_week: _ } = c;
     id.delete();
 }
