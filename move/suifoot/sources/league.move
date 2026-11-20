@@ -17,8 +17,10 @@ use sui::event;
 use sui::random::{Self, Random};
 use suifoot::club::{Self, Club};
 use suifoot::lineup::{Self, Lineup};
-use suifoot::match_play;
+use suifoot::match_play::{Self, Result};
 use suifoot::money;
+use suifoot::progress;
+use suifoot::player::Player;
 
 const DAY: u64 = 86400000;
 const MIN: u64 = 60000;
@@ -185,6 +187,8 @@ entry fun play_fixture(
 
     let (h_xi, h_bench, h_tac) = team_of(home, week);
     let (a_xi, a_bench, a_tac) = team_of(away, week);
+    let h_nums = numbers_of(&h_xi);
+    let a_nums = numbers_of(&a_xi);
 
     let result = match_play::play(h_xi, h_bench, h_tac, 0, a_xi, a_bench, a_tac, 0, seed);
     let hg = match_play::home_goals(&result);
@@ -195,12 +199,53 @@ entry fun play_fixture(
     club::set_last_week(home, week);
     club::set_last_week(away, week);
     money::collect_gate(home, false); // the home club takes the gate; the away club takes nothing
+    mark_the_players(home, away, &h_nums, &a_nums, &result);
 
     event::emit(MatchPlayed {
         season: l.season, week,
         home: club::num(home), away: club::num(away),
         home_goals: hg, away_goals: ag, seed,
     });
+}
+
+fun numbers_of(xi: &vector<Player>): vector<u32> {
+    let mut out = vector[];
+    let mut i = 0;
+    while (i < xi.length()) { out.push_back(suifoot::player::num(&xi[i])); i = i + 1; };
+    out
+}
+
+/// What the ninety minutes did to the men who played them.
+///
+/// Whoever started is credited with the game and comes off it tired; whoever came on is credited too
+/// and comes off it less tired. Whoever scored has it on his name. Without this a season would be
+/// played by men who end it exactly as they began it.
+fun mark_the_players(
+    home: &mut Club, away: &mut Club,
+    h_start: &vector<u32>, a_start: &vector<u32>,
+    result: &Result,
+) {
+    let mut h_played = *h_start;
+    let mut a_played = *a_start;
+    let h_started = h_start.length();
+    let a_started = a_start.length();
+
+    let events = match_play::events(result);
+    let mut i = 0;
+    while (i < events.length()) {
+        let e = &events[i];
+        let kind = match_play::ev_kind(e);
+        let who = match_play::ev_who(e);
+        if (kind == match_play::sub()) {
+            if (match_play::ev_side(e) == HOME) h_played.push_back(who) else a_played.push_back(who);
+        } else if (kind == match_play::goal()) {
+            if (match_play::ev_side(e) == HOME) progress::scored(home, who) else progress::scored(away, who);
+        };
+        i = i + 1;
+    };
+
+    progress::played_match(home, &h_played, h_started);
+    progress::played_match(away, &a_played, a_started);
 }
 
 /// What a club actually puts out: what it showed for this matchday, failing that the last team it
@@ -224,10 +269,26 @@ public fun settle_week(l: &League, c: &mut Club, ctx: &TxContext) {
     money::settle_week(c);
 }
 
+/// A week of training: legs come back by as much as the week allowed them to. A club nobody runs
+/// has its training picked for it, by how worn its first team looks.
+public fun train(l: &League, c: &mut Club, ctx: &TxContext) {
+    assert!(ctx.sender() == l.admin, ENotAdmin);
+    if (club::is_free(c)) progress::choose_training(c);
+    progress::train_week(c);
+}
+
 /// the matchday is over and the next one begins
 public fun advance(l: &mut League, ctx: &TxContext) {
     assert!(ctx.sender() == l.admin, ENotAdmin);
     l.week = l.week + 1;
+}
+
+/// A year older for everybody at one club, and the academy sends up what it has. One club at a
+/// time, because a league turning over at once would be a transaction nobody could afford.
+entry fun turn_season(l: &League, c: &mut Club, r: &sui::random::Random, ctx: &mut TxContext) {
+    assert!(ctx.sender() == l.admin, ENotAdmin);
+    let mut gen = sui::random::new_generator(r, ctx);
+    progress::season_turn(c, sui::random::generate_u32(&mut gen));
 }
 
 public fun start_next_season(l: &mut League, ctx: &TxContext) {
@@ -244,6 +305,8 @@ public fun play_for_testing(
     let week = l.week;
     let (h_xi, h_bench, h_tac) = team_of(home, week);
     let (a_xi, a_bench, a_tac) = team_of(away, week);
+    let h_nums = numbers_of(&h_xi);
+    let a_nums = numbers_of(&a_xi);
     let result = match_play::play(h_xi, h_bench, h_tac, 0, a_xi, a_bench, a_tac, 0, seed);
     let hg = match_play::home_goals(&result);
     let ag = match_play::away_goals(&result);
@@ -252,6 +315,7 @@ public fun play_for_testing(
     club::set_last_week(home, week);
     club::set_last_week(away, week);
     money::collect_gate(home, false);
+    mark_the_players(home, away, &h_nums, &a_nums, &result);
     (hg, ag)
 }
 
