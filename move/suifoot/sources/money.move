@@ -58,7 +58,7 @@ public fun gate(c: &Club, derby: bool): u64 {
 
 /// The home club takes the gate. The away club takes nothing, which is how this league works.
 public(package) fun collect_gate(c: &mut Club, derby: bool) {
-    let taken = gate(c, derby);
+    let taken = gate(c, derby); // worked out before the club is borrowed to be changed
     club::credit(c, taken);
 }
 
@@ -84,8 +84,9 @@ public fun incomings(c: &Club): u64 { television(c) + sponsorship(c) }
 /// What happens to a club that keeps ending the week at nothing is a question for the part of this
 /// that does not exist yet; leaving it owing money nobody can collect would be worse.
 public(package) fun settle_week(c: &mut Club) {
-    club::credit(c, incomings(c));
+    let earned = incomings(c);
     let owed = outgoings(c);
+    club::credit(c, earned);
     let have = club::balance(c);
     club::debit(c, if (owed > have) have else owed);
 }
