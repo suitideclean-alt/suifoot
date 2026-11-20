@@ -132,9 +132,12 @@ public fun apply_to(s: &Standings, c: &mut Club, up_to: u16, down_to: u16) {
     let pos = position_of(s, club::num(c));
     let n = s.rows.length();
 
-    if ((pos as u64) <= s.promote && s.level > 0) {
-        club::set_level(c, s.level - 1, up_to);
-    } else if ((pos as u64) > n - s.relegate) {
+    // A club in the promotion places is never relegated, even where the two overlap in a short
+    // series. The champions of the first division have nowhere above them to go, so they stay -
+    // which is not the same as falling through into the drop.
+    if ((pos as u64) <= s.promote) {
+        if (s.level > 0) club::set_level(c, s.level - 1, up_to);
+    } else if ((pos as u64) + s.relegate > n) {
         club::set_level(c, s.level + 1, down_to);
     };
     club::new_season(c, pos);

@@ -68,7 +68,7 @@ fun two_clubs_level_on_everything_are_split_by_their_number() {
 #[test]
 fun the_top_two_go_up_and_the_bottom_two_go_down() {
     let mut ctx = tx_context::dummy();
-    let mut st = season::open_for_testing(1, 3, 2, 2, 2, &mut ctx);
+    let mut st = season::open_for_testing(1, 0, 2, 2, 2, &mut ctx);
 
     let mut clubs = vector::empty<Club>();
     let mut i = 0u32;
