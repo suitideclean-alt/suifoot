@@ -46,18 +46,23 @@ jobs:
           ADDR=$(sui client active-address)
           echo "address: $ADDR"
           echo "ADDR=$ADDR" >> "$GITHUB_ENV"
-          # the faucet wants its base URL and does its own proof of work from there
-          for i in 1 2 3 4 5; do
-            sui client faucet --url https://faucet.testnet.sui.io && break || sleep 20
+          # The faucet wants its base URL and does its own proof of work from there. It hands over one
+          # SUI at a time and publishing a package this size costs most of one, so ask three times.
+          for i in 1 2 3 4 5 6; do
+            sui client faucet --url https://faucet.testnet.sui.io || true
+            sleep 12
+            MIST=$(sui client gas --json | jq '[.[].mistBalance // .[].gasBalance // 0] | add // 0')
+            echo "balance so far: $MIST MIST"
+            [ "${MIST:-0}" -ge 2500000000 ] && break
           done
-          sleep 15
+          sleep 10
           sui client gas || true
 
       - name: Publish
         run: |
           set -euo pipefail
           export PATH="$HOME/.sui/bin:$PATH"
-          sui client publish --gas-budget 2000000000 --json move/suifoot > publish.json
+          sui client publish --gas-budget 900000000 --json move/suifoot > publish.json
           PKG=$(jq -r '.objectChanges[] | select(.type=="published") | .packageId' publish.json)
           echo "package: $PKG"
           echo "PKG=$PKG" >> "$GITHUB_ENV"
@@ -72,7 +77,7 @@ jobs:
           # a league whose first matchday kicked off yesterday, so a fixture can be played at once
           T0=$(( NOW - 172800000 ))
           sui client call --package "$PKG" --module league --function create \
-            --args "$T0" "[720,1200]" 34 3 --gas-budget 500000000 --json > league.json
+            --args "$T0" "[720,1200]" 34 3 --gas-budget 200000000 --json > league.json
           LEAGUE=$(jq -r '.objectChanges[] | select(.objectType != null and (.objectType | test("::league::League$"))) | .objectId' league.json)
           echo "league: $LEAGUE"
           echo "LEAGUE=$LEAGUE" >> "$GITHUB_ENV"
@@ -81,7 +86,7 @@ jobs:
 
           for N in 1 2; do
             sui client call --package "$PKG" --module world --function create_club \
-              --args "$LEAGUE" "$N" 3 0 0x8 --gas-budget 2000000000 --json > "club$N.json"
+              --args "$LEAGUE" "$N" 3 0 0x8 --gas-budget 500000000 --json > "club$N.json"
             CID=$(jq -r '.objectChanges[] | select(.objectType != null and (.objectType | test("::club::Club$"))) | .objectId' "club$N.json")
             echo "club $N: $CID"
             echo "CLUB$N=$CID" >> "$GITHUB_ENV"
@@ -94,7 +99,7 @@ jobs:
           set -euo pipefail
           export PATH="$HOME/.sui/bin:$PATH"
           sui client call --package "$PKG" --module league --function play_fixture \
-            --args "$LEAGUE" "$CLUB1" "$CLUB2" 0x8 0x6 --gas-budget 2000000000 --json > match.json
+            --args "$LEAGUE" "$CLUB1" "$CLUB2" 0x8 0x6 --gas-budget 500000000 --json > match.json
           echo "=============================================="
           echo "the result, as the chain recorded it:"
           jq -r '.events[]? | .parsedJson | "  \(.home) \(.home_goals) - \(.away_goals) \(.away)   seed \(.seed)"' match.json
