@@ -411,20 +411,26 @@ fun book(h: &mut Side, a: &mut Side, home: bool, i: u64, minute: u64, events: &m
     let who = if (home) HOME else AWAY;
     if (twice) {
         events.push_back(Event { minute: (minute as u8), side: who, kind: RED, who: num, other: 1 });
-        send_off(h, a, home, i);
+        send_off(h, a, home, i, minute);
     } else {
         events.push_back(Event { minute: (minute as u8), side: who, kind: YELLOW, who: num, other: 0 });
     };
 }
 
-/// off the pitch, with nobody coming on for him
-fun send_off(h: &mut Side, a: &mut Side, home: bool, i: u64) {
-    let s = side_mut(h, a, home);
-    s.xi.remove(i);
+/// Off the pitch, with nobody coming on for him. The two sides are weighed again straight away:
+/// playing a man short has to tell from the next minute, not from the next quarter of an hour.
+fun send_off(h: &mut Side, a: &mut Side, home: bool, i: u64, minute: u64) {
+    { let s = side_mut(h, a, home); s.xi.remove(i); };
+    refresh(h, a, minute);
 }
 
 /// off injured, and if there is anyone left to bring on, the best man of his position comes on
 fun carried_off(h: &mut Side, a: &mut Side, home: bool, i: u64, minute: u64, events: &mut vector<Event>) {
+    replace_injured(h, a, home, i, minute, events);
+    refresh(h, a, minute);
+}
+
+fun replace_injured(h: &mut Side, a: &mut Side, home: bool, i: u64, minute: u64, events: &mut vector<Event>) {
     let s = side_mut(h, a, home);
     let gone = s.xi[i].p;
     s.xi.remove(i);
@@ -505,7 +511,7 @@ fun incidents(r: &mut Rng, h: &mut Side, a: &mut Side, which: u8, minute: u64, e
             let i = weighted(r, &weights);
             let num = { let s = side_mut(h, a, home); player::num(&s.xi[i].p) };
             events.push_back(Event { minute: (minute as u8), side: if (home) HOME else AWAY, kind: RED, who: num, other: 0 });
-            send_off(h, a, home, i);
+            send_off(h, a, home, i, minute);
         };
     };
 
@@ -543,6 +549,15 @@ fun incidents(r: &mut Rng, h: &mut Side, a: &mut Side, which: u8, minute: u64, e
 /// Take off the weakest outfield man and bring on someone of his position who is not worse by more
 /// than four. No draw is taken: a manager who has gone to bed still gets his changes made.
 fun fresh_legs(h: &mut Side, a: &mut Side, home: bool, minute: u64, events: &mut vector<Event>) {
+    let (made, coming, going_off) = swap_in(h, a, home, minute);
+    if (!made) return;
+    refresh(h, a, minute); // the mirror weighs the sides again before the change is told
+    events.push_back(Event {
+        minute: (minute as u8), side: if (home) HOME else AWAY, kind: SUB, who: coming, other: going_off,
+    });
+}
+
+fun swap_in(h: &mut Side, a: &mut Side, home: bool, minute: u64): (bool, u32, u32) {
     let s = side_mut(h, a, home);
 
     let mut out = 0u64;
@@ -556,7 +571,7 @@ fun fresh_legs(h: &mut Side, a: &mut Side, home: bool, minute: u64, events: &mut
         };
         i = i + 1;
     };
-    if (!found) return;
+    if (!found) return (false, 0, 0);
 
     let want = player::pos(&s.xi[out].p);
     let mut pick = 0u64;
@@ -570,20 +585,18 @@ fun fresh_legs(h: &mut Side, a: &mut Side, home: bool, minute: u64, events: &mut
         };
         j = j + 1;
     };
-    if (!got) return;
+    if (!got) return (false, 0, 0);
 
     let cand_v = fx::add(
         &fx::from_int((player::ovr(&s.bench[pick]) as u64)),
         &player::cond_adj(&s.bench[pick]),
     );
-    if (fx::lt(&cand_v, &fx::sub(&out_v, &fx::from_int(4)))) return;
+    if (fx::lt(&cand_v, &fx::sub(&out_v, &fx::from_int(4)))) return (false, 0, 0);
 
     let going_off = player::num(&s.xi[out].p);
     let coming = s.bench.remove(pick);
     let num = player::num(&coming);
     *(&mut s.xi[out]) = OnPitch { p: coming, since: minute, yellows: 0 };
     s.subs = s.subs + 1;
-    events.push_back(Event {
-        minute: (minute as u8), side: if (home) HOME else AWAY, kind: SUB, who: num, other: going_off,
-    });
+    (true, num, going_off)
 }
