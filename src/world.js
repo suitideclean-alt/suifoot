@@ -88,7 +88,17 @@
         const nm = base + ' ' + R.pick(KIND);
         if (!used.has(base)) { used.add(base); return nm; }
       }
-      return 'Club ' + used.size;
+      /* The short names are used up. Fall back on whole base-and-kind names, of which there are ten
+       * times as many - a pyramid that grows needs more names than a fixed league ever did. The loop
+       * above is untouched so that worlds already generated come out exactly as before. */
+      for (let i = 0; i < 2000; i++) {
+        const nm = R.pick(PRE) + R.pick(SUF) + ' ' + R.pick(KIND);
+        if (!used.has(nm)) { used.add(nm); return nm; }
+      }
+      let n = 1;
+      while (used.has('Club ' + n)) n++;
+      used.add('Club ' + n);
+      return 'Club ' + n;
     },
     makeForeign(G, idx, nat) {
       const used = (G._usedNames = G._usedNames || new Set());

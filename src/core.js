@@ -16,6 +16,8 @@
      * of its child series, times promote, so what goes up and what comes down always balance. */
     series: [1, 1, 1, 1],
     promote: 2, // how many climb out of each series
+    rankAfter: 5, // matchdays before a table means anything; before that, last season's finish is used
+    maxSeries: 256, // how wide the foot of the pyramid may grow
     LEAGUE_WEEKS: 34,
     CUP_ROUNDS: 7, // preliminary round (16 clubs), then 64, 32, 16, quarter-finals, semi-finals, final
     CUP_AFTER: [4, 9, 14, 18, 23, 28, 34], // a cup round is played after these league matchdays
