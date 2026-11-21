@@ -351,6 +351,7 @@
     o_stake: (arg) => [K().STAKE, Math.round(parseFloat(arg) * 10000), 0],
     o_buyback: (arg) => [K().BUYBACK, +arg, 0],
     o_repay: (arg) => [K().BONDREPAY, +arg, 0],
+    o_partner: (arg) => [K().PARTNER, arg === 'none' ? 0 : Number(String(arg).replace(/^c/, '')) || 0, 0],
   };
 
   /* And the ones that need a number typed before they mean anything, which the screen asks for

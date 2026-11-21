@@ -62,7 +62,11 @@
       add(K.INVEST, SF.Replay.ACADEMY, 0, 'improve the academy');
       add(K.INVEST, SF.Replay.TRAINING, 0, 'improve the training ground');
       add(K.LOAN, 50000, 1, 'borrow against the gate');
-      add(K.REPAY, 10000, 0, 'pay some of it back');
+      /* Paying a loan back names the loan, not an amount. Getting that wrong is how a decision
+       * comes to land every time and do nothing every time - which is exactly what the run
+       * reported, and why it watches for it. */
+      const owed = ((G.bank && G.bank.loans) || []).filter((l) => l.club === id)[0];
+      if (owed) add(K.REPAY, owed.id, 0, 'pay a loan back');
       if (coach && SF.Game.freePoints && SF.Game.freePoints(coach) > 0) add(K.SKILL, Math.floor(r() * 4), 0, 'spend what the coach has learned');
 
       // --- the board ---
@@ -81,8 +85,8 @@
       const sold = ((club.boss && club.boss.invest) || [])[0];
       if (sold) add(K.BUYBACK, sold.id, 0, 'buy a stake back');
       if (club.boss && club.boss.spon) add(K.SPONBREAK, 0, 0, 'break the sponsorship');
-      const partner = (club.boss && club.boss.partnerOffers) || [];
-      if (partner.length) add(K.PARTNER, partner[0].id, 0, 'take a partner');
+      const mates = (SF.Boss.partnerCandidates ? SF.Boss.partnerCandidates(G, club) : []) || [];
+      if (mates.length) add(K.PARTNER, Number(String(mates[0]).replace(/^c/, '')), 0, 'take a partner club');
 
       // --- the things only a season reaches ---
       const veteran = squad.filter((p) => p.age > 32)[0];

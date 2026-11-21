@@ -81,7 +81,9 @@
     [K.SPONSOR]: (G, c, d) => SF.Boss.signSponsor(G, c, d.a),
     [K.SPONBREAK]: (G, c) => SF.Boss.breakSponsor(G, c),
     [K.PROJECT]: (G, c, d) => SF.Boss.startProject(G, c, PROJECTS[d.a]),
-    [K.PARTNER]: (G, c, d) => SF.Boss.setPartner(G, c, d.a ? d.a : null),
+    /* A partner is named by club, and a club travels as its number: the id is a string this side
+     * and a log carries numbers. Nought means no partner. */
+    [K.PARTNER]: (G, c, d) => SF.Boss.setPartner(G, c, d.a ? 'c' + d.a : null),
     [K.EVENT]: (G, c, d) => SF.Boss.event(G, c, EVENTS[d.a]),
     [K.STAKE]: (G, c, d) => SF.Boss.sellStake(G, c, d.a / 10000),
     [K.BUYBACK]: (G, c, d) => SF.Boss.buyBack(G, c, d.a),
