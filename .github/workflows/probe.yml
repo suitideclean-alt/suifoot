@@ -5,13 +5,11 @@ jobs:
   look:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      - name: What the live site serves
+      - name: How does one read an event log here
         run: |
-          echo -n "version: "; curl -sS -m 25 https://suifoot.fun/index.html | grep -o 'v=0\.9\.[0-9]*' | head -1
-          echo -n "bridge loaded: "; curl -sS -m 25 https://suifoot.fun/index.html | grep -c "bridge.js"
-          echo -n "way in present: "; curl -sS -m 25 "https://suifoot.fun/src/online.js?v=0.9.51" | grep -c "on:play"
-          echo -n "way out present: "; curl -sS -m 25 "https://suifoot.fun/src/ui.js?v=0.9.51" | grep -c "on:back"
+          set +e
+          ask () { echo "--- $1"; curl -sS -m 25 -X POST https://graphql.testnet.sui.io/graphql \
+            -H 'content-type: application/json' --data "{\"query\":\"$2\"}" | head -c 600; echo; }
+          ask "by eventType" "{ events(filter: {eventType: \\\"0x2::coin::CurrencyCreated\\\"}, first: 2) { nodes { contents { json } } } }"
+          ask "by type"      "{ events(filter: {type: \\\"0x2::coin::CurrencyCreated\\\"}, first: 2) { nodes { contents { json } } } }"
+          ask "with paging"  "{ events(filter: {eventType: \\\"0x2::coin::CurrencyCreated\\\"}, first: 2) { pageInfo { hasNextPage endCursor } nodes { timestamp transactionDigest contents { json } } } }"
