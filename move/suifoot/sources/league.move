@@ -277,8 +277,6 @@ public fun phase_at(l: &League, week: u16, now: u64): u8 {
 }
 public fun open(): u8 { OPEN }
 public fun locked(): u8 { LOCKED }
-public fun drawn(): u8 { DRAWN }
-public fun played(): u8 { PLAYED }
 
 // ---------- what a manager does ----------
 
