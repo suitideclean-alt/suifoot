@@ -1,28 +1,23 @@
-# Does that address have testnet SUI, and does the league still stand?
+# Which shape does the node accept for "how much SUI does this address hold"?
 name: probe
 on:
   workflow_dispatch:
+    inputs:
+      addr:
+        description: an address to weigh
+        required: false
+        default: "0x30a35fad36f8cce8fcfc39e9ddd61bcbbada10f2147f925e2034cd473975cc03"
 jobs:
   look:
     runs-on: ubuntu-latest
     steps:
-      - name: The wallet, on testnet
+      - name: Try the shapes
         run: |
           set +e
-          A=0x1130
-          ADDR=$(echo "${{ github.event.inputs.addr }}")
-          ADDR=${ADDR:-0x1130000000000000000000000000000000000000000000000000000000055c4}
-          echo "asking about $ADDR"
-          Q='{"query":"{ address(address: \"'$ADDR'\") { balance { totalBalance } } }"}'
-          curl -sS -m 25 -X POST https://graphql.testnet.sui.io/graphql \
-            -H 'content-type: application/json' --data "$Q"
-          echo; echo
+          A="${{ github.event.inputs.addr }}"
+          ask () { echo "--- $1"; curl -sS -m 25 -X POST https://graphql.testnet.sui.io/graphql \
+            -H 'content-type: application/json' --data "{\"query\":\"$2\"}" | head -c 400; echo; }
 
-      - name: And the league itself
-        run: |
-          set +e
-          L=0xc2dccce30329974a0503acae3ed9e6c32f70099034a0366b9fb3c39baf183119
-          Q='{"query":"{ object(address: \"'$L'\") { version asMoveObject { contents { json } } } }"}'
-          curl -sS -m 25 -X POST https://graphql.testnet.sui.io/graphql \
-            -H 'content-type: application/json' --data "$Q" | head -c 700
-          echo
+          ask "short coinType" "{ address(address: \\\"$A\\\") { balance(coinType: \\\"0x2::sui::SUI\\\") { totalBalance } } }"
+          ask "long coinType"  "{ address(address: \\\"$A\\\") { balance(coinType: \\\"0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI\\\") { totalBalance } } }"
+          ask "all balances"   "{ address(address: \\\"$A\\\") { balances(first: 3) { nodes { coinType { repr } totalBalance } } } }"
