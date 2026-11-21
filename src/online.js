@@ -63,7 +63,7 @@
     const table = SF.Chain.table(clubs);
     const rows = table.map((c, i) => `<tr${O.club === c.id ? ' class="on"' : ''}>
       <td>${i + 1}</td>
-      <td><a href="#" data-act="on:club:${c.id}">${esc(c.name)}</a></td>
+      <td><span class="row" style="gap:6px;align-items:center">${SF.Chain.badge(c.num, 20)}<a href="#" data-act="on:club:${c.id}">${esc(c.name)}</a></span></td>
       <td>${c.played}</td><td>${c.won}</td><td>${c.drawn}</td><td>${c.lost}</td>
       <td>${c.gf}:${c.ga}</td><td><b>${c.points}</b></td>
       <td class="muted">${money(c.balance)}</td>
@@ -78,11 +78,11 @@
     const chosen = clubs.find((c) => c.id === O.club);
     if (chosen) {
       const men = chosen.squad.slice().sort((a, b) => b.ovr - a.ovr);
-      squad = `<div class="card"><h4>${esc(chosen.name)} — ${esc(t('on_squad'))} (${men.length})</h4>
+      squad = `<div class="card"><h4><span class="row" style="gap:8px;align-items:center">${SF.Chain.badge(chosen.num, 28)}${esc(chosen.name)} — ${esc(t('on_squad'))} (${men.length})</span></h4>
         <p class="muted small">${esc(t('on_ground'))}: ${chosen.capacity.toLocaleString('en-US')} · ${esc(t('on_fans'))}: ${chosen.fans.toLocaleString('en-US')} · ${esc(t('on_ticket'))}: $${chosen.ticket.toFixed(2)}</p>
         <table class="tbl"><thead><tr><th>${esc(t('on_name'))}</th><th>${esc(t('on_pos'))}</th><th>${esc(t('on_age'))}</th>
         <th>${esc(t('on_ovr'))}</th><th>${esc(t('on_pot'))}</th><th>${esc(t('on_cond'))}</th><th>${esc(t('on_apps'))}</th><th>${esc(t('on_scored'))}</th></tr></thead>
-        <tbody>${men.map((p) => `<tr><td>${esc(p.name)}</td><td>${esc(p.pos)}</td><td>${p.age}</td>
+        <tbody>${men.map((p) => `<tr><td><span class="row" style="gap:6px;align-items:center">${SF.Chain.face(p, 24)}${esc(p.name)}</span></td><td>${esc(p.pos)}</td><td>${p.age}</td>
           <td><b>${p.ovr}</b></td><td class="muted">${p.pot}</td><td>${p.cond}%</td><td>${p.apps}</td><td>${p.goals}</td></tr>`).join('')}</tbody></table>
         <p class="muted small">${esc(t('on_names_d'))}</p></div>`;
     } else {

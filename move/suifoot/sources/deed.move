@@ -55,9 +55,9 @@ fun init(otw: DEED, ctx: &mut TxContext) {
         b"description".to_string(),
         b"The deed to {name}, a football club in SuiFoot. Whoever holds this runs the club.".to_string(),
     );
-    d.add(b"image_url".to_string(), b"https://suifoot.com/badges/{club_num}.svg".to_string());
-    d.add(b"link".to_string(), b"https://suifoot.com/?club={club_num}".to_string());
-    d.add(b"project_url".to_string(), b"https://suifoot.com".to_string());
+    d.add(b"image_url".to_string(), b"https://suifoot.fun/badges/{club_num}.svg".to_string());
+    d.add(b"link".to_string(), b"https://suifoot.fun/?club={club_num}".to_string());
+    d.add(b"project_url".to_string(), b"https://suifoot.fun".to_string());
     d.update_version();
 
     transfer::public_transfer(publisher, ctx.sender());

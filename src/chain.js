@@ -79,7 +79,29 @@
       return first + ' ' + a + b + c;
     },
 
-    /** and the club's, worked out the way the contract works it out */
+    /* A club's colours, from its number and nothing else. Offline the second colour is drawn at
+     * random when the world is made; on chain there is no such moment, so it is settled by the
+     * number like the name and the badge are. */
+    colours(num) {
+      const n = Number(num);
+      const hue = Math.round((n * 137.508) % 360);
+      let h = 2166136261 >>> 0;
+      const s = 'c' + n;
+      for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+      return { id: 'c' + n, c1: `hsl(${hue} 62% 42%)`, c2: (h & 1) ? '#ffffff' : '#111827' };
+    },
+
+    /** the badge, drawn here rather than fetched: the same one a wallet shows for the deed */
+    badge(num, size) {
+      return SF.Art ? SF.Art.logo(Chain.colours(num), size || 22) : '';
+    },
+
+    /** and the man's face, from his number and his age, as everywhere else */
+    face(p, size) {
+      return SF.Art ? SF.Art.face({ id: p.num, age: p.age }, size || 24) : '';
+    },
+
+    /** and the club's name, worked out the way the contract works it out */
     clubName(num) {
       const n = Number(num);
       const block = Math.floor(n / 2880);

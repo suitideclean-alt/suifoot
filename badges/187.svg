@@ -1,0 +1,3 @@
+<svg xmlns="http://www.w3.org/2000/svg" class="bdg" width="128" height="128" viewBox="0 0 40 40"><defs><clipPath id="lc3298804556"><path d="M20 1a19 19 0 1 1 0 38a19 19 0 0 1 0-38z"/></clipPath></defs>
+      <path d="M20 1a19 19 0 1 1 0 38a19 19 0 0 1 0-38z" fill="hsl(154 62% 42%)"/><g clip-path="url(#lc3298804556)"></g><path d="M20 1a19 19 0 1 1 0 38a19 19 0 0 1 0-38z" fill="none" stroke="#111827" stroke-width="2.4" stroke-linejoin="round"/>
+      <g transform="translate(5.5 5.5) scale(.72)"><path d="M3 31c5 0 7-3 9-6 4-8 9-17 12-21 1 9 3 15 9 21 2 2 3 3 4 6z" fill="#111827"/><path d="M3 34c4 0 5 2 8 2s5-2 8-2 5 2 8 2 5-2 8-2" fill="none" stroke="#111827" stroke-width="2" stroke-linecap="round"/><circle cx="25" cy="23" r="1.3" fill="hsl(154 62% 42%)"/></g></svg>
