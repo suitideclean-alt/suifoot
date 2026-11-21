@@ -69,7 +69,7 @@ jobs:
           # the package has grown; publishing is the one call that needs real room
           if ! sui client publish --gas-budget 2500000000 --json move/suifoot > publish.json 2> publish.err; then
             echo "--- what the node said ---"
-            grep -viE "warning|deprecated|suppressed|^\s*[│└┌=]|^\s*$" publish.err | tail -30
+            tail -40 publish.err
             exit 1
           fi
           PKG=$(jq -r '.objectChanges[] | select(.type=="published") | .packageId' publish.json)
