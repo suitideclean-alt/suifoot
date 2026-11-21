@@ -12,16 +12,20 @@ jobs:
           OBJ=0xb882dd5f3819e8d4aa69b249cb6f17005ccd7a59e86596acd53d230fad69bf98
           URL=https://fullnode.testnet.sui.io/sui.rpc.v2.LedgerService/GetObject
           try() {
-            echo "--- $1"
+            echo "--- $2"
             curl -sS -m 20 -X POST "$URL" -H 'content-type: application/json' \
-                 -H 'origin: https://suitideclean-alt.github.io' --data "$1" | head -c 1200
+                 -H 'connect-protocol-version: 1' \
+                 -H 'origin: https://suitideclean-alt.github.io' \
+                 -w '\nstatus %{http_code}\n' --data "$1" | head -c 1500
             echo; echo
           }
-          try "{\"object_id\":\"$OBJ\"}"
-          try "{\"objectId\":\"$OBJ\"}"
-          try "{\"object_id\":\"$OBJ\",\"read_mask\":{\"paths\":[\"json\"]}}"
-          try "{\"object_id\":\"$OBJ\",\"read_mask\":{\"paths\":[\"object_id\",\"version\",\"json\",\"object_type\"]}}"
-          try "{\"object_id\":\"$OBJ\",\"read_mask\":{\"paths\":[\"*\"]}}"
+          try "{\"object_id\":\"$OBJ\"}" "bare, with the connect header"
+          try "{\"object_id\":\"$OBJ\",\"read_mask\":{\"paths\":[\"json\"]}}" "asking for json"
+          try "{\"objectId\":\"$OBJ\",\"readMask\":{\"paths\":[\"json\",\"objectType\"]}}" "camel case"
+          echo "--- what services does it offer"
+          curl -sS -m 20 -X POST https://fullnode.testnet.sui.io/sui.rpc.v2.LedgerService/GetServiceInfo \
+               -H 'content-type: application/json' -H 'connect-protocol-version: 1' --data '{}' -w '\nstatus %{http_code}\n' | head -c 800
+          echo
 
       - name: And can several be asked for at once
         run: |
