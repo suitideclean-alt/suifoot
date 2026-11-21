@@ -1,0 +1,98 @@
+# Several people, with real wallets, really playing.
+#
+# The rest of the suite proves the rules. This proves the system: that somebody with a wallet can
+# take a club, press every button there is, and have the league come out the way the screen said -
+# with real signatures, real gas and a real node. What it finds is written down rather than
+# summarised away, and uploaded whether the run passed or not.
+name: agents
+on:
+  workflow_dispatch:
+    inputs:
+      agents:
+        description: how many people are playing
+        default: "3"
+      weeks:
+        description: how many matchdays they play
+        default: "4"
+      per_week:
+        description: how many things each decides a matchday
+        default: "6"
+env:
+  SUI_VERSION: testnet-v1.84.1
+jobs:
+  play:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Cache the Sui CLI
+        id: cache-sui
+        uses: actions/cache@v4
+        with:
+          path: ~/.sui/bin
+          key: sui-${{ env.SUI_VERSION }}-ubuntu-x86_64
+
+      - name: Install the Sui CLI
+        if: steps.cache-sui.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.sui/bin" "$HOME/.sui/unpack"
+          curl -sSLf -o sui.tgz "https://github.com/MystenLabs/sui/releases/download/${SUI_VERSION}/sui-${SUI_VERSION}-ubuntu-x86_64.tgz"
+          tar -xzf sui.tgz -C "$HOME/.sui/unpack"
+          find "$HOME/.sui/unpack" -name 'sui' -type f -exec mv {} "$HOME/.sui/bin/sui" \;
+          chmod +x "$HOME/.sui/bin/sui"
+
+      - name: A league of its own to play in
+        run: |
+          set -euo pipefail
+          export PATH="$HOME/.sui/bin:$PATH"
+          sui client --yes new-env --alias tn --rpc https://fullnode.testnet.sui.io:443 || true
+          sui client switch --env tn
+          sui client faucet || true
+          sleep 8
+
+          sui client publish ./move/suifoot --gas-budget 1000000000 --json > publish.json 2>/dev/null
+          PKG=$(jq -r '.objectChanges[] | select(.type == "published") | .packageId' publish.json)
+          echo "PKG=$PKG" >> "$GITHUB_ENV"
+
+          NOW=$(( $(date +%s) * 1000 ))
+          sui client call --package "$PKG" --module league --function create \
+            --args $(( NOW - 172800000 )) "[720,1200]" 34 3 18 --gas-budget 200000000 --json > league.json
+          LEAGUE=$(jq -r '.objectChanges[] | select(.objectType != null and (.objectType | test("::league::League$"))) | .objectId' league.json)
+          echo "LEAGUE=$LEAGUE" >> "$GITHUB_ENV"
+
+          IDS=""
+          for N in $(seq 1 18); do
+            sui client call --package "$PKG" --module world --function create_club \
+              --args "$LEAGUE" "$N" 3 0 0x8 --gas-budget 500000000 --json > "club$N.json"
+            IDS="$IDS$(jq -r '.objectChanges[] | select(.objectType != null and (.objectType | test("::club::Club$"))) | .objectId' "club$N.json") "
+          done
+          echo "CLUBS=$IDS" >> "$GITHUB_ENV"
+          echo "league $LEAGUE with 18 clubs, on package $PKG"
+
+      - name: Let them play
+        run: node tools/agents.js
+        env:
+          PKG: ${{ env.PKG }}
+          LEAGUE: ${{ env.LEAGUE }}
+          CLUBS: ${{ env.CLUBS }}
+          AGENTS: ${{ github.event.inputs.agents || 3 }}
+          WEEKS: ${{ github.event.inputs.weeks || 4 }}
+          PER_WEEK: ${{ github.event.inputs.per_week || 6 }}
+
+      - name: The report
+        if: always()
+        run: cat agents-report.md 2>/dev/null || echo "(the run did not get as far as a report)"
+
+      - name: Keep it
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agents-report
+          path: |
+            agents-report.*
+            publish.json
