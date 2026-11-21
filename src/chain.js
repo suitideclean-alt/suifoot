@@ -27,27 +27,27 @@
     graphql: 'https://graphql.testnet.sui.io/graphql',
     explorer: 'https://suiscan.xyz/testnet/object/',
     faucet: 'https://faucet.sui.io/?network=testnet',
-    pkg: '0x7d59b7caa26fee6c45d0e00ebb339eed2fbf1513e0cebe38eba093033a9f8883',
-    league: '0x90550ace44955147d6ee6398c5a0b633a36a83094146512b64d3d951dc7ddafc',
+    pkg: '0xb15201382bb80c971aeaf36d2a93ec6067fb5be2300a2bf284db9594e4c2da17',
+    league: '0xca348f5cbc55b86a2a76729a04cc40c5db9584acc7f6e832ea3a628197da27f0',
     clubs: [
-      '0xb52db3c9d2f967bdea0d8bee76162b4ffe4f0557c9bbd3f6f2395cb4f4107a42',
-      '0x957cdf5626ad98a842b4c021d3c04b7632a1db0790f986f6f7beca0841b3ca58',
-      '0x21bec7a669dbbd5cc69def7bfc6932a74dd5805d097290e7a2f51313d8f108f8',
-      '0x5dfdf5b64e2a2aaeaf018f296850fc383b8ce977c9cfab647a4c704ae477ae02',
-      '0x4d6814de7cf4c98b2619663e74392f0133d1c81780f4d7ad62aabaafa1ab9ba5',
-      '0x4c2d86663c2565575b432610480cc9ad9feca5f47e39f67501c54ef98aaa5e26',
-      '0x5f1002e8386f738f85ec7641da84dfa47f82cf067f6d0ec32ed5a57ef25ef451',
-      '0xe462cdc6bb378cf73a638e08c7ca00f010cc7fe0e32a5359060fa9af73a0d33a',
-      '0xdac2c34859cfcbf81690c2bd4efb21a5f8640685494910acfe6f4bd5a631b9fe',
-      '0x07ba3067f38369d7235e82baae8067f7311e0448f94678dff4dfc646d54e1abb',
-      '0xf16bb6164f170a514f6b163a6ab9899eb19a29028930c3a531bd4f376bddecc2',
-      '0xe85486bfd68afbe194cc417f5a52b12143ef71f1c0ef285c54652d74ffcdb931',
-      '0x0f092de7192f63469c905b00ad4718ef1240328561956b64d11e4effb9051db2',
-      '0xa843af4704dad88e78625731e0a9e85a79985fd22c8d7b8630e8df60de2b8671',
-      '0xeef455d6be9d96e8eb91b6cc5e7c0351be803fac5e9f545705e14edd37269957',
-      '0xbe8a078af618ddd5e35d4fb929c1d194366fa8ac420a93cd1f6e5d2279c0a29d',
-      '0x9c2f83c6ee369b9793849275b53f9a66b37b016976a2137f2dc2e1d0dc7f937b',
-      '0xc69fe463805b546f9143fbdb0c4c54a9b94c8384297f535b587992d56d8c58c4',
+      '0x42909110859d5b845f35b0edf2056210afc8f0adcca84588d453b23dd5b5a1a0',
+      '0x556987dffda737dd7c8ffa854fae42abfe6ac8e84e864deaa2e202e366a2eec2',
+      '0x59002b63413556d9f96929b03b798d6f809ce3819b30dff67974e0bb190869fc',
+      '0x7dc5079ec764ff6d7cd5e00cf21c3495079f955d36504f2e956e8c545355ae9d',
+      '0x31f48db6cf7e342d46385c1fcbf08d9087e63581efaac02e61d34b17c020734e',
+      '0x8e370312b322de6307098e2c0f3dd853424e76298bb5011a71214b01f28ced93',
+      '0x80b4da4ed49b36ae22ead469ff535418d88090414d592e4c443757c9e0b1b4ba',
+      '0xfdad51315739cb9e4e72bc0f9d9b53e5fd5f782f20077dd492597925ada03111',
+      '0x00593957b9706af95ba246426d34fbdcf214b7dcb19e57ee26944278d110c2d9',
+      '0x042104a26c24ace4b06bc510c663e6ddef0ad610ccb7c01dc1a431898c2733a7',
+      '0x58856087983c3de3f8c94a794312e47c3feed9a985721ea175455676b37b2a93',
+      '0xb7fb25145fdc9fe76231dd18aa1cea065861800f642fc6632edde51d1960d37a',
+      '0xc8e2445016e816d6393983066d5ae996cf96b8934cbcbcaf517912d49afcf300',
+      '0x3bda89eab2508584cee16689d47878d7876d2b105f19d94036998ebbb6a73530',
+      '0x787748099cba2a9c86f3c684aff99c6fb1ad05ad97b9d9a26866e6e33edfef04',
+      '0x1c5b3607d89268eb27cd5d56c6b862a1091d66bef346c485dbaa20903eca95ba',
+      '0x8767a0bb79db28f7e3dabf00d250bcfdafc5d4c6226a465a69194fd94e8d0201',
+      '0x83831dd87159cbf2aea9a84dad7752b69f5fbd32f4627203125fa4fcc0323338',
     ],
   };
 
@@ -220,6 +220,9 @@
         for (const n of ev.nodes || []) {
           const f = n && n.contents ? n.contents.json : null;
           if (!f) continue;
+          // the contract already refuses a club that is not this league's; ignoring it here too
+          // means a reader is right even against a package that was not
+          if (f.league && f.league !== Chain.net.league) continue;
           out.push({
             club: f.club, num: Number(f.club_num), by: f.by,
             season: Number(f.season), week: Number(f.week), at: Number(f.at),
