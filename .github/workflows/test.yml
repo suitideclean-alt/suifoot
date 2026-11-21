@@ -18,3 +18,21 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
       - run: npm run chain
+
+      # A deed in a wallet asks the web for its badge. A broken picture there is a broken NFT, so
+      # the file has to actually be where the contract says it is.
+      - name: The badges are where a wallet will look for them
+        run: |
+          set -euo pipefail
+          for N in 0 7 42 599; do
+            for HOST in https://suitideclean-alt.github.io/suifoot https://suifoot.fun; do
+              CODE=$(curl -sS -o /tmp/b -w '%{http_code}' -m 20 "$HOST/badges/$N.svg" || echo 000)
+              SIZE=$(wc -c < /tmp/b 2>/dev/null || echo 0)
+              echo "$HOST/badges/$N.svg -> $CODE, $SIZE bytes"
+              if [ "$HOST" = "https://suitideclean-alt.github.io/suifoot" ]; then
+                [ "$CODE" = "200" ] || { echo "the badge is not there"; exit 1; }
+                head -c 5 /tmp/b | grep -q '<svg' || { echo "that is not an svg"; exit 1; }
+              fi
+            done
+          done
+          echo "(suifoot.fun is expected to fail until the domain is pointed here)" 
