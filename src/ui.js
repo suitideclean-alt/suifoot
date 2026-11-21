@@ -173,7 +173,7 @@
   function gameView() {
     const G = UI.G, c = co(), club = myClub();
     const isOwn = SF.Owner.role(c) === 'owner';
-    const tabs = ['home', 'squad', 'league', 'cup', 'europe'].concat(isOwn ? [] : ['transfers'], ['finance'], SF.Owner.role(c) !== 'coach' ? ['owner'] : [], ['coach', 'settings']);
+    const tabs = ['home', 'squad', 'league', 'cup', 'europe'].concat(isOwn ? [] : ['transfers'], ['finance'], SF.Owner.role(c) !== 'coach' ? ['owner'] : [], ['coach'], SF.Online ? ['online'] : [], ['settings']);
     const nreq = isOwn && club ? SF.Owner.openFor(G, club.id).length : 0;
     const bal = club ? B.bal(G, club.id) : 0;
     return `<header class="top"><div class="in"><div class="logo">${SF.Fx.logo(34)}<span>Sui<b>Foot</b></span></div>
@@ -195,6 +195,7 @@
       case 'coach': return coachView();
       case 'owner': return ownerView();
       case 'settings': return settingsView();
+      case 'online': return SF.Online.view(t);
       default: return UI.G.phase === 'seasonEnd' ? seasonEndView() : homeView();
     }
   }
@@ -1240,6 +1241,11 @@
   }
 
   function onClick(e) {
+    const whole = e.target.closest('[data-act]');
+    if (whole && SF.Online && whole.dataset.act.startsWith('on:')) {
+      e.preventDefault();
+      if (SF.Online.act(whole.dataset.act, render)) return;
+    }
     const el = e.target.closest('[data-act]');
     if (!el) return;
     if (e.preventDefault && el.tagName === 'A') e.preventDefault();
