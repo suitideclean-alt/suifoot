@@ -23,7 +23,29 @@
     if (!p || !p.club || p.club === club.id) return no('bad');
     const seller = G.clubs[p.club];
     if (coach.vac > 0) return no('vacation');
-    if (seller.human || seller.foreign) return no('human_club');
+    if (seller.foreign) return no('human_club');
+    /* Somebody else's club is not a shop.
+     *
+     * This used to refuse outright, and offline that was right: there was one person playing, so
+     * a human club was always your own and buying from it meant nothing. On the chain every club
+     * worth having belongs to somebody, and refusing here meant no two owners could ever trade -
+     * the one thing a league full of people is for.
+     *
+     * So a bid for another person's player is an offer, which is a different thing from a
+     * purchase: nothing moves and no money changes hands until they answer it. The money is
+     * checked again when they do, because that is when it is spent. */
+    if (seller.human) {
+      const theirs = G.coaches.find((c) => c.club === seller.id);
+      if (!theirs) return no('human_club');
+      if (club.squad.length >= CFG.SQUAD_MAX) return no('squad_full');
+      if (seller.squad.length <= CFG.SQUAD_MIN) return no('their_squad_min');
+      if (B.bal(G, club.id) < fee) return no('no_funds');
+      if (p.listed > 0 && fee < p.listed) return no('below_asking');
+      if (G.offers.some((o) => o.pid === pid && o.club === club.id)) return no('already_offered');
+      G.offers.push({ id: G.nextOffer++, coach: theirs.id, club: club.id, pid, fee, ttl: 3, from: coach.id });
+      Game.news(G, 'n_offer', { name: p.n, club: club.name, fee }, theirs.id);
+      return ok({ offered: fee, to: theirs.id });
+    }
     if (p.loan) return no('on_loan');
     if (club.squad.length >= CFG.SQUAD_MAX) return no('squad_full');
     if (seller.squad.length <= CFG.SQUAD_MIN + 1) return no('seller_min');

@@ -118,5 +118,36 @@ t('my club is mine, and a spectator is shown nobody else\'s', () => {
   truthy(S.clubIds.length === 18, 'but sees the whole league;');
 });
 
+t('two owners can trade with each other, which is what a league of people is for', () => {
+  const two = { ...W, league: { ...W.league, seeds: [] }, clubs: W.clubs.map((c) => (c.num === 2 ? { ...c, owner: '0x' + 'cd'.repeat(32) } : c)) };
+  const before = SF.Replay.run(two, []);
+  const paid = 200000;
+
+  /* A bid for another person's player is an offer, not a purchase: nothing moves until they
+   * answer. This used to be refused outright - the game was written for one player, so a human
+   * club was always your own - and no two owners could trade at all. */
+  const offered = SF.Replay.run(two, [dec(1, K.BID, 201, paid)]);
+  eq(offered.refused.length, 0, 'the bid was accepted as an offer;');
+  eq(offered.offers.length, 1, 'and is waiting to be answered;');
+  eq(offered.players[201].club, 'c2', 'with the man still where he was;');
+  eq(SF.Bank.bal(offered, 'c1'), SF.Bank.bal(before, 'c1'), 'and nobody out of pocket;');
+
+  const done = SF.Replay.run(two, [dec(1, K.BID, 201, paid), dec(2, K.ANSWER, 1, 1)]);
+  eq(done.refused.length, 0, 'answering it went through;');
+  eq(done.players[201].club, 'c1', 'he plays for the buyer now;');
+  eq(done.clubs.c1.squad.length, before.clubs.c1.squad.length + 1, 'one more there;');
+  eq(done.clubs.c2.squad.length, before.clubs.c2.squad.length - 1, 'one fewer here;');
+  eq(SF.Bank.bal(done, 'c1'), SF.Bank.bal(before, 'c1') - paid, 'the buyer paid;');
+  eq(SF.Bank.bal(done, 'c2'), SF.Bank.bal(before, 'c2') + paid, 'the seller was paid;');
+});
+
+t('a foreign club is still not a shop', () => {
+  const G = SF.Replay.run(W, []);
+  const foreignMan = G.players[G.clubs[G.euIds[0]].squad[0]];
+  const r = SF.Actions.buy(G, G.coaches[0], foreignMan.id, 500000);
+  eq(r.ok, false, 'refused;');
+  eq(r.err, 'human_club', 'a club abroad does not sell into this league;');
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

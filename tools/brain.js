@@ -45,6 +45,12 @@
       }
       const target = pick(r, theirs.filter(Boolean));
       if (target) add(K.BID, target.id, Math.round(SF.Actions.askPrice(G, coach, target) || 150000), 'bid for somebody else\'s man');
+      /* An offer somebody has made us. This is the half of a transfer that cannot be reached by
+       * pressing buttons on one's own club, and a run that never answers one has not tested a
+       * negotiation at all - only the asking. */
+      for (const o of (G.offers || []).filter((x) => x.coach === (coach && coach.id))) {
+        add(K.ANSWER, o.id, 1, 'accept what somebody offered');
+      }
       const spare = squad.length > 18 ? pick(r, squad) : null;
       if (spare) add(K.SELLNOW, spare.id, 0, 'sell one in a hurry');
       const free = (G.free || [])[Math.floor(r() * Math.max(1, (G.free || []).length))];
@@ -70,6 +76,23 @@
       if (offers.length) add(K.SPONSOR, offers[0].id, 0, 'sign a sponsor');
       add(K.BOND, 100000, 2, 'issue a bond');
       add(K.STAKE, 500, 0, 'sell five per cent of the club');
+      const bond = ((club.boss && club.boss.bonds) || [])[0];
+      if (bond) add(K.BONDREPAY, bond.id, 0, 'pay a bond back');
+      const sold = ((club.boss && club.boss.invest) || [])[0];
+      if (sold) add(K.BUYBACK, sold.id, 0, 'buy a stake back');
+      if (club.boss && club.boss.spon) add(K.SPONBREAK, 0, 0, 'break the sponsorship');
+      const partner = (club.boss && club.boss.partnerOffers) || [];
+      if (partner.length) add(K.PARTNER, partner[0].id, 0, 'take a partner');
+
+      // --- the things only a season reaches ---
+      const veteran = squad.filter((p) => p.age > 32)[0];
+      if (veteran && squad.length > 17) add(K.RELEASE, veteran.id, 0, 'pay off an old one');
+      const young = squad.filter((p) => p.age < 22)[0];
+      if (young) add(K.LOANOUT, young.id, 1, 'send a youngster out on loan');
+      if (theirs.length && squad.length < 24) add(K.LOANIN, theirs[0].id, 1, 'take one on loan');
+      if (coach && coach.vac === 0) add(K.VACATION, 1, 0, 'take a week off');
+      const dear = squad.slice().sort((x, y) => y.wage - x.wage)[0];
+      if (dear) add(K.RENEGOTIATE, dear.id, 0, 'renegotiate the biggest wage');
 
       return out;
     },
