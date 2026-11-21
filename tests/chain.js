@@ -89,6 +89,43 @@ const eq = (a, b, m) => { if (a !== b) throw new Error((m || '') + ` expected ${
     eq(C.phase(l, 1, C.kickoff(l, 1)), 'played');
   });
 
+  t('the league knows who is in which series', () => {
+    const roster = (w.league.rosters || [])[0] || [];
+    eq(roster.length, w.clubs.length, 'every club is on the list;');
+    for (const c of w.clubs) truthy(roster.includes(c.num), c.name + ' is on it;');
+  });
+
+  t('a season of twelve is twenty-two matchdays, six matches each', () => {
+    const roster = w.league.rosters[0];
+    eq(C.weeksFor(roster.length), (roster.length - 1) * 2, 'everyone meets everyone twice;');
+    for (let week = 1; week <= C.weeksFor(roster.length); week++) {
+      const ps = C.pairs(roster, week);
+      eq(ps.length, roster.length / 2, 'matchday ' + week + ';');
+      const seen = new Set();
+      for (const [h, a] of ps) {
+        truthy(h !== a, 'nobody plays himself;');
+        truthy(!seen.has(h) && !seen.has(a), 'nor twice in a day, matchday ' + week + ';');
+        seen.add(h); seen.add(a);
+      }
+      eq(seen.size, roster.length, 'and nobody sits one out;');
+    }
+  });
+
+  t('every pairing comes up once at each ground across the season', () => {
+    const roster = w.league.rosters[0];
+    const count = new Map();
+    for (let week = 1; week <= C.weeksFor(roster.length); week++) {
+      for (const [h, a] of C.pairs(roster, week)) count.set(h + '-' + a, (count.get(h + '-' + a) || 0) + 1);
+    }
+    eq(count.size, roster.length * (roster.length - 1), 'every ordered pair;');
+    for (const [pair, n] of count) eq(n, 1, pair + ';');
+  });
+
+  const fx = C.fixtures(w, 0);
+  console.log('\n  matchday ' + w.league.week + ', as the fixtures give it:');
+  for (const m of fx) console.log(`    ${m.home.name.padStart(22)}  v  ${m.away.name}`);
+  console.log('  (played by hand: ' + (w.league.manual ? 'yes' : 'no, by the clock') + ')');
+
   const table = C.table(w.clubs);
   console.log('\n  the league, as the chain holds it:');
   for (const [i, c] of table.entries()) {
