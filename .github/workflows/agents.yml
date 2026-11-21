@@ -50,6 +50,8 @@ jobs:
         run: |
           set -euo pipefail
           export PATH="$HOME/.sui/bin:$PATH"
+          # the step that follows runs node, not bash, and wants the tool on its own PATH
+          echo "$HOME/.sui/bin" >> "$GITHUB_PATH"
           sui client --yes new-env --alias tn --rpc https://fullnode.testnet.sui.io:443 || true
           sui client switch --env tn
           # The faucet hands over one SUI at a time, and publishing a package this size costs most

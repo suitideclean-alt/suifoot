@@ -96,6 +96,15 @@ async function readLeague() {
     console.log(`agent ${i + 1} (${['owner', 'coach', 'both'][i % 3]}) is ${addr}`);
   }
 
+  if (!report.agents.length) {
+    // nobody to play, so there is nothing to learn: say so rather than limping on and blaming
+    // the game for a run that never started
+    fs.writeFileSync('agents-report.json', JSON.stringify(report, null, 1));
+    writeMarkdown(report);
+    console.log('\nno wallets could be made, so nobody played. The findings above are the reason.');
+    process.exit(1);
+  }
+
   for (const a of report.agents) {
     sui(['client', 'switch', '--address', a.addr]);
     /* Two goes each: one SUI covers a few dozen decisions, but taking a club and then signing a
