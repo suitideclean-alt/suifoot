@@ -42,6 +42,7 @@ const ETooEarly: vector<u8> = b"this matchday has not kicked off yet";
 const ENotYet: vector<u8> = b"it is not time to show a lineup yet";
 #[error]
 const EAlreadyPlayed: vector<u8> = b"one of these clubs has already played this matchday";
+const EAlreadyDrawn: vector<u8> = b"this matchday has already been drawn";
 #[error]
 const ESameClub: vector<u8> = b"a club cannot play itself";
 #[error]
@@ -82,6 +83,17 @@ public struct League has key {
     /// Played by hand rather than by the clock: a matchday happens when somebody says so, not at
     /// noon. This is for getting the thing working. Turned off, the hours in `kickoffs` rule.
     manual: bool,
+    /// One number per matchday, drawn here and never anywhere else.
+    ///
+    /// This is what the league really is. The clubs as they were made, the lineups people sealed,
+    /// and one draw a matchday are between them the whole season: everything after them - every
+    /// result, the table, the money, who is tired and who has scored - follows from them and from
+    /// nothing else, so anybody holding these numbers works out the same season as everybody else
+    /// and a season nobody can disagree about does not have to be written down.
+    ///
+    /// The draw happens after the lineups are sealed and cannot happen twice for one matchday, so
+    /// there is nothing to be gained by waiting to see it.
+    seeds: vector<u32>,
 }
 
 /// what the browser listens for: everything it needs to replay the ninety minutes it did not watch
@@ -114,6 +126,7 @@ public fun new(t0_ms: u64, kickoffs: vector<u64>, weeks_in_season: u16, ctx: &mu
         free_in: vector::empty(),
         rosters: vector::empty(),
         manual: true,
+        seeds: vector[],
     }
 }
 
@@ -423,6 +436,28 @@ public fun train(l: &League, c: &mut Club, ctx: &TxContext) {
 ///
 /// While a league is played by hand anybody may move it on, because that is the whole point of
 /// playing it by hand. Once it runs to the clock, only the league does.
+/// Draw the matchday, and move the week on.
+///
+/// The whole cost of a matchday, and it is one number. What used to happen here - six matches
+/// played inside the contract, a quarter of everything a transaction may spend - produced results
+/// that followed from this number anyway. So the number is drawn and kept, and the match is played
+/// by whoever is looking, from the clubs as the chain holds them and the lineups it was given.
+///
+/// Once drawn, a matchday is drawn: the vector is only ever pushed to, and the week moves with it,
+/// so nobody can draw again in the hope of better dice.
+entry fun draw_week(l: &mut League, r: &Random, clock: &Clock, ctx: &mut TxContext) {
+    assert!(l.manual || ctx.sender() == l.admin, ENotAdmin);
+    let week = l.week;
+    assert!(l.seeds.length() < (week as u64), EAlreadyDrawn);
+    if (!l.manual) assert!(phase_at(l, week, clock::timestamp_ms(clock)) == PLAYED, ETooEarly);
+    let mut gen = random::new_generator(r, ctx);
+    l.seeds.push_back(random::generate_u32(&mut gen));
+    l.week = week + 1;
+}
+
+/// the draws so far, oldest first: matchday one is the first
+public fun seeds(l: &League): &vector<u32> { &l.seeds }
+
 public fun advance(l: &mut League, ctx: &TxContext) {
     assert!(l.manual || ctx.sender() == l.admin, ENotAdmin);
     l.week = l.week + 1;
