@@ -13,5 +13,5 @@ jobs:
       - name: What the live site serves
         run: |
           echo -n "version: "; curl -sS -m 25 https://suifoot.fun/index.html | grep -o 'v=0\.9\.[0-9]*' | head -1
-          echo -n "genesis loaded: "; curl -sS -m 25 https://suifoot.fun/index.html | grep -c "genesis.js"
-          echo -n "replay calls the game: "; curl -sS -m 25 "https://suifoot.fun/src/replay.js?v=0.9.55" | grep -c "SF.Actions"
+          echo -n "board wired: "; curl -sS -m 25 "https://suifoot.fun/src/online.js?v=0.9.56" | grep -c "o_sponbreak"
+          echo -n "decision kinds: "; curl -sS -m 25 "https://suifoot.fun/src/replay.js?v=0.9.56" | grep -c "BONDREPAY"
