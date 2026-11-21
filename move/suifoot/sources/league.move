@@ -244,9 +244,6 @@ public fun free_in_series(l: &League, series: u16): u64 {
 }
 public fun week(l: &League): u16 { l.week }
 
-/// the phases by name, for anybody deciding whether a thing is still in time
-public fun drawn(): u8 { DRAWN }
-public fun played(): u8 { PLAYED }
 
 /// Is this club one of ours, in the series it says it is in? A club is a shared object and anybody
 /// may hand one over, so a decision naming a club has to be shown to be a decision about this
@@ -277,6 +274,8 @@ public fun phase_at(l: &League, week: u16, now: u64): u8 {
 }
 public fun open(): u8 { OPEN }
 public fun locked(): u8 { LOCKED }
+public fun drawn(): u8 { DRAWN }
+public fun played(): u8 { PLAYED }
 
 // ---------- what a manager does ----------
 
