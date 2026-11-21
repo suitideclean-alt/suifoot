@@ -5,11 +5,27 @@ jobs:
   look:
     runs-on: ubuntu-latest
     steps:
-      - name: What the live site now serves
+      - name: Who owns what, and where the league stands
         run: |
           set +e
-          echo -n "version: "; curl -sS -m 25 https://suifoot.fun/index.html | grep -o 'v=0\.9\.[0-9]*' | head -1
-          echo -n "hard-coded version 1 left in tx.js: "
-          curl -sS -m 25 "https://suifoot.fun/src/tx.js?v=0.9.45" | grep -c "initialSharedVersion: '1'"
-          echo -n "asks the chain instead: "
-          curl -sS -m 25 "https://suifoot.fun/src/tx.js?v=0.9.45" | grep -c "sys.random"
+          L=0xc2dccce30329974a0503acae3ed9e6c32f70099034a0366b9fb3c39baf183119
+          Q='{"query":"{ object(address: \"'$L'\") { asMoveObject { contents { json } } } }"}'
+          curl -sS -m 25 -X POST https://graphql.testnet.sui.io/graphql -H 'content-type: application/json' --data "$Q" > league.json
+          python3 - <<'PY'
+import json,subprocess
+j=json.load(open('league.json'))['data']['object']['asMoveObject']['contents']['json']
+print("season",j['season'],"week",j['week'],"free at foot:",len(j['free_at_foot']))
+ids=j['rosters'][0] if j.get('rosters') else []
+print("roster size:",len(ids))
+PY
+          echo "--- the twelve clubs:"
+          IDS=$(python3 -c "
+import json
+j=json.load(open('league.json'))['data']['object']['asMoveObject']['contents']['json']
+print(' '.join(j['free_at_foot']))")
+          # ask every club in the series, free or not, by walking the league's own list
+          Q2='{"query":"{ '
+          i=0
+          for id in $IDS; do Q2="$Q2 c$i: object(address: \\\"$id\\\") { asMoveObject { contents { json } } }"; i=$((i+1)); done
+          Q2="$Q2 }\"}"
+          echo "(free clubs still unclaimed: $i)"
