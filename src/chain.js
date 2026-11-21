@@ -189,6 +189,7 @@
         lockBefore: Number(f.lock_before), drawBefore: Number(f.draw_before),
         weeks: Number(f.weeks_in_season),
         bottom: Number(f.bottom_level),
+        admin: f.admin || null,
         free: (f.free_at_foot || []).length,
         size: Number(f.series_size),
         manual: !!f.manual,
