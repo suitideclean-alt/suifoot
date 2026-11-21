@@ -56,7 +56,7 @@ jobs:
           # The faucet wants its base URL and does its own proof of work from there. It hands over
           # one SUI at a time and publishing a package this size costs most of one, so ask three
           # times and leave it at that rather than trying to read the balance back.
-          for i in 1 2 3; do
+          for i in 1 2 3 4 5; do
             sui client faucet --url https://faucet.testnet.sui.io || true
             sleep 14
           done
@@ -66,7 +66,12 @@ jobs:
         run: |
           set -euo pipefail
           export PATH="$HOME/.sui/bin:$PATH"
-          sui client publish --gas-budget 900000000 --json move/suifoot > publish.json
+          # the package has grown; publishing is the one call that needs real room
+          if ! sui client publish --gas-budget 2500000000 --json move/suifoot > publish.json 2> publish.err; then
+            echo "--- what the node said ---"
+            grep -viE "warning|deprecated|suppressed|^\s*[│└┌=]|^\s*$" publish.err | tail -30
+            exit 1
+          fi
           PKG=$(jq -r '.objectChanges[] | select(.type=="published") | .packageId' publish.json)
           echo "package: $PKG"
           echo "PKG=$PKG" >> "$GITHUB_ENV"
