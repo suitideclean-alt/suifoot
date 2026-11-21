@@ -79,7 +79,7 @@ fun a_club_that_finished_in_the_top_half_is_not_for_sale() {
     let mut ctx = tx_context::dummy();
     let mut l = a_league(&mut ctx);
     let mut sixth = club_that_finished(1, 2, 6, &mut ctx); // a series of twelve: the sixth is the last of the top half
-    market::buy(&mut l, &mut ninth, &mut ctx);
+    market::buy(&mut l, &mut sixth, &mut ctx);
     abort 0
 }
 
@@ -89,7 +89,7 @@ fun a_club_that_finished_in_the_bottom_half_is() {
     let me = ctx.sender();
     let mut l = a_league(&mut ctx);
     let mut seventh = club_that_finished(1, 2, 7, &mut ctx); // and the seventh the first of the bottom
-    market::buy(&mut l, &mut tenth, &mut ctx);
+    market::buy(&mut l, &mut seventh, &mut ctx);
     assert!(club::runs_it(&seventh, me), 0);
 
     let mut last = club_that_finished(2, 1, 12, &mut ctx);
