@@ -181,10 +181,10 @@
     async tickets(addr) {
       const d = await Chain.query(`{ a: address(address: "${addr}") {
         objects(filter: { type: "${Chain.net.pkg}::market::JoinTicket" }) {
-          nodes { address asMoveObject { contents { json } } } } } }`);
+          nodes { address contents { json } } } } }`);
       const nodes = (d && d.a && d.a.objects && d.a.objects.nodes) || [];
       return nodes.map((n) => {
-        const f = Chain.fieldsOf(n);
+        const f = n && n.contents ? n.contents.json : null;
         return { id: n.address, club: f && f.club ? f.club : null };
       }).filter((x) => x.club);
     },
