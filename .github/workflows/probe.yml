@@ -9,8 +9,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - run: node tools/order.js
-        env:
-          PKG: "0x6586d792da10477477bf4dafd3aa753a580c2ff269d2c0cafd267c77650aa789"
-          LEAGUE: "0xf20a0c5138a059f7b553af5eac245a43d4b8a10fd31e3b6598a09aff82ba8bd2"
-          CLUBS: "0xcbddcf18883d8618586b2314a43897a4705e64e66d4dbd067877e1878cd4c7c6 0x9a3fa12e014b56a1ee0b0c6dd0aa56db5e9ab12d281cd6701c6190bb1119ffe3 0x514b39410c458f4635c4f9410677ef0a6fcbd34857376155cea1c01ee5911f57 0x3433d55fe9016e41d3b48e64ab00f78265fa2bbd10135984d43ed0db9e3d5c9d 0xc3a2d20289f3f7080e21743c1af98e468ca33209147d35211adb053018f2baf9 0x7f0df83914eceb18a9b7867408734b053d6a9dae95f0482201a7f55c3c656ac5 0x2bf543609128b0186987974c1d24a97daed9c71741474f55505e492aa02f9f6f 0x2db8354b75b892b35ce341ca52b3f5864342ea1ea6a9dcf85859c8c9f0c3578f 0xe68a57f49e61b7c05aa82171c3852e18952c6fa1391ac50282ab8e9a4b384358 0x2bb7ad23443d820c8b2e0dd404683a0de6ff082adaba9b65bd297d23f12d248b 0xa8930487eeaaf2ffbac33213df4f0d3165f232f3b21fd58d2ff01c531f2c0774 0x0a48eb07f489d8b3b98da161a7e64c88e86f7c1a0cb29cc0efd5b46d27e23827"
+      - run: node tools/who.js
+      - name: What the live site serves
+        run: |
+          echo -n "version: "; curl -sS -m 25 https://suifoot.fun/index.html | grep -o 'v=0\.9\.[0-9]*' | head -1
+          echo -n "package it points at: "; curl -sS -m 25 "https://suifoot.fun/src/chain.js?v=0.9.47" | grep -o "pkg: '0x[0-9a-f]*'" | head -1
+          echo -n "sends play_week: "; curl -sS -m 25 "https://suifoot.fun/src/tx.js?v=0.9.47" | grep -c "play_week"
