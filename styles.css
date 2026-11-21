@@ -362,3 +362,7 @@ tr.me td{background:rgba(77,162,255,.12)}
 .tbl td.act{text-align:right}
 
 .seg button.on.off{background:var(--bg3);border-color:var(--line);color:var(--mut)}
+
+/* The league on the screen is the chain's, not this browser's: said once, in the header, where it
+   stays visible whichever page you are on. Loud enough to be noticed, quiet enough to live with. */
+.pill.on-chain { background: #0b4f3a; color: #7fe3b8; border-color: #156a4e; }

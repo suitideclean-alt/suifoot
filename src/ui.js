@@ -179,6 +179,7 @@
     return `<header class="top"><div class="in"><div class="logo">${SF.Fx.logo(34)}<span>Sui<b>Foot</b></span></div>
       <span class="pill">${t('season')} ${G.season}${G.phase === 'seasonEnd' ? '' : ' · ' + t('week') + ' ' + G.week + '/' + G.sched.length}</span>
       ${club ? `<span class="pill">${badge(club, 16)} ${esc(club.name)}</span><span class="pill ${bal < 0 ? 'neg' : ''}">${t('balance')} <b>${money(bal)}</b> USD</span><span class="pill">SFOOT <b>${money(SF.Owner.sfBal(G, c.id))}</b></span>${c.vac > 0 ? `<span class="pill vac">🏖 ${t('vac_pill', { n: c.vac })}</span>` : ''}` : ''}
+      ${SF.Online && SF.Online.playing ? `<span class="pill on-chain">${t('on_chain_pill')}</span><button data-act="on:back" class="sndbtn" title="${t('on_back')}">↩</button>` : ''}
       <div class="sp"></div>${walletPill()}<button class="sndbtn" data-act="snd" title="${t('sound_label')}">${SF.Fx.soundOn() ? '🔊' : '🔇'}</button>
       ${G.coaches.length > 1 ? `<div class="coachsw">${G.coaches.map((x, i) => `<button class="${i === UI.ci ? 'on' : ''}" data-act="coach:${i}">${esc(x.name)}</button>`).join('')}</div>` : ''}
     </div><nav class="tabs">${tabs.map((k) => `<button class="${UI.tab === k ? 'on' : ''}" data-act="tab:${k}">${t('tab_' + k)}${k === 'owner' && nreq ? ` <b class="badge">${nreq}</b>` : ''}</button>`).join('')}</nav></header>

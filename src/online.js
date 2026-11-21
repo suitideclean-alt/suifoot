@@ -27,6 +27,9 @@
       const out = SF.Replay.run(genesis, null);
       O.world = { league: genesis.league, clubs: out.clubs };
       O.results = out.results;
+      /* And the same thing in the shape every other screen reads, ready for whoever wants to stop
+       * looking at the league through a window of its own and just play it. */
+      O.game = SF.Bridge.toGame(genesis, SF.Wallet && SF.Wallet.addr);
       /* And what the connected wallet has to pay with. Asked here rather than at signing time, so
        * the screen can say "you have nothing to spend" before anybody is shown a dialog. A failure
        * to weigh the address is not a failure to read the league, so it only clears the figure. */
@@ -133,6 +136,13 @@
     }
     act += '</div>';
 
+    if (O.state === 'ready' && O.game) {
+      const mine = O.game.clubIds.filter((id) => O.game.clubs[id].mine).length;
+      act += `<div class="row" style="gap:8px;flex-wrap:wrap;margin-top:12px">
+        <button data-act="on:play">${esc(mine ? t('on_play_mine') : t('on_watch'))}</button>
+      </div>
+      <p class="muted small">${esc(mine ? t('on_play_mine_d') : t('on_watch_d'))}</p>`;
+    }
     if (O.state === 'idle') return head + act;
     if (O.state === 'loading') return head + act + `<div class="card"><p>${esc(t('on_asking'))}</p></div>`;
     if (O.state === 'failed') {
@@ -208,9 +218,38 @@
     return head + act + state + round + standings + squad;
   };
 
+  /* Hand the whole app over to the chain's league, and take it back again.
+   *
+   * What is kept aside is this browser's own game, untouched, because the two are not versions of
+   * each other: one is a save on this machine and the other is a league a dozen people are in.
+   * Coming back out is therefore not a cancel, it is a change of subject, and nothing is lost by
+   * it either way - the chain's league is read again from the chain next time, not from here.
+   */
+  O.enter = function (redraw) {
+    if (!O.game) return false;
+    const UI = SF.UI;
+    if (!O.saved) O.saved = UI.G;
+    UI.G = O.game; UI.ci = 0; UI.tab = 'home'; UI.live = null;
+    SF.setG(UI.G);
+    O.playing = true;
+    redraw();
+    return true;
+  };
+
+  O.leave = function (redraw) {
+    const UI = SF.UI;
+    UI.G = O.saved || null; O.saved = null; UI.ci = 0; UI.tab = 'online'; UI.live = null;
+    if (UI.G) SF.setG(UI.G);
+    O.playing = false;
+    redraw();
+    return true;
+  };
+
   /** the clicks this screen answers */
   O.act = function (action, redraw) {
     if (action === 'on:load') { O.load(redraw); return true; }
+    if (action === 'on:play') return O.enter(redraw);
+    if (action === 'on:back') return O.leave(redraw);
     if (action.startsWith('on:club:')) { O.club = action.slice(8); redraw(); return true; }
     if (action === 'on:join') { O.run('join', () => SF.Tx.requestJoin(), redraw); return true; }
     if (action.startsWith('on:claim:')) {

@@ -83,9 +83,18 @@ t('my club is mine, and nobody else is', () => {
 
 t('somebody who owns nothing is a spectator, not an impostor', () => {
   const S = SF.Bridge.toGame(world, null);
-  eq(S.coaches.length, 0, 'no coach;');
-  eq(S.me, null, 'and no club presented as his;');
-  eq(S.clubIds.length, 18, 'but the league is all there to look at;');
+  eq(S.me, null, 'no club of his own;');
+  eq(S.coaches.length, 1, 'but a seat, because every screen asks whose view it draws;');
+  eq(S.coaches[0].club, null, 'with no club in it;');
+  eq(S.clubIds.length, 18, 'and the league all there to look at;');
+});
+
+t('the season has a shape the screens can read', () => {
+  eq(G.sched.length, 34, 'thirty-four matchdays for eighteen clubs;');
+  eq(G.sched[0].fx.length, 9, 'nine matches on each;');
+  const first = G.sched[0].fx[0];
+  truthy(G.clubs[first[0]] && G.clubs[first[1]], 'played by clubs the game knows;');
+  truthy(G.cup, 'and a cup to be drawn;');
 });
 
 t('the bank knows what each club has', () => {

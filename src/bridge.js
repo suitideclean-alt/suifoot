@@ -80,21 +80,36 @@
       G.table = {}; G.res = [];
       G.results = out.results;
 
+      /* The season's shape: a matchday for every round the rotation gives. The screens read this
+       * to know how long a season is and what comes next, so it has to be here even though the
+       * fixtures themselves are worked out rather than stored. */
+      const roster = (lg.rosters || [])[0] || [];
+      const rounds = SF.Chain.weeksFor(roster.length);
+      G.sched = [];
+      for (let m = 1; m <= rounds; m++) {
+        const fx = SF.Chain.pairs(roster, m).map(([h, a]) => [`c${h}`, `c${a}`]);
+        G.sched.push({ t: 'L', md: m, fx });
+      }
+      G.cup = { alive: G.clubIds.slice(), round: 0, drawn: -1, matches: [], byes: [], winner: null, finalist: null, hist: [] };
+
       /* Whoever is looking is a coach of his own clubs, so every screen that asks what *my* club is
        * doing has an answer. A person who owns nothing yet is a spectator, and the screens say so
        * rather than showing somebody else's squad as though it were his. */
       const mine = G.clubIds.filter((id) => G.clubs[id].mine);
-      mine.forEach((id, i) => {
-        const club = G.clubs[id];
-        club.human = i + 1;
-        club.owner = i + 1;
-        G.coaches.push({
-          id: i + 1, name: SF.Wallet && me ? SF.Wallet.short(me) : 'me',
-          club: id, role: 'both', rep: 50, xp: 0,
-          sk: { train: 0, tact: 0, neg: 0, youth: 0 },
-          contract: null, hist: [],
-        });
+      const named = me && SF.Wallet && SF.Wallet.short ? SF.Wallet.short(me) : 'me';
+      const coach = (id, i) => ({
+        id: i + 1, name: named, club: id, role: 'both', rep: 50, xp: 0, vac: 0,
+        sk: { train: 0, tact: 0, neg: 0, youth: 0 }, contract: null, hist: [],
       });
+      mine.forEach((id, i) => {
+        G.clubs[id].human = i + 1;
+        G.clubs[id].owner = i + 1;
+        G.coaches.push(coach(id, i));
+      });
+      /* Somebody who owns nothing here still has to be somebody, because every screen asks whose
+       * view it is drawing. He is given a seat and no club: the pages that show "my club" show
+       * none, rather than showing him somebody else's as though it were his. */
+      if (!mine.length) G.coaches.push(coach(null, 0));
       G.me = mine[0] || null;
       return G;
     },

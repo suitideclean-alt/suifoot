@@ -562,6 +562,20 @@
       `O clube já saiu da lista de livres, mas só é teu quando entregares o bilhete. Falta uma assinatura.`,
       `Der Verein ist von der freien Liste, gehört dir aber erst, wenn du das Ticket einlöst. Eine Signatur fehlt.`],
     on_claim: [`Take the club`, `Prendre le club`, `Ficar com o clube`, `Verein übernehmen`],
+    on_play_mine: [`Play this club`, `Jouer ce club`, `Jogar este clube`, `Diesen Verein spielen`],
+    on_play_mine_d: [
+      `Every page - squad, league, finances - on the chain's league instead of this browser's save.`,
+      `Toutes les pages - effectif, championnat, finances - sur la ligue de la chaîne plutôt que sur la sauvegarde de ce navigateur.`,
+      `Todas as páginas — elenco, campeonato, finanças — sobre a liga da cadeia, em vez do jogo guardado neste navegador.`,
+      `Jede Seite - Kader, Liga, Finanzen - auf der Liga der Kette statt auf dem Spielstand dieses Browsers.`],
+    on_watch: [`Look around the league`, `Parcourir le championnat`, `Ver a liga por dentro`, `Die Liga ansehen`],
+    on_watch_d: [
+      `You own no club here yet, so the pages are there to look at rather than to manage.`,
+      `Vous ne possédez pas encore de club ici : les pages sont à consulter, pas à gérer.`,
+      `Ainda não tens clube aqui, por isso as páginas são para ver, não para gerir.`,
+      `Du besitzt hier noch keinen Verein, also sind die Seiten zum Ansehen, nicht zum Verwalten.`],
+    on_back: [`Back to my own game`, `Retour à ma partie`, `Voltar ao meu jogo`, `Zurück zu meinem Spiel`],
+    on_chain_pill: [`on the chain`, `sur la chaîne`, `na cadeia`, `auf der Kette`],
     on_gas_none: [
       `This address holds no testnet SUI, so the wallet has nothing to pay the fee with. Ask the faucet for some, then read the chain again.`,
       `Cette adresse ne détient aucun SUI de testnet : le portefeuille n'a rien pour payer les frais. Demandez-en au robinet, puis relisez la chaîne.`,
