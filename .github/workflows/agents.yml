@@ -52,8 +52,13 @@ jobs:
           export PATH="$HOME/.sui/bin:$PATH"
           sui client --yes new-env --alias tn --rpc https://fullnode.testnet.sui.io:443 || true
           sui client switch --env tn
-          sui client faucet || true
-          sleep 8
+          # The faucet hands over one SUI at a time, and publishing a package this size costs most
+          # of one before a single club exists. Ask several times rather than reading the balance
+          # back, which the node is often too far behind to answer honestly.
+          for i in 1 2 3 4 5 6; do
+            sui client faucet --url https://faucet.testnet.sui.io || true
+            sleep 14
+          done
 
           sui client publish ./move/suifoot --gas-budget 1000000000 --json > publish.json 2>/dev/null
           PKG=$(jq -r '.objectChanges[] | select(.type == "published") | .packageId' publish.json)

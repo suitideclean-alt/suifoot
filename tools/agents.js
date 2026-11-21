@@ -83,8 +83,13 @@ async function readLeague() {
 
   for (const a of report.agents) {
     sui(['client', 'switch', '--address', a.addr], true);
-    const f = sui(['client', 'faucet'], true);
-    if (f.bad) find('the faucet refused an agent', `${a.addr}: ${String(f.out).slice(0, 160)}`);
+    /* Two goes each: one SUI covers a few dozen decisions, but taking a club and then signing a
+     * matchday's worth of them on top is more than one comfortably carries. */
+    for (let g = 0; g < 2; g++) {
+      const f = sui(['client', 'faucet', '--url', 'https://faucet.testnet.sui.io'], true);
+      if (f.bad && g === 1) find('the faucet refused an agent', `${a.addr}: ${String(f.out).slice(0, 160)}`);
+      await settle(12000);
+    }
   }
   await settle(9000);
 
