@@ -161,6 +161,53 @@
       return Tx.send(tx);
     },
 
+    /* Move the league on to the next matchday.
+     *
+     * While it is played by hand anybody may, because that is what playing by hand means. Once it
+     * runs to the clock this is the league's to call and nobody else's. */
+    async advance() {
+      const { Transaction } = globalThis.SuiSDK;
+      const net = SF.Chain.net;
+      const [league] = await SF.Chain.sharedRefs([net.league]);
+
+      const tx = new Transaction();
+      tx.moveCall({ target: `${net.pkg}::league::advance`, arguments: [tx.sharedObjectRef(league)] });
+      return Tx.send(tx);
+    },
+
+    /* A whole matchday in one transaction.
+     *
+     * Six matches, one after another, and then the league moves on. They go together because they
+     * belong together: a matchday half played is a table that lies, and anybody looking at it in
+     * between would be looking at something that was never true. */
+    async playMatchday(fixtures) {
+      const { Transaction } = globalThis.SuiSDK;
+      const net = SF.Chain.net;
+
+      const ids = [net.league];
+      for (const m of fixtures) ids.push(m.home.id, m.away.id);
+      const refs = await SF.Chain.sharedRefs(ids);
+      const league = refs[0];
+      const random = { objectId: RANDOM, initialSharedVersion: '1', mutable: false };
+      const clock = { objectId: CLOCK, initialSharedVersion: '1', mutable: false };
+
+      const tx = new Transaction();
+      fixtures.forEach((m, i) => {
+        tx.moveCall({
+          target: `${net.pkg}::league::play_fixture`,
+          arguments: [
+            tx.sharedObjectRef({ ...league, mutable: false }),
+            tx.sharedObjectRef(refs[1 + i * 2]),
+            tx.sharedObjectRef(refs[2 + i * 2]),
+            tx.sharedObjectRef(random),
+            tx.sharedObjectRef(clock),
+          ],
+        });
+      });
+      tx.moveCall({ target: `${net.pkg}::league::advance`, arguments: [tx.sharedObjectRef(league)] });
+      return Tx.send(tx);
+    },
+
     /** Play a fixture whose hour has come. Anyone may, which is why a season never stalls. */
     async playFixture(homeId, awayId) {
       const { Transaction } = globalThis.SuiSDK;

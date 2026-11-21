@@ -26,21 +26,21 @@
   const TESTNET = {
     graphql: 'https://graphql.testnet.sui.io/graphql',
     explorer: 'https://suiscan.xyz/testnet/object/',
-    pkg: '0x4014e030e4f042930fb92f95d33e0563fe7f32f035eb8892297dec7eb6f57198',
-    league: '0x46e5e8cc7aaf1b3ea55a6608a334bcb13c3e929a715736b6e3ef049f66dc52ea',
+    pkg: '0x6d1a4ad96866233ea6a1eb024b2feb966a1cbb1229c9870191cb1abe97a35881',
+    league: '0xc2dccce30329974a0503acae3ed9e6c32f70099034a0366b9fb3c39baf183119',
     clubs: [
-      '0x3966f8b3509a01fa1776fbd5980e79d525e724d26f8c3adbe5185c3511a5d729',
-      '0x349783f1d36806a39ae19d1c7c26108511244a98b517e9b615de56d3a56e24cd',
-      '0x4c03e4ed3f35b62596c139c957da797b0f76c1d99e7782fcda378e6e30ae7778',
-      '0xe637869d0bbc9231b2687ee1ded2552c8c657012774ba96ed4b95c5c8a2efcb3',
-      '0x5de9cc36f5df55b670e20f15bee328e37d761f210eb7e94e1521b5d835a7bb41',
-      '0x46610b693a6aa240949c706685c41df41ad428a113cacb1126c10788b8b42e88',
-      '0x0ec8b70f9e8dc02631675fb10a71c770271c0fd1601d1ac07bdbbf2cbcaed7f6',
-      '0x54058b8296983a492fb7e6e994c27631770d6ea3bf96bda7e15de20bc1ae3671',
-      '0xc3e1849346277874614124591563e0a5df5ff0b35921113168af3f96ab82ac6a',
-      '0xd6f738be2ed6a1deec8407eb628792c5417d0e0d4592258d2e2c038f2b700a5d',
-      '0x3d7cc2d9cdad0a9d0f03041407c7c4fa7cae81ef4c0a8ca92855d8d24aa8de08',
-      '0x77e6f901e9e2dffb54befb2d362a62bc6b8abbe48f0a01713ae0380dba179eee',
+      '0xa8e6dcef3f2510312a36a256776b985e9eda6a37887bd0717e48acf48c2ba84a',
+      '0xda4aa4885216e97350a863c8cfddc810b8349e9750f0db71ad68696d8cd7102c',
+      '0x99a69a98e444485118cac018b934ded00e2c1a6dfdc502707d0bc67318cfac9f',
+      '0xa55cb028f575d3b50c7ee65f61da03da93ebaf4c569852be6d715cf980248c66',
+      '0xf0c64d5287a30945dea0a69634f538344e3f047e7bae8e22e398a6e634b0113a',
+      '0xea86795f8c6cee69326a6b0bf56146956fca336007f4685c169df6f4ec457543',
+      '0xe48cb3db3b5d2b69f34c8ba0496b082357fba3ae7484cfe74edeb240a908e5e5',
+      '0xf4407167c3b1824f8b36f76ff52e96df0bca9e88880826229a46d7745564a53c',
+      '0x0418bb41d13133eb6c81cd8091c389e8f272418abf92764922cb4fb310a32920',
+      '0x03e220503a0504cb421cf693bf5584ab75cc09315fc71615e940755f39ed4bda',
+      '0xd5330d15cada50306a49ea23760fd39945c9c5efb25cab308181d08662798e2d',
+      '0xd4eb2dd9bac9613d657819475f4316515be6dfd2dcae3953dd6de31bd25a174e',
     ],
   };
 
@@ -179,6 +179,9 @@
         weeks: Number(f.weeks_in_season),
         bottom: Number(f.bottom_level),
         free: (f.free_at_foot || []).length,
+        size: Number(f.series_size),
+        manual: !!f.manual,
+        rosters: (f.rosters || []).map((r) => (r || []).map(Number)),
       };
     },
 
@@ -214,6 +217,43 @@
       ]);
       const clubs = cfs.map((f, i) => (f ? Chain.club(f, Chain.net.clubs[i]) : null)).filter(Boolean);
       return { league: Chain.league(lf), clubs };
+    },
+
+    /* Who plays whom, worked out here exactly as fixtures.move works it out: one club stands still
+     * and the rest rotate past it, then the whole thing again with the grounds swapped. Nothing is
+     * fetched, because nothing is stored - the matchday and the roster are the whole answer. */
+    pairs(roster, week) {
+      const n = roster.length;
+      if (n < 2 || n % 2 !== 0) return [];
+      const rounds = n - 1;
+      if (week < 1 || week > rounds * 2) return [];
+      const r = week - 1;
+      const back = r >= rounds;
+      const turn = r % rounds;
+
+      const arranged = [roster[0]];
+      for (let i = 1; i < n; i++) arranged.push(roster[1 + ((i - 1 + turn) % rounds)]);
+
+      const out = [];
+      for (let k = 0; k < n / 2; k++) {
+        const a = arranged[k];
+        const b = arranged[n - 1 - k];
+        const flip = (k === 0 && turn % 2 === 1) !== back;
+        out.push(flip ? [b, a] : [a, b]);
+      }
+      return out;
+    },
+
+    /** how many matchdays a series of that size takes */
+    weeksFor: (n) => (n < 2 ? 0 : (n - 1) * 2),
+
+    /** this matchday's fixtures for a series, as clubs rather than numbers */
+    fixtures(world, series) {
+      const roster = (world.league.rosters || [])[series] || [];
+      const byNum = new Map(world.clubs.map((c) => [c.num, c]));
+      return Chain.pairs(roster, world.league.week)
+        .map(([h, a]) => ({ home: byNum.get(h), away: byNum.get(a) }))
+        .filter((m) => m.home && m.away);
     },
 
     /** the table, sorted the way the contract sorts it */

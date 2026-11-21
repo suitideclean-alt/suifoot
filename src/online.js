@@ -96,6 +96,28 @@
       </div>
       <p class="muted small">${esc(t('on_kickoff'))}: ${when(k)} · ${esc(t('on_lock'))}: ${when(k - lg.lockBefore * 60000)}</p></div>`;
 
+    const fx = SF.Chain.fixtures(O.world, 0);
+    const weeks = SF.Chain.weeksFor((lg.rosters[0] || []).length);
+    const over = weeks > 0 && lg.week > weeks;
+    let round = `<div class="card"><h4>${esc(t('on_round'))} ${lg.week}${weeks ? '/' + weeks : ''}</h4>`;
+    if (over) {
+      round += `<p class="muted">${esc(t('on_season_over'))}</p>`;
+    } else if (!fx.length) {
+      round += `<p class="muted">${esc(t('on_no_fixtures'))}</p>`;
+    } else {
+      round += `<table class="tbl"><tbody>${fx.map((m) => `<tr>
+        <td style="text-align:right">${esc(m.home.name)}</td>
+        <td>${SF.Chain.badge(m.home.num, 18)}</td>
+        <td class="muted">—</td>
+        <td>${SF.Chain.badge(m.away.num, 18)}</td>
+        <td>${esc(m.away.name)}</td></tr>`).join('')}</tbody></table>`;
+      if (addr && !stop) {
+        round += `<button data-act="on:round"${O.busy ? ' disabled' : ''}>${esc(t('on_play_round'))}</button>
+          <p class="muted small">${esc(t('on_play_round_d'))}</p>`;
+      }
+    }
+    round += '</div>';
+
     const table = SF.Chain.table(clubs);
     const rows = table.map((c, i) => `<tr${O.club === c.id ? ' class="on"' : ''}>
       <td>${i + 1}</td>
@@ -125,7 +147,7 @@
       squad = `<div class="card"><p class="muted">${esc(t('on_pick'))}</p></div>`;
     }
 
-    return head + act + state + standings + squad;
+    return head + act + state + round + standings + squad;
   };
 
   /** the clicks this screen answers */
@@ -134,6 +156,11 @@
     if (action.startsWith('on:club:')) { O.club = action.slice(8); redraw(); return true; }
     if (action === 'on:join') { O.run('join', () => SF.Tx.requestJoin(), redraw); return true; }
     if (action === 'on:grow') { O.run('grow', () => SF.Tx.openSeries(), redraw); return true; }
+    if (action === 'on:round') {
+      const fx = SF.Chain.fixtures(O.world, 0);
+      O.run('round', () => SF.Tx.playMatchday(fx), redraw);
+      return true;
+    }
     return false;
   };
 })();
