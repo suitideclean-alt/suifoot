@@ -204,6 +204,8 @@ fun digits(mut n: u64): String {
 
 #[error]
 const ENotAdmin: vector<u8> = b"only the league may add a club to it";
+#[error]
+const EStillRoom: vector<u8> = b"there is still room at the foot of the pyramid";
 
 /// Add a club to the league. The seed is drawn here, so the squad is not something anybody chose -
 /// not the person running the league either.
@@ -226,7 +228,7 @@ entry fun create_club(l: &mut League, num: u32, level: u8, series: u16, r: &Rand
 /// there is never a second calendar, never a second league, and never a club in a different year
 /// from everybody else. Its first season is simply a short one.
 entry fun open_series(l: &mut League, r: &Random, ctx: &mut TxContext) {
-    assert!(league::free_at_foot(l) == 0, league::still_room_error());
+    assert!(league::free_at_foot(l) == 0, EStillRoom);
 
     let mut gen = random::new_generator(r, ctx);
     let level = league::bottom_level(l);

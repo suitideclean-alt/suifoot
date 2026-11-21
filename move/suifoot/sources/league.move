@@ -49,8 +49,6 @@ const ENotAdmin: vector<u8> = b"only the league may do that";
 const EWrongWeek: vector<u8> = b"that is not the matchday being played";
 #[error]
 const ENotSameSeries: vector<u8> = b"those two clubs do not play in the same series";
-#[error]
-const EStillRoom: vector<u8> = b"there is still room at the foot of the pyramid";
 
 public struct League has key {
     id: UID,
@@ -166,7 +164,6 @@ public(package) fun next_foot_series(l: &mut League): u16 {
     l.foot_series = n + 1;
     n
 }
-public fun still_room_error(): vector<u8> { EStillRoom }
 
 public fun free_in_series(l: &League, series: u16): u64 {
     let mut count = 0;
