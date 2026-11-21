@@ -118,6 +118,34 @@ jobs:
           for C in $CLUB_IDS; do echo "CLUB    $C"; done
           echo "::endgroup::" 
 
+      - name: Take a club, and decide something with it
+        run: |
+          set -euo pipefail
+          export PATH="$HOME/.sui/bin:$PATH"
+
+          # the draw, which hands back a ticket naming the club it landed on
+          sui client call --package "$PKG" --module market --function request_join \
+            --args "$LEAGUE" 0x8 --gas-budget 500000000 --json > join.json
+          TICKET=$(jq -r '.objectChanges[] | select(.objectType != null and (.objectType | test("::market::JoinTicket$"))) | .objectId' join.json)
+          CLUB=$(jq -r '.events[]? | .parsedJson | .club // empty' join.json | head -1)
+          echo "ticket $TICKET names club $CLUB"
+          echo "  the draw cost:"; jq -r '.effects.gasUsed | "    computation \(.computationCost)  storage \(.storageCost)  rebate \(.storageRebate)"' join.json
+
+          # and the ticket turned in, which is what makes the club somebody's
+          sui client call --package "$PKG" --module market --function claim \
+            --args "$TICKET" "$LEAGUE" "$CLUB" --gas-budget 500000000 --json > claim.json
+          echo "  taking it cost:"; jq -r '.effects.gasUsed | "    computation \(.computationCost)  storage \(.storageCost)  rebate \(.storageRebate)"' claim.json
+
+          # the number the whole rest of the game turns on: what one decision costs
+          sui client call --package "$PKG" --module decide --function decide \
+            --args "$LEAGUE" "$CLUB" 3 1 0 "[]" 0x6 --gas-budget 500000000 --json > decide.json
+          echo "=============================================="
+          echo "WHAT ONE DECISION COSTS, in MIST (1 SUI = 1,000,000,000):"
+          jq -r '.effects.gasUsed | "  computation \(.computationCost)\n  storage     \(.storageCost)\n  rebate      \(.storageRebate)"' decide.json
+          echo "  and what it wrote down:"
+          jq -r '.events[]? | .parsedJson | "    club \(.club_num)  week \(.week)  kind \(.kind)  a \(.a)"' decide.json
+          echo "=============================================="
+
       - name: Draw a matchday on the chain
         if: ${{ github.event.inputs.play != 'false' }}
         run: |
