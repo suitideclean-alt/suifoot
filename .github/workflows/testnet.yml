@@ -127,7 +127,8 @@ jobs:
           sui client call --package "$PKG" --module market --function request_join \
             --args "$LEAGUE" 0x8 --gas-budget 500000000 --json > join.json
           TICKET=$(jq -r '.objectChanges[] | select(.objectType != null and (.objectType | test("::market::JoinTicket$"))) | .objectId' join.json)
-          CLUB=$(jq -r '.events[]? | .parsedJson | .club // empty' join.json | head -1)
+          # the ticket names the club it landed on; ask the ticket rather than guess at an event
+          CLUB=$(sui client object "$TICKET" --json | jq -r '.content.fields.club')
           echo "ticket $TICKET names club $CLUB"
           echo "  the draw cost:"; jq -r '.effects.gasUsed | "    computation \(.computationCost)  storage \(.storageCost)  rebate \(.storageRebate)"' join.json
 
