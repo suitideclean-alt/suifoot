@@ -505,6 +505,6 @@ public fun play_for_testing(
 public fun destroy_for_testing(l: League) {
     let League { id, season: _, week: _, t0: _, kickoffs: _, days_per_week: _, lock_before: _,
         draw_before: _, weeks_in_season: _, admin: _, bottom_level: _, series_size: _,
-        foot_series: _, free_at_foot: _, free_in: _, rosters: _, manual: _ } = l;
+        foot_series: _, free_at_foot: _, free_in: _, rosters: _, manual: _, seeds: _ } = l;
     id.delete();
 }
