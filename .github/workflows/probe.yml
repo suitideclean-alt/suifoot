@@ -5,11 +5,15 @@ jobs:
   look:
     runs-on: ubuntu-latest
     steps:
-      - name: How does one read an event log here
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Can a client read the decision log at all
+        run: node tools/who.js
+      - name: What the live site serves
         run: |
-          set +e
-          ask () { echo "--- $1"; curl -sS -m 25 -X POST https://graphql.testnet.sui.io/graphql \
-            -H 'content-type: application/json' --data "{\"query\":\"$2\"}" | head -c 600; echo; }
-          ask "by eventType" "{ events(filter: {eventType: \\\"0x2::coin::CurrencyCreated\\\"}, first: 2) { nodes { contents { json } } } }"
-          ask "by type"      "{ events(filter: {type: \\\"0x2::coin::CurrencyCreated\\\"}, first: 2) { nodes { contents { json } } } }"
-          ask "with paging"  "{ events(filter: {eventType: \\\"0x2::coin::CurrencyCreated\\\"}, first: 2) { pageInfo { hasNextPage endCursor } nodes { timestamp transactionDigest contents { json } } } }"
+          echo -n "version: "; curl -sS -m 25 https://suifoot.fun/index.html | grep -o 'v=0\.9\.[0-9]*' | head -1
+          echo -n "buttons routed: "; curl -sS -m 25 "https://suifoot.fun/src/ui.js?v=0.9.52" | grep -c "Online.route"
+          echo -n "log read: "; curl -sS -m 25 "https://suifoot.fun/src/chain.js?v=0.9.52" | grep -c "decide::Decided"
+          echo -n "log written: "; curl -sS -m 25 "https://suifoot.fun/src/tx.js?v=0.9.52" | grep -c "decide::decide"
