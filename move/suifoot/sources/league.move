@@ -271,6 +271,44 @@ public fun reveal(
 entry fun play_fixture(
     l: &League, home: &mut Club, away: &mut Club, r: &Random, clock: &Clock, ctx: &mut TxContext,
 ) {
+    let mut gen = random::new_generator(r, ctx);
+    settle(l, home, away, random::generate_u32(&mut gen), clock);
+}
+
+/// A whole matchday, and the move to the next one, in a single call.
+///
+/// Not six calls in one transaction, which is what it looks like it should be. A transaction that
+/// draws on chain randomness may have nothing after the drawing command but transfers - otherwise
+/// somebody could read the result of the draw and abort the rest, retrying until the dice fell
+/// their way. Six matches and an advance is exactly the shape that rule forbids.
+///
+/// So the loop lives here instead, where it cannot be unpicked: one draw, six matches played from
+/// it, the week moved on, and all of it standing or falling together. The clubs come in the order
+/// the fixtures give them - home, away, home, away - and each pair is checked against the fixture
+/// list, so passing them in some order of one's own aborts rather than playing a different match.
+entry fun play_week(
+    l: &mut League,
+    h0: &mut Club, a0: &mut Club,
+    h1: &mut Club, a1: &mut Club,
+    h2: &mut Club, a2: &mut Club,
+    h3: &mut Club, a3: &mut Club,
+    h4: &mut Club, a4: &mut Club,
+    h5: &mut Club, a5: &mut Club,
+    r: &Random, clock: &Clock, ctx: &mut TxContext,
+) {
+    let mut gen = random::new_generator(r, ctx);
+    settle(l, h0, a0, random::generate_u32(&mut gen), clock);
+    settle(l, h1, a1, random::generate_u32(&mut gen), clock);
+    settle(l, h2, a2, random::generate_u32(&mut gen), clock);
+    settle(l, h3, a3, random::generate_u32(&mut gen), clock);
+    settle(l, h4, a4, random::generate_u32(&mut gen), clock);
+    settle(l, h5, a5, random::generate_u32(&mut gen), clock);
+    advance(l, ctx);
+}
+
+/// One match, on a seed somebody else drew. Everything a fixture has to satisfy is asserted here,
+/// so it is asserted the same whether the match is played alone or as one of a matchday's six.
+fun settle(l: &League, home: &mut Club, away: &mut Club, seed: u32, clock: &Clock) {
     assert!(club::num(home) != club::num(away), ESameClub);
     // A match is between two clubs of the same series. Without this, anybody could put a first
     // division club against a fourth division one and have it counted in both tables.
@@ -288,9 +326,6 @@ entry fun play_fixture(
         );
     };
     assert!(club::last_week(home) < week && club::last_week(away) < week, EAlreadyPlayed);
-
-    let mut gen = random::new_generator(r, ctx);
-    let seed = random::generate_u32(&mut gen);
 
     let (h_xi, h_bench, h_tac) = team_of(home, week);
     let (a_xi, a_bench, a_tac) = team_of(away, week);
