@@ -6,6 +6,23 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
+      - name: GraphQL, with the path this time
+        run: |
+          set +e
+          OBJ=0xb882dd5f3819e8d4aa69b249cb6f17005ccd7a59e86596acd53d230fad69bf98
+          Q='{"query":"{ object(address: \"'$OBJ'\") { address version asMoveObject { contents { type { repr } json } } } }"}'
+          for URL in \
+            https://graphql.testnet.sui.io/graphql \
+            https://sui-testnet-graphql.nodeinfra.com/graphql ; do
+            echo "=================== $URL"
+            curl -sS -m 30 --compressed -D /tmp/h -X POST "$URL" \
+                 -H 'content-type: application/json' \
+                 -H 'origin: https://suitideclean-alt.github.io' --data "$Q" -o /tmp/b
+            echo "status: $(head -1 /tmp/h)"
+            echo "cors:   $(grep -i 'access-control-allow-origin' /tmp/h || echo none)"
+            head -c 1800 /tmp/b; echo; echo
+          done
+
       - name: Who still speaks JSON to a browser
         run: |
           set +e
