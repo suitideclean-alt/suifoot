@@ -82,10 +82,22 @@
       const bids = [];
       const lineups = {};
 
-      /* The log, in the order the chain put it in and grouped by the matchday that was current
-       * when each was made. Anything decided while matchday five was up is done before matchday
-       * five is played, which is the only order that makes a team sheet mean anything. */
-      const log = (decisions || []).slice().sort((x, y) => x.week - y.week || x.at - y.at);
+      /* The log, put into an order every reader agrees on.
+       *
+       * Grouped by the matchday that was current when each was made, so that anything decided
+       * while matchday five was up is done before matchday five is played - the only order in
+       * which a team sheet means anything.
+       *
+       * Within a matchday, by the moment it was made. And where two landed in the same
+       * millisecond, by the decision itself: the club, what it was, and its numbers. That last
+       * part is not fussiness. A node is free to hand the same events back in a different order,
+       * and two people asking it a second apart can be answered differently; if the order of
+       * arrival decided which of two offers for the same player went through, two browsers would
+       * hold two leagues. Sorting on the content leaves nothing for arrival order to decide.
+       */
+      const log = (decisions || []).slice().sort((x, y) =>
+        x.week - y.week || x.at - y.at || x.num - y.num ||
+        x.kind - y.kind || x.a - y.a || x.b - y.b);
       let at = 0;
       const upTo = (w) => {
         while (at < log.length && log[at].week <= w) {
