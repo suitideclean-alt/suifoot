@@ -50,6 +50,8 @@ const ENotAdmin: vector<u8> = b"only the league may do that";
 const EWrongWeek: vector<u8> = b"that is not the matchday being played";
 #[error]
 const ENotSameSeries: vector<u8> = b"those two clubs do not play in the same series";
+#[error]
+const ENotTheFixture: vector<u8> = b"those two were not drawn to play each other this matchday";
 
 public struct League has key {
     id: UID,
