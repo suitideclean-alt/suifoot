@@ -13,5 +13,5 @@ jobs:
       - name: What the live site serves
         run: |
           echo -n "version: "; curl -sS -m 25 https://suifoot.fun/index.html | grep -o 'v=0\.9\.[0-9]*' | head -1
-          echo -n "package it points at: "; curl -sS -m 25 "https://suifoot.fun/src/chain.js?v=0.9.47" | grep -o "pkg: '0x[0-9a-f]*'" | head -1
-          echo -n "sends play_week: "; curl -sS -m 25 "https://suifoot.fun/src/tx.js?v=0.9.47" | grep -c "play_week"
+          echo -n "replay loaded: "; curl -sS -m 25 https://suifoot.fun/index.html | grep -c "replay.js"
+          echo -n "sends draw_week: "; curl -sS -m 25 "https://suifoot.fun/src/tx.js?v=0.9.48" | grep -c "draw_week"
