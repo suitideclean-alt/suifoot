@@ -128,7 +128,9 @@ jobs:
             --args "$LEAGUE" 0x8 --gas-budget 500000000 --json > join.json
           TICKET=$(jq -r '.objectChanges[] | select(.objectType != null and (.objectType | test("::market::JoinTicket$"))) | .objectId' join.json)
           # the ticket names the club it landed on; ask the ticket rather than guess at an event
-          CLUB=$(sui client object "$TICKET" --json | jq -r '.content.fields.club')
+          sui client object "$TICKET" --json > ticket.json
+          CLUB=$(jq -r '[.. | objects | .club? // empty] | map(select(type == "string")) | .[0] // empty' ticket.json)
+          if [ -z "$CLUB" ]; then echo "the ticket, as the chain holds it:"; cat ticket.json; exit 1; fi
           echo "ticket $TICKET names club $CLUB"
           echo "  the draw cost:"; jq -r '.effects.gasUsed | "    computation \(.computationCost)  storage \(.storageCost)  rebate \(.storageRebate)"' join.json
 
