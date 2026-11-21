@@ -22,8 +22,7 @@ use suifoot::club::{Self, Club};
 use suifoot::deed;
 use suifoot::league::{Self, League};
 
-/// how many clubs are in a series
-const PER_SERIES: u8 = 18;
+
 
 #[error]
 const ETaken: vector<u8> = b"somebody already runs this club";
@@ -55,9 +54,22 @@ entry fun request_join(l: &mut League, r: &Random, ctx: &mut TxContext) {
     let n = league::free_at_foot(l);
     assert!(n > 0, ENoneFree);
 
+    // The series with the fewest places left, and then a club drawn at random inside it. Filling one
+    // series before opening the next is what keeps the bill down: a series costs the same whether
+    // twelve people are in it or two, and the draw is what stops anybody asking again for a better
+    // club.
+    let want = league::tightest_series(l);
+    let mut pool = vector[];
+    let mut k = 0;
+    while (k < n) {
+        if (league::free_series_at(l, k) == want) pool.push_back(league::free_at(l, k));
+        k = k + 1;
+    };
+
     let mut gen = random::new_generator(r, ctx);
-    let i = (random::generate_u32(&mut gen) as u64) * n >> 32;
-    let picked = league::free_at(l, if (i < n) i else n - 1);
+    let m = pool.length();
+    let i = (random::generate_u32(&mut gen) as u64) * m >> 32;
+    let picked = pool[if (i < m) i else m - 1];
     league::forget_free(l, &picked);
 
     transfer::transfer(JoinTicket { id: object::new(ctx), club: picked }, ctx.sender());
@@ -77,7 +89,7 @@ public fun claim(t: JoinTicket, l: &League, c: &mut Club, ctx: &mut TxContext) {
 public fun buy(l: &mut League, c: &mut Club, ctx: &mut TxContext) {
     assert!(club::is_free(c), ETaken);
     assert!(club::level(c) > 0, ETopNotForSale);
-    assert!(in_bottom_half(c), ETooHigh);
+    assert!(in_bottom_half(l, c), ETooHigh);
     league::forget_free(l, &object::id(c));
     take(l, c, ctx.sender());
     deed::issue(c, league::season(l), ctx.sender(), ctx);
@@ -86,9 +98,9 @@ public fun buy(l: &mut League, c: &mut Club, ctx: &mut TxContext) {
 /// Where it finished last season. A club that has never finished one counts as mid-table, which
 /// under this rule means it is not for sale - so in a league's first season nothing is, and the only
 /// way in is to be given a club. That is the right way round: there is nothing to judge yet.
-public fun in_bottom_half(c: &Club): bool {
+public fun in_bottom_half(l: &League, c: &Club): bool {
     let pos = club::last_pos(c);
-    pos > PER_SERIES / 2
+    pos > league::series_size(l) / 2
 }
 
 fun take(l: &League, c: &mut Club, who: address) {

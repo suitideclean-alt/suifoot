@@ -134,8 +134,11 @@ fun nobody_is_promoted_out_of_the_top_level() {
 
 #[test]
 fun finishing_in_the_bottom_half_is_what_puts_a_club_up_for_sale_next_season() {
+    use suifoot::league;
     use suifoot::market;
     let mut ctx = tx_context::dummy();
+    let l = league::new(1795046400000, vector[720, 1200], 22, &mut ctx);
+    let half = (league::series_size(&l) / 2) as u64; // a series of twelve, so the sixth is the line
     let mut st = season::open_for_testing(1, 0, 2, 0, 0, &mut ctx);
 
     let mut clubs = vector::empty<Club>();
@@ -150,10 +153,11 @@ fun finishing_in_the_bottom_half_is_what_puts_a_club_up_for_sale_next_season() {
     let mut m = 0;
     while (m < 18) { season::apply_to(&st, &mut clubs[m], 1, 3); m = m + 1; };
 
-    assert!(!market::in_bottom_half(&clubs[0]), 0);   // first: not for sale
-    assert!(!market::in_bottom_half(&clubs[8]), 1);   // ninth: still not
-    assert!(market::in_bottom_half(&clubs[9]), 2);    // tenth: for sale
-    assert!(market::in_bottom_half(&clubs[17]), 3);   // and last of all, certainly
+    assert!(!market::in_bottom_half(&l, &clubs[0]), 0);              // champions: not for sale
+    assert!(!market::in_bottom_half(&l, &clubs[half - 1]), 1);       // the last of the top half: still not
+    assert!(market::in_bottom_half(&l, &clubs[half]), 2);            // the first of the bottom half: for sale
+    assert!(market::in_bottom_half(&l, &clubs[17]), 3);              // and last of all, certainly
+    league::destroy_for_testing(l);
 
     while (!clubs.is_empty()) { club::destroy_for_testing(clubs.pop_back()); };
     clubs.destroy_empty();

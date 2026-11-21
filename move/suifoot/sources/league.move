@@ -47,6 +47,10 @@ const ESameClub: vector<u8> = b"a club cannot play itself";
 const ENotAdmin: vector<u8> = b"only the league may do that";
 #[error]
 const EWrongWeek: vector<u8> = b"that is not the matchday being played";
+#[error]
+const ENotSameSeries: vector<u8> = b"those two clubs do not play in the same series";
+#[error]
+const EStillRoom: vector<u8> = b"there is still room at the foot of the pyramid";
 
 public struct League has key {
     id: UID,
@@ -63,9 +67,14 @@ public struct League has key {
     admin: address,
     /// which level is the foot of the pyramid, where newcomers start
     bottom_level: u8,
-    /// the free clubs at that foot, so a newcomer can be given one without the chain having to go
-    /// looking for them: a shared object cannot be searched for, only handed over
+    /// how many clubs make a series, and so how many matches a matchday costs
+    series_size: u8,
+    /// how many series already stand at the foot
+    foot_series: u16,
+    /// The free clubs at that foot, and which series each is in. A shared object cannot be searched
+    /// for, only handed over, so the league keeps the list itself.
     free_at_foot: vector<ID>,
+    free_in: vector<u16>,
 }
 
 /// what the browser listens for: everything it needs to replay the ninety minutes it did not watch
@@ -92,7 +101,10 @@ public fun new(t0_ms: u64, kickoffs: vector<u64>, weeks_in_season: u16, ctx: &mu
         weeks_in_season,
         admin: ctx.sender(),
         bottom_level: 3,
+        series_size: 12,
+        foot_series: 0,
         free_at_foot: vector::empty(),
+        free_in: vector::empty(),
     }
 }
 
@@ -107,20 +119,61 @@ public fun share(l: League) { transfer::share_object(l) }
 public fun season(l: &League): u16 { l.season }
 public fun admin(l: &League): address { l.admin }
 public fun bottom_level(l: &League): u8 { l.bottom_level }
+public fun series_size(l: &League): u8 { l.series_size }
+public fun foot_series(l: &League): u16 { l.foot_series }
 public fun free_at_foot(l: &League): u64 { l.free_at_foot.length() }
 
 /// A club at the foot that nobody runs goes on the list newcomers are drawn from.
-public(package) fun register_free(l: &mut League, id: ID) {
-    if (!l.free_at_foot.contains(&id)) l.free_at_foot.push_back(id);
+public(package) fun register_free(l: &mut League, id: ID, series: u16) {
+    if (!l.free_at_foot.contains(&id)) { l.free_at_foot.push_back(id); l.free_in.push_back(series); };
 }
 
 /// and comes off it the moment somebody takes it
 public(package) fun forget_free(l: &mut League, id: &ID) {
     let (found, i) = l.free_at_foot.index_of(id);
-    if (found) { l.free_at_foot.remove(i); };
+    if (found) { l.free_at_foot.remove(i); l.free_in.remove(i); };
 }
 
 public(package) fun free_at(l: &League, i: u64): ID { l.free_at_foot[i] }
+public(package) fun free_series_at(l: &League, i: u64): u16 { l.free_in[i] }
+
+/// Which series a newcomer should be sent to: the one with the fewest places left.
+///
+/// This is worth more than it looks. People spread thinly over many half-empty series means paying
+/// for matches between clubs nobody runs - a series costs the same whether twelve people are in it
+/// or two. Filling one before opening the next is the difference between paying for six series and
+/// paying for twenty, with the same hundred people in them.
+public(package) fun tightest_series(l: &League): u16 {
+    let n = l.free_at_foot.length();
+    let mut best = 0u16;
+    let mut fewest = 0xFFFFFFFFFFFFFFFFu64;
+    let mut i = 0;
+    while (i < n) {
+        let ser = l.free_in[i];
+        let mut count = 0;
+        let mut j = 0;
+        while (j < n) { if (l.free_in[j] == ser) count = count + 1; j = j + 1; };
+        if (count < fewest) { fewest = count; best = ser };
+        i = i + 1;
+    };
+    best
+}
+
+/// how many places are left in one series at the foot
+/// the number the next series at the foot will carry, and the league counts it as opened
+public(package) fun next_foot_series(l: &mut League): u16 {
+    let n = l.foot_series;
+    l.foot_series = n + 1;
+    n
+}
+public fun still_room_error(): vector<u8> { EStillRoom }
+
+public fun free_in_series(l: &League, series: u16): u64 {
+    let mut count = 0;
+    let mut i = 0;
+    while (i < l.free_in.length()) { if (l.free_in[i] == series) count = count + 1; i = i + 1; };
+    count
+}
 public fun week(l: &League): u16 { l.week }
 public fun t0(l: &League): u64 { l.t0 }
 
@@ -181,6 +234,10 @@ entry fun play_fixture(
     l: &League, home: &mut Club, away: &mut Club, r: &Random, clock: &Clock, ctx: &mut TxContext,
 ) {
     assert!(club::num(home) != club::num(away), ESameClub);
+    // A match is between two clubs of the same series. Without this, anybody could put a first
+    // division club against a fourth division one and have it counted in both tables.
+    assert!(club::series(home) == club::series(away), ENotSameSeries);
+    assert!(club::level(home) == club::level(away), ENotSameSeries);
     let week = l.week;
     assert!(phase_at(l, week, clock::timestamp_ms(clock)) == PLAYED, ETooEarly);
     assert!(club::last_week(home) < week && club::last_week(away) < week, EAlreadyPlayed);
@@ -305,6 +362,7 @@ public fun start_next_season(l: &mut League, ctx: &TxContext) {
 public fun play_for_testing(
     l: &League, home: &mut Club, away: &mut Club, seed: u32,
 ): (u8, u8) {
+    assert!(club::series(home) == club::series(away), ENotSameSeries);
     let week = l.week;
     let (h_xi, h_bench, h_tac) = team_of(home, week);
     let (a_xi, a_bench, a_tac) = team_of(away, week);
@@ -325,6 +383,7 @@ public fun play_for_testing(
 #[test_only]
 public fun destroy_for_testing(l: League) {
     let League { id, season: _, week: _, t0: _, kickoffs: _, days_per_week: _, lock_before: _,
-        draw_before: _, weeks_in_season: _, admin: _, bottom_level: _, free_at_foot: _ } = l;
+        draw_before: _, weeks_in_season: _, admin: _, bottom_level: _, series_size: _,
+        foot_series: _, free_at_foot: _, free_in: _ } = l;
     id.delete();
 }

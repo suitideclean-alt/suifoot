@@ -212,6 +212,35 @@ entry fun create_club(l: &mut League, num: u32, level: u8, series: u16, r: &Rand
     let mut gen = random::new_generator(r, ctx);
     let seed = random::generate_u32(&mut gen);
     let c = new_club(num, level, series, seed, ctx);
-    if (level == league::bottom_level(l)) league::register_free(l, object::id(&c));
+    if (level == league::bottom_level(l)) league::register_free(l, object::id(&c), series);
     transfer::public_share_object(c);
+}
+
+/// Open a new series at the foot of the pyramid.
+///
+/// Anyone may do this, and that is the point: the league has to be able to take the hundred and
+/// first person without waiting for whoever runs it to wake up. It costs about a fifth of a SUI,
+/// paid by whoever opens it - which in practice is the person who wanted in and found no room.
+///
+/// The new series joins the season already being played. It does not start a season of its own, so
+/// there is never a second calendar, never a second league, and never a club in a different year
+/// from everybody else. Its first season is simply a short one.
+entry fun open_series(l: &mut League, r: &Random, ctx: &mut TxContext) {
+    assert!(league::free_at_foot(l) == 0, league::still_room_error());
+
+    let mut gen = random::new_generator(r, ctx);
+    let level = league::bottom_level(l);
+    let series = league::next_foot_series(l);
+    let size = (league::series_size(l) as u64);
+
+    // club numbers carry on from the series, so no two clubs anywhere share one
+    let base = ((series as u32) + 1) * 1000;
+    let mut i = 0;
+    while (i < size) {
+        let seed = random::generate_u32(&mut gen);
+        let c = new_club(base + (i as u32), level, series, seed, ctx);
+        league::register_free(l, object::id(&c), series);
+        transfer::public_share_object(c);
+        i = i + 1;
+    };
 }
