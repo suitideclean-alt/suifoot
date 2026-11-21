@@ -134,6 +134,16 @@ One request fetches the lot - several objects asked for in a single query under 
 A whole league came back in 227 ms. `tests/chain.js` reads the live chain through that very file on
 every push, so the day a field is renamed, that is what says so.
 
+The last thing in the way was our own doing, and it was right to be: the page carries a strict
+Content-Security-Policy, and `connect-src 'self'` forbids reaching anything but the page itself. It
+had been doing its job all along - not the browser, not the extension. The Sui GraphQL service is
+now named in that policy and nothing else is, so a page that may call one host is still a page that
+cannot be made to call anywhere else.
+
+Driven in a real browser end to end: the clubs the contract drew, the table it keeps, and a squad
+where the eleven who played show one game and 91% fitness while the rest show none and 100%, with
+the two goals of a 2-2 against the two men who scored them.
+
 The contract stores no player names: two thousand strings on chain to say what a number already says.
 A name is worked out from the number instead, by the same rule in the contract's world and in the
 browser. A hundred and thirty-two men on testnet, a hundred and thirty-two names.
