@@ -1,4 +1,3 @@
-# What version were the system objects shared at? We assume 1 for two of them.
 name: probe
 on:
   workflow_dispatch:
@@ -6,10 +5,11 @@ jobs:
   look:
     runs-on: ubuntu-latest
     steps:
-      - name: Clock and Random, as the chain holds them
+      - name: What the live site now serves
         run: |
           set +e
-          Q='{"query":"{ clock: object(address: \"0x6\") { owner { __typename ... on Shared { initialSharedVersion } } } random: object(address: \"0x8\") { owner { __typename ... on Shared { initialSharedVersion } } } league: object(address: \"0xc2dccce30329974a0503acae3ed9e6c32f70099034a0366b9fb3c39baf183119\") { owner { __typename ... on Shared { initialSharedVersion } } } }"}'
-          curl -sS -m 25 -X POST https://graphql.testnet.sui.io/graphql \
-            -H 'content-type: application/json' --data "$Q"
-          echo
+          echo -n "version: "; curl -sS -m 25 https://suifoot.fun/index.html | grep -o 'v=0\.9\.[0-9]*' | head -1
+          echo -n "hard-coded version 1 left in tx.js: "
+          curl -sS -m 25 "https://suifoot.fun/src/tx.js?v=0.9.45" | grep -c "initialSharedVersion: '1'"
+          echo -n "asks the chain instead: "
+          curl -sS -m 25 "https://suifoot.fun/src/tx.js?v=0.9.45" | grep -c "sys.random"
