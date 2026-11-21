@@ -16,7 +16,7 @@ const truthy = (a, m) => { if (!a) throw new Error(m || 'expected truthy'); };
 const eq = (a, b, m) => { if (a !== b) throw new Error((m || '') + ` expected ${b} got ${a}`); };
 
 (async () => {
-  console.log('reading ' + C.net.rpc);
+  console.log('reading ' + C.net.graphql);
   const started = Date.now();
   const w = await C.world();
   console.log(`  answered in ${Date.now() - started} ms\n`);

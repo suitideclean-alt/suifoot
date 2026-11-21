@@ -6,22 +6,13 @@
  *
  * There is no library and no build step, because the game is a folder of files served as they are.
  *
- * THE TRANSPORT IS CURRENTLY BROKEN, AND NOT BY ANYTHING HERE. Sui has retired JSON-RPC on public
- * full nodes. Every endpoint tried - the official one, BlockVision, PublicNode, Suiscan - answers
- * the same way: "Sui JSON-RPC has been deprecated. Please migrate to gRPC." The official node does
- * serve the replacement at /sui.rpc.v2.LedgerService/, and it sends access-control-allow-origin: *
- * so a browser is welcome there, but it speaks gRPC: a compression byte, a four-byte length and a
- * protobuf message. Posting JSON at it comes back with "invalid compression flag: 123", 123 being
- * the opening brace.
+ * It speaks GraphQL. Sui retired JSON-RPC on public full nodes, and what replaced it on the node
+ * itself is gRPC: a compression byte, a four-byte length and a protobuf message, which a browser
+ * cannot produce without a library. GraphQL is the other replacement, it is JSON in both directions,
+ * and the public testnet service sends access-control-allow-origin: * - so a page may simply ask.
  *
- * So the door is open and the language has changed. Three ways through it, none of them written yet:
- *   - decode protobuf by hand. The wire format is simple and only a few messages are needed, but it
- *     is real work and it has to be right.
- *   - find a node that still answers GraphQL over HTTPS, which is JSON both ways.
- *   - put a small service of our own in front, which is one more thing to run and to trust.
- *
- * Everything below the transport - what the fields mean, how a name follows from a number, how the
- * table sorts, when a matchday locks - is written, tested, and waiting.
+ * One request fetches the lot. Several objects are asked for in a single query under names of our
+ * own choosing, rather than one round trip each.
  *
  * Reading needs no wallet and no permission: a published object is public. Writing - sealing a
  * lineup, taking a club - needs a signature, and that is a separate thing again.
@@ -33,7 +24,7 @@
    * and thrown away with it; the package and the objects outlive it, because that is how a chain
    * works. Nobody can upgrade this one, which is right for a rehearsal. */
   const TESTNET = {
-    rpc: 'https://fullnode.testnet.sui.io:443',
+    graphql: 'https://graphql.testnet.sui.io/graphql',
     explorer: 'https://suiscan.xyz/testnet/object/',
     pkg: '0x2fa5f01cb9d73192ba7338d8a9a986df64995b899123000c3d17e8ece528a2a6',
     league: '0xb882dd5f3819e8d4aa69b249cb6f17005ccd7a59e86596acd53d230fad69bf98',
@@ -66,6 +57,14 @@
   const POS = ['GK', 'DF', 'MF', 'FW'];
   const TEMPER = ['gent', 'pro', 'hard'];
 
+  /** a Move Option arrives either as the value, as null, or wrapped in a vector of none or one */
+  const optional = (v) => {
+    if (v == null) return null;
+    if (Array.isArray(v)) return v.length ? v[0] : null;
+    if (typeof v === 'object') { const inner = v.vec || v.value; return Array.isArray(inner) ? (inner.length ? inner[0] : null) : (inner == null ? null : inner); }
+    return v;
+  };
+
   const Chain = (SF.Chain = {
     net: TESTNET,
 
@@ -89,34 +88,41 @@
       return block > 0 ? s + ' ' + (block + 1) : s;
     },
 
-    // ---------- talking to a full node ----------
+    // ---------- talking to the chain ----------
 
-    async rpc(method, params) {
-      const res = await fetch(Chain.net.rpc, {
+    async query(gql) {
+      const res = await fetch(Chain.net.graphql, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+        body: JSON.stringify({ query: gql }),
       });
       if (!res.ok) throw new Error('the node answered ' + res.status);
       const body = await res.json();
-      if (body.error) {
-        const msg = body.error.message || 'the node refused the question';
-        if (/deprecat|grpc/i.test(msg)) { const e = new Error(msg); e.deprecated = true; throw e; }
-        throw new Error(msg);
-      }
-      return body.result;
+      if (body.errors && body.errors.length) throw new Error(body.errors[0].message || 'the node refused the question');
+      return body.data;
     },
 
-    /** the fields of one object, as the chain holds them */
-    async object(id) {
-      const r = await Chain.rpc('sui_getObject', [id, { showContent: true }]);
-      if (!r || !r.data || !r.data.content) throw new Error('no such object: ' + id);
-      return r.data.content.fields;
+    /* What an object is, as a Move struct turned into plain JSON. Whole numbers wider than a browser
+     * can hold come back as text, which is why everything below goes through Number() rather than
+     * being trusted as it arrives. */
+    fieldsOf(node) {
+      if (!node || !node.asMoveObject || !node.asMoveObject.contents) return null;
+      return node.asMoveObject.contents.json;
     },
-    /** several at once, which is one question instead of eighteen */
+
+    /** the fields of one object */
+    async object(id) {
+      const d = await Chain.query(`{ it: object(address: "${id}") { asMoveObject { contents { json } } } }`);
+      const f = Chain.fieldsOf(d && d.it);
+      if (!f) throw new Error('no such object: ' + id);
+      return f;
+    },
+
+    /** several at once, under names of our own, so it is one question and not eighteen */
     async objects(ids) {
-      const r = await Chain.rpc('sui_multiGetObjects', [ids, { showContent: true }]);
-      return r.map((x) => (x && x.data && x.data.content ? x.data.content.fields : null));
+      const parts = ids.map((id, i) => `o${i}: object(address: "${id}") { asMoveObject { contents { json } } }`);
+      const d = await Chain.query('{ ' + parts.join(' ') + ' }');
+      return ids.map((_, i) => Chain.fieldsOf(d && d['o' + i]));
     },
 
     // ---------- what the fields mean ----------
@@ -149,7 +155,7 @@
         level: Number(f.level), series: Number(f.series),
         balance: Number(f.balance),
         fans: Number(f.fans), capacity: Number(f.capacity), ticket: Number(f.ticket_cents) / 100,
-        owner: f.owner || null,
+        owner: optional(f.owner),
         played: Number(f.played), won: Number(f.won), drawn: Number(f.drawn), lost: Number(f.lost),
         gf: Number(f.goals_for), ga: Number(f.goals_against), points: Number(f.points),
         lastPos: Number(f.last_pos),

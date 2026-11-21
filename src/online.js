@@ -24,7 +24,7 @@
       O.state = 'ready';
     } catch (e) {
       O.error = e && e.message ? e.message : String(e);
-      O.state = e && e.deprecated ? 'moved' : 'failed';
+      O.state = 'failed';
     }
     redraw();
   };
@@ -35,17 +35,12 @@
     const net = SF.Chain.net;
     const head = `<div class="card"><h3>${esc(t('on_title'))}</h3>
       <p class="muted">${esc(t('on_lead'))}</p>
-      <p class="muted small">${esc(t('on_package'))}: <a href="${net.explorer}${net.pkg}" target="_blank" rel="noopener">${short(net.pkg)}</a>
+      <p class="muted small">${esc(t("on_package"))}: <a href="${net.explorer}${net.pkg}" target="_blank" rel="noopener">${short(net.pkg)}</a>
       · ${esc(t('on_league'))}: <a href="${net.explorer}${net.league}" target="_blank" rel="noopener">${short(net.league)}</a></p>
       <button data-act="on:load">${esc(O.state === 'ready' ? t('on_again') : t('on_read'))}</button></div>`;
 
     if (O.state === 'idle') return head;
     if (O.state === 'loading') return head + `<div class="card"><p>${esc(t('on_asking'))}</p></div>`;
-    if (O.state === 'moved') {
-      return head + `<div class="card"><h4>${esc(t('on_moved'))}</h4>
-        <p>${esc(t('on_moved_d'))}</p>
-        <p class="muted small">${esc(O.error)}</p></div>`;
-    }
     if (O.state === 'failed') {
       return head + `<div class="card"><h4>${esc(t('on_failed'))}</h4><p class="muted">${esc(O.error)}</p>
         <p class="muted small">${esc(t('on_failed_d'))}</p></div>`;
