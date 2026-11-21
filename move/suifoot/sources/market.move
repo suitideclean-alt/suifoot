@@ -19,6 +19,7 @@ module suifoot::market;
 
 use sui::random::{Self, Random};
 use suifoot::club::{Self, Club};
+use suifoot::deed;
 use suifoot::league::{Self, League};
 
 /// how many clubs are in a series
@@ -63,21 +64,23 @@ entry fun request_join(l: &mut League, r: &Random, ctx: &mut TxContext) {
 }
 
 /// Hand the ticket back with the club it named, and the club is yours.
-public fun claim(t: JoinTicket, l: &League, c: &mut Club, ctx: &TxContext) {
+public fun claim(t: JoinTicket, l: &League, c: &mut Club, ctx: &mut TxContext) {
     let JoinTicket { id, club } = t;
     id.delete();
     assert!(club == object::id(c), EWrongClub);
     assert!(club::is_free(c), ETaken);
     take(l, c, ctx.sender());
+    deed::issue(c, league::season(l), ctx.sender(), ctx);
 }
 
 /// Buy a named club. No draw, because you chose it; the rules are what narrow the choice.
-public fun buy(l: &mut League, c: &mut Club, ctx: &TxContext) {
+public fun buy(l: &mut League, c: &mut Club, ctx: &mut TxContext) {
     assert!(club::is_free(c), ETaken);
     assert!(club::level(c) > 0, ETopNotForSale);
     assert!(in_bottom_half(c), ETooHigh);
     league::forget_free(l, &object::id(c));
     take(l, c, ctx.sender());
+    deed::issue(c, league::season(l), ctx.sender(), ctx);
 }
 
 /// Where it finished last season. A club that has never finished one counts as mid-table, which
