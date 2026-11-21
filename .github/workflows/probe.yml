@@ -11,20 +11,28 @@ jobs:
           set +e
           OBJ=0xb882dd5f3819e8d4aa69b249cb6f17005ccd7a59e86596acd53d230fad69bf98
           URL=https://fullnode.testnet.sui.io/sui.rpc.v2.LedgerService/GetObject
-          try() {
-            echo "--- $2"
-            curl -sS -m 20 -X POST "$URL" -H 'content-type: application/json' \
-                 -H 'connect-protocol-version: 1' \
-                 -H 'origin: https://suitideclean-alt.github.io' \
-                 -w '\nstatus %{http_code}\n' --data "$1" | head -c 1500
-            echo; echo
-          }
-          try "{\"object_id\":\"$OBJ\"}" "bare, with the connect header"
-          try "{\"object_id\":\"$OBJ\",\"read_mask\":{\"paths\":[\"json\"]}}" "asking for json"
-          try "{\"objectId\":\"$OBJ\",\"readMask\":{\"paths\":[\"json\",\"objectType\"]}}" "camel case"
-          echo "--- what services does it offer"
-          curl -sS -m 20 -X POST https://fullnode.testnet.sui.io/sui.rpc.v2.LedgerService/GetServiceInfo \
-               -H 'content-type: application/json' -H 'connect-protocol-version: 1' --data '{}' -w '\nstatus %{http_code}\n' | head -c 800
+          echo "=== headers and body, decompressed ==="
+          curl -sS -m 25 --compressed -D - -X POST "$URL" \
+               -H 'content-type: application/json' -H 'connect-protocol-version: 1' \
+               -H 'origin: https://suitideclean-alt.github.io' \
+               --data "{\"object_id\":\"$OBJ\",\"read_mask\":{\"paths\":[\"object_id\",\"object_type\",\"json\"]}}" | head -c 2500
+          echo; echo
+          echo "=== and what the CLI itself can read ==="
+          echo "(the CLI works, so the data is certainly there)"
+
+      - name: What the CLI reads
+        run: |
+          set -euo pipefail
+          OBJ=0xb882dd5f3819e8d4aa69b249cb6f17005ccd7a59e86596acd53d230fad69bf98
+          mkdir -p "$HOME/.sui/bin" "$HOME/.sui/unpack"
+          curl -sSLf -o sui.tgz "https://github.com/MystenLabs/sui/releases/download/testnet-v1.84.1/sui-testnet-v1.84.1-ubuntu-x86_64.tgz"
+          tar -xzf sui.tgz -C "$HOME/.sui/unpack"
+          find "$HOME/.sui/unpack" -name 'sui' -type f -exec mv {} "$HOME/.sui/bin/sui" \;
+          chmod +x "$HOME/.sui/bin/sui"
+          export PATH="$HOME/.sui/bin:$PATH"
+          sui client --yes new-env --alias tn --rpc https://fullnode.testnet.sui.io:443 >/dev/null 2>&1 || true
+          sui client switch --env tn >/dev/null 2>&1 || true
+          sui client object "$OBJ" --json | head -c 1500
           echo
 
       - name: And can several be asked for at once
