@@ -138,10 +138,12 @@ const eq = (a, b, m) => { if (a !== b) throw new Error((m || '') + ` expected ${
    * coin type named, and said so the only way it could; getting it wrong reads as a zero balance,
    * which would wrongly tell a funded player he has nothing to spend. */
   const admin = await C.gas(w.league.admin);
-  const nobody = await C.gas('0x' + '1'.repeat(64));
+  /* Not a vanity address for the empty case: 0x111…111 turns out to hold 13 SUI, because on a
+   * testnet somebody always funds those. A derived one nobody would type has no such luck. */
+  const nobody = await C.gas('0x' + 'ab57c3d9'.repeat(8));
   t('an address can be weighed', () => {
     truthy(typeof admin === 'number' && admin > 0, `the deployer holds ${(admin / 1e9).toFixed(3)} SUI;`);
-    eq(nobody, 0, 'and an address nobody uses holds nothing;');
+    eq(nobody, 0, 'and an address nobody has ever used holds nothing;');
   });
 
   console.log(`\n${pass} passed, ${fail} failed`);
