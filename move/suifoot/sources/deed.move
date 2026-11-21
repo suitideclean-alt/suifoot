@@ -43,13 +43,22 @@ public fun name(d: &ClubDeed): &String { &d.name }
 public fun level(d: &ClubDeed): u8 { d.level }
 public fun since(d: &ClubDeed): u16 { d.since }
 
-/// Set out how a wallet or a marketplace should show one of these. The badge is drawn from the club
-/// number alone - no image was ever uploaded anywhere - so the picture is simply a file named after
-/// that number. Display can be changed later by whoever holds the publisher, which is what makes it
-/// safe to name a web address here at all.
+/// Publishing claims the right to speak for this package, and nothing else.
+///
+/// How a wallet should draw a deed is set up afterwards, by a separate call. It was in here once and
+/// it aborted, which took the whole publish down with it - a package that will not publish because
+/// of a picture is a bad trade. Claiming cannot fail; dressing the thing up can wait.
 fun init(otw: DEED, ctx: &mut TxContext) {
-    let publisher = package::claim(otw, ctx);
-    let mut d = display::new<ClubDeed>(&publisher, ctx);
+    transfer::public_transfer(package::claim(otw, ctx), ctx.sender());
+}
+
+/// Set out how a wallet or a marketplace should show one of these.
+///
+/// The badge is drawn from the club number alone - no image was ever uploaded anywhere - so the
+/// picture is simply a file named after that number. Whoever holds the publisher can change any of
+/// this later, which is what makes it safe to name a web address here at all.
+entry fun publish_display(pub: &package::Publisher, ctx: &mut TxContext) {
+    let mut d = display::new<ClubDeed>(pub, ctx);
     d.add(b"name".to_string(), b"{name}".to_string());
     d.add(
         b"description".to_string(),
@@ -59,8 +68,6 @@ fun init(otw: DEED, ctx: &mut TxContext) {
     d.add(b"link".to_string(), b"https://suifoot.fun/?club={club_num}".to_string());
     d.add(b"project_url".to_string(), b"https://suifoot.fun".to_string());
     d.update_version();
-
-    transfer::public_transfer(publisher, ctx.sender());
     transfer::public_transfer(d, ctx.sender());
 }
 
