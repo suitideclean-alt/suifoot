@@ -121,8 +121,28 @@ at the same minutes. None of this could have changed a number without it saying 
   because they are paid in the token and the token does not exist.
 - **Transfers.** Nobody can buy or sell a player.
 - **The token.** Nothing of SFOOT exists. It is a package of its own and comes after this one.
-- **The browser talking to the chain.** Today the game is still one browser, one world, one person.
-  Nothing connects the two. This is now the largest thing missing.
+- **The browser talking to the chain.** Half built, and stopped by something outside the project.
+
+  The reading side is written: `src/chain.js` knows what every field of a League and a Club means,
+  works a player's name out from his number the way the contract would if it stored names, sorts the
+  table the way `season.move` sorts it, and tells you where a matchday stands. `src/online.js` draws
+  it. `tests/chain.js` reads the live testnet through that very file. None of it is guesswork.
+
+  What is missing is the transport. **Sui has retired JSON-RPC on public full nodes.** The official
+  node, BlockVision, PublicNode and Suiscan all answer the same: migrate to gRPC. The replacement is
+  served at `/sui.rpc.v2.LedgerService/` on the same host, and it sends `access-control-allow-origin:
+  *`, so a browser is welcome there - but it speaks gRPC: a compression byte, a four-byte length, a
+  protobuf message. Posting JSON at it returns `invalid compression flag: 123`, 123 being `{`.
+
+  Three ways through, none written:
+  1. **Decode protobuf by hand.** The wire format is simple and only a handful of messages are
+     needed. No build step, which suits a game served as a folder of files. It is real work and it
+     has to be exactly right.
+  2. **Find a GraphQL node.** JSON both ways, nothing to decode. The endpoints tried did not resolve;
+     a current one may well exist.
+  3. **Run a small service in front.** Quick, and one more thing to run, to pay for and to trust.
+
+  The `probe` workflow is what found all this and can be run again when something changes.
 - **Knockouts.** Extra time and penalty shootouts are not ported; league matches are.
 
 ## Two bugs this work found
