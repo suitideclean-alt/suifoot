@@ -1,4 +1,4 @@
-# Is the live site serving the version we just pushed?
+# What version were the system objects shared at? We assume 1 for two of them.
 name: probe
 on:
   workflow_dispatch:
@@ -6,11 +6,10 @@ jobs:
   look:
     runs-on: ubuntu-latest
     steps:
-      - name: What suifoot.fun serves
+      - name: Clock and Random, as the chain holds them
         run: |
           set +e
-          curl -sS -m 25 https://suifoot.fun/index.html | grep -o 'v=0\.9\.[0-9]*' | head -1
-          echo "--- chain.js has the balance question:"
-          curl -sS -m 25 "https://suifoot.fun/src/chain.js?v=0.9.44" | grep -c "coinType"
-          echo "--- and the faucet link:"
-          curl -sS -m 25 "https://suifoot.fun/src/chain.js?v=0.9.44" | grep -o "faucet.sui.io[^']*" | head -1
+          Q='{"query":"{ clock: object(address: \"0x6\") { owner { __typename ... on Shared { initialSharedVersion } } } random: object(address: \"0x8\") { owner { __typename ... on Shared { initialSharedVersion } } } league: object(address: \"0xc2dccce30329974a0503acae3ed9e6c32f70099034a0366b9fb3c39baf183119\") { owner { __typename ... on Shared { initialSharedVersion } } } }"}'
+          curl -sS -m 25 -X POST https://graphql.testnet.sui.io/graphql \
+            -H 'content-type: application/json' --data "$Q"
+          echo
