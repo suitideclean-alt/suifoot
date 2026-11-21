@@ -337,6 +337,20 @@
     oacc: (arg) => [K().ANSWER, +arg, 1],
     'vac-start': (arg) => [K().VACATION, +arg, 0],
     'vac-stop': () => [K().VACATION, 0, 0],
+
+    /* The board. Its choices go over as positions in a list rather than as words, because a word
+     * written into a log can be spelled differently by two clients and a position cannot. */
+    o_line: (arg) => { const [k, n] = String(arg).split('-'); return [K().LINE, SF.Replay.LINES.indexOf(k), +n]; },
+    o_merch: (arg) => [K().MERCH, SF.Replay.TIERS.indexOf(arg), 0],
+    o_member: (arg) => [K().MEMBER, SF.Replay.MEMBERS.indexOf(arg), 0],
+    o_kit: () => [K().KIT, 0, 0],
+    o_spon: (arg) => [K().SPONSOR, +arg, 0],
+    o_sponbreak: () => [K().SPONBREAK, 0, 0],
+    o_proj: (arg) => [K().PROJECT, SF.Replay.PROJECTS.indexOf(arg), 0],
+    o_event: (arg) => [K().EVENT, SF.Replay.EVENTS.indexOf(arg), 0],
+    o_stake: (arg) => [K().STAKE, Math.round(parseFloat(arg) * 10000), 0],
+    o_buyback: (arg) => [K().BUYBACK, +arg, 0],
+    o_repay: (arg) => [K().BONDREPAY, +arg, 0],
   };
 
   /* And the ones that need a number typed before they mean anything, which the screen asks for

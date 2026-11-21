@@ -153,7 +153,14 @@ t('neglect also hits the owner+coach role', () => {
   let g = 0; while (G.phase === 'play' && g++ < 80) Game.playWeekAuto(G);
   truthy(Bo.neglect(club) > 0.3, 'both neglect ' + Bo.neglect(club));
   const a1 = Bo.attMult(club); club.nz.neg = 0; truthy(a1 < Bo.attMult(club), 'gate reduced');
-  eq(Bo.sponsor(G, club, 1000), 1000, 'no neglect, base sponsor'); club.nz.neg = 100; truthy(Bo.sponsor(G, club, 1000) < 650, 'sponsor reduced');
+  /* A club run by somebody who both owns it and picks the team has a board like any other, so
+   * what a sponsor pays it is shaped by the board's own standing - not left at the bare figure.
+   * It used to be left there, because the board was switched off for this role: the owner saw the
+   * board's pages and every button on them failed. Fixed, so the baseline is the board's. */
+  club.nz.neg = 0;
+  const base = Bo.sponsor(G, club, 1000);
+  truthy(base > 0 && base <= 1000, 'with no neglect, what the board commands: ' + base);
+  club.nz.neg = 100; truthy(Bo.sponsor(G, club, 1000) < base * 0.72, 'and neglect cuts it hard');
   conserved(G);
 });
 t('old saves migrate: no boss state yet, it is created', () => {

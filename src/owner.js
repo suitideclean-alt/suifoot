@@ -440,7 +440,13 @@
     }
     return G.cm;
   };
-  O.ownerClubs = (G) => G.coaches.filter((c) => ROLE(c) === 'owner' && c.club);
+  /* The clubs somebody owns, for everything the owner's side of the game does to them.
+   *
+   * Somebody who owns a club and also picks its team owns it. Asking for the role to be exactly
+   * 'owner' left those clubs out of the season's owner work altogether - no board was ever made
+   * for them - which is why the board's own pages were shown to such a player with every button
+   * on them failing. */
+  O.ownerClubs = (G) => G.coaches.filter((c) => (ROLE(c) === 'owner' || ROLE(c) === 'both') && c.club);
   O.acStrength = (ac) => (ac ? Math.round(ac.rep * 0.6 + (ac.sk.train + ac.sk.tact + ac.sk.neg + ac.sk.youth) * 2) : 0);
   O.acWage = (club, cand, opts) => {
     opts = opts || {};

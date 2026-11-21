@@ -33,7 +33,17 @@
   const unit = (club) => CFG.tvWeekly[club.div] + CFG.sponsorWeekly[club.div];
   const round = (x, s) => Math.round(x / (s || 1)) * (s || 1);
   Bo.unit = unit;
-  Bo.active = (G, club) => !!(club && club.human && club.owner) && ((G.coaches.find((c) => c.club === club.id) || {}).role === 'owner');
+  /* Whether this club has a board to run.
+   *
+   * Somebody who owns a club and also picks its team is still its owner: the money side is his to
+   * run whether or not he also fills in the team sheet. Asking for the role to be exactly 'owner'
+   * left anybody doing both jobs - which is everybody on the chain, where owning a club means
+   * holding its deed and running it - with no board at all. */
+  Bo.active = (G, club) => {
+    if (!(club && club.human && club.owner)) return false;
+    const role = (G.coaches.find((c) => c.club === club.id) || {}).role;
+    return role === 'owner' || role === 'both';
+  };
   const humanOf = (G, club) => G.coaches.find((c) => c.club === club.id) || null;
 
   // ---------- state ----------

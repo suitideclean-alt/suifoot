@@ -27,7 +27,21 @@
     TEAM: 1, SHOW: 2, TRAIN: 3, TICKET: 4, LIST: 5, BID: 6, ANSWER: 7, SKILL: 8, INVEST: 9,
     RENEW: 10, RELEASE: 11, SELLNOW: 12, CAPTAIN: 13, LOAN: 14, REPAY: 15, SIGNFREE: 16,
     WATCH: 17, LOANIN: 18, LOANOUT: 19, VACATION: 20, RENEGOTIATE: 21,
+    // what a board does: the money side of a club, as against the football side
+    LINE: 22, MERCH: 23, MEMBER: 24, KIT: 25, SPONSOR: 26, SPONBREAK: 27, PROJECT: 28,
+    PARTNER: 29, EVENT: 30, STAKE: 31, BUYBACK: 32, BOND: 33, BONDREPAY: 34,
   };
+
+  /* The board's choices, as numbers.
+   *
+   * A decision carries two numbers and a short note, and these are lists rather than free text so
+   * that nothing in them can be spelled two ways. A word written into a log can be written
+   * differently by two clients; an index into a list that both of them hold cannot. */
+  const LINES = ['acad', 'mkt', 'comm'];
+  const TIERS = ['low', 'normal', 'premium'];
+  const MEMBERS = ['low', 'normal', 'high'];
+  const PROJECTS = ['roof', 'lights', 'museum', 'med'];
+  const EVENTS = ['concert', 'friendly', 'tour'];
 
   /** what an owner may put money into, as the game names its facilities */
   const GROUND = 1, ACADEMY = 2, TRAINING = 3;
@@ -59,11 +73,26 @@
     [K.LOANOUT]: (G, c, d) => SF.Actions.loanOut(G, c, d.a, d.b || 1),
     [K.VACATION]: (G, c, d) => SF.Actions.setVacation(G, c, d.a),
     [K.RENEGOTIATE]: (G, c, d) => SF.Actions.renegotiate(G, c, d.a),
+
+    [K.LINE]: (G, c, d) => SF.Boss.setLine(G, c, LINES[d.a], d.b),
+    [K.MERCH]: (G, c, d) => SF.Boss.setMerch(G, c, TIERS[d.a]),
+    [K.MEMBER]: (G, c, d) => SF.Boss.setMember(G, c, MEMBERS[d.a]),
+    [K.KIT]: (G, c) => SF.Boss.specialKit(G, c),
+    [K.SPONSOR]: (G, c, d) => SF.Boss.signSponsor(G, c, d.a),
+    [K.SPONBREAK]: (G, c) => SF.Boss.breakSponsor(G, c),
+    [K.PROJECT]: (G, c, d) => SF.Boss.startProject(G, c, PROJECTS[d.a]),
+    [K.PARTNER]: (G, c, d) => SF.Boss.setPartner(G, c, d.a ? d.a : null),
+    [K.EVENT]: (G, c, d) => SF.Boss.event(G, c, EVENTS[d.a]),
+    [K.STAKE]: (G, c, d) => SF.Boss.sellStake(G, c, d.a / 10000),
+    [K.BUYBACK]: (G, c, d) => SF.Boss.buyBack(G, c, d.a),
+    [K.BOND]: (G, c, d) => SF.Boss.issueBond(G, c, d.a, d.b),
+    [K.BONDREPAY]: (G, c, d) => SF.Boss.repayBond(G, c, d.a),
   };
 
   const Replay = (SF.Replay = {
     kinds: K,
     GROUND, ACADEMY, TRAINING,
+    LINES, TIERS, MEMBERS, PROJECTS, EVENTS,
     calls: CALLS,
 
     /** which decisions the game knows how to carry out */
