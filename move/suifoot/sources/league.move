@@ -18,6 +18,7 @@ use sui::random::{Self, Random};
 use suifoot::club::{Self, Club};
 use suifoot::lineup::{Self, Lineup};
 use suifoot::match_play::{Self, Result};
+use suifoot::fixtures;
 use suifoot::money;
 use suifoot::progress;
 use suifoot::player::Player;
@@ -73,6 +74,12 @@ public struct League has key {
     /// for, only handed over, so the league keeps the list itself.
     free_at_foot: vector<ID>,
     free_in: vector<u16>,
+    /// Who is in which series, by club number. The fixtures are worked out from this and the
+    /// matchday, so a match can be checked against the one that was supposed to be played.
+    rosters: vector<vector<u32>>,
+    /// Played by hand rather than by the clock: a matchday happens when somebody says so, not at
+    /// noon. This is for getting the thing working. Turned off, the hours in `kickoffs` rule.
+    manual: bool,
 }
 
 /// what the browser listens for: everything it needs to replay the ninety minutes it did not watch
@@ -103,6 +110,8 @@ public fun new(t0_ms: u64, kickoffs: vector<u64>, weeks_in_season: u16, ctx: &mu
         foot_series: 0,
         free_at_foot: vector::empty(),
         free_in: vector::empty(),
+        rosters: vector::empty(),
+        manual: true,
     }
 }
 
@@ -118,6 +127,36 @@ public fun season(l: &League): u16 { l.season }
 public fun admin(l: &League): address { l.admin }
 public fun bottom_level(l: &League): u8 { l.bottom_level }
 public fun series_size(l: &League): u8 { l.series_size }
+public fun manual(l: &League): bool { l.manual }
+
+/// Stop playing by hand and start playing by the clock. One way: a league that has been running to
+/// an hour everyone agreed on should not be able to go back to somebody pressing a button.
+public fun start_the_clock(l: &mut League, t0_ms: u64, ctx: &TxContext) {
+    assert!(ctx.sender() == l.admin, ENotAdmin);
+    l.manual = false;
+    l.t0 = (t0_ms / DAY) * DAY;
+}
+
+/// which clubs play in a series, in the order the fixtures rotate them
+public fun roster(l: &League, series: u16): &vector<u32> { &l.rosters[(series as u64)] }
+public fun roster_size(l: &League, series: u16): u64 {
+    if ((series as u64) < l.rosters.length()) l.rosters[(series as u64)].length() else 0
+}
+
+public(package) fun add_to_series(l: &mut League, series: u16, num: u32) {
+    while (l.rosters.length() <= (series as u64)) l.rosters.push_back(vector[]);
+    let r = &mut l.rosters[(series as u64)];
+    if (!r.contains(&num)) r.push_back(num);
+}
+
+/// how long a season is, which follows from how many clubs are in a series rather than being set
+public fun weeks_in_series(l: &League, series: u16): u64 { fixtures::weeks_for(roster_size(l, series)) }
+
+/// who a club plays on a matchday, and whether at home
+public fun opponent(l: &League, series: u16, week: u16, club: u32): (bool, u32, bool) {
+    if (roster_size(l, series) < 2) return (false, 0, false);
+    fixtures::opponent_of(roster(l, series), (week as u64), club)
+}
 public fun foot_series(l: &League): u16 { l.foot_series }
 public fun free_at_foot(l: &League): u64 { l.free_at_foot.length() }
 
@@ -236,7 +275,16 @@ entry fun play_fixture(
     assert!(club::series(home) == club::series(away), ENotSameSeries);
     assert!(club::level(home) == club::level(away), ENotSameSeries);
     let week = l.week;
-    assert!(phase_at(l, week, clock::timestamp_ms(clock)) == PLAYED, ETooEarly);
+    // Played by hand while the thing is being got working; by the clock once it is.
+    if (!l.manual) assert!(phase_at(l, week, clock::timestamp_ms(clock)) == PLAYED, ETooEarly);
+    // and it has to be the match that was supposed to be played, not the one somebody fancied
+    let series = club::series(home);
+    if (roster_size(l, series) >= 2) {
+        assert!(
+            fixtures::is_fixture(roster(l, series), (week as u64), club::num(home), club::num(away)),
+            ENotTheFixture,
+        );
+    };
     assert!(club::last_week(home) < week && club::last_week(away) < week, EAlreadyPlayed);
 
     let mut gen = random::new_generator(r, ctx);
@@ -334,9 +382,12 @@ public fun train(l: &League, c: &mut Club, ctx: &TxContext) {
     progress::train_week(c);
 }
 
-/// the matchday is over and the next one begins
+/// The matchday is over and the next one begins.
+///
+/// While a league is played by hand anybody may move it on, because that is the whole point of
+/// playing it by hand. Once it runs to the clock, only the league does.
 public fun advance(l: &mut League, ctx: &TxContext) {
-    assert!(ctx.sender() == l.admin, ENotAdmin);
+    assert!(l.manual || ctx.sender() == l.admin, ENotAdmin);
     l.week = l.week + 1;
 }
 
@@ -381,6 +432,6 @@ public fun play_for_testing(
 public fun destroy_for_testing(l: League) {
     let League { id, season: _, week: _, t0: _, kickoffs: _, days_per_week: _, lock_before: _,
         draw_before: _, weeks_in_season: _, admin: _, bottom_level: _, series_size: _,
-        foot_series: _, free_at_foot: _, free_in: _ } = l;
+        foot_series: _, free_at_foot: _, free_in: _, rosters: _, manual: _ } = l;
     id.delete();
 }

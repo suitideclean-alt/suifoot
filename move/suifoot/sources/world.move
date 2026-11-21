@@ -215,6 +215,7 @@ entry fun create_club(l: &mut League, num: u32, level: u8, series: u16, r: &Rand
     let seed = random::generate_u32(&mut gen);
     let c = new_club(num, level, series, seed, ctx);
     if (level == league::bottom_level(l)) league::register_free(l, object::id(&c), series);
+    league::add_to_series(l, series, num);
     transfer::public_share_object(c);
 }
 
@@ -240,8 +241,10 @@ entry fun open_series(l: &mut League, r: &Random, ctx: &mut TxContext) {
     let mut i = 0;
     while (i < size) {
         let seed = random::generate_u32(&mut gen);
-        let c = new_club(base + (i as u32), level, series, seed, ctx);
+        let num = base + (i as u32);
+        let c = new_club(num, level, series, seed, ctx);
         league::register_free(l, object::id(&c), series);
+        league::add_to_series(l, series, num);
         transfer::public_share_object(c);
         i = i + 1;
     };
