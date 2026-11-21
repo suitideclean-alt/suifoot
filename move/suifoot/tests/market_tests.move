@@ -120,9 +120,9 @@ fun the_free_list_holds_only_the_foot_and_shrinks_as_clubs_are_taken() {
 
     let a = world::new_club(1, 3, 0, 1, &mut ctx);
     let b = world::new_club(2, 3, 0, 2, &mut ctx);
-    league::register_free(&mut l, object::id(&a));
-    league::register_free(&mut l, object::id(&b));
-    league::register_free(&mut l, object::id(&a)); // the same club twice is still one club
+    league::register_free(&mut l, object::id(&a), 0);
+    league::register_free(&mut l, object::id(&b), 0);
+    league::register_free(&mut l, object::id(&a), 0); // the same club twice is still one club
     assert!(league::free_at_foot(&l) == 2, 1);
 
     league::forget_free(&mut l, &object::id(&a));
