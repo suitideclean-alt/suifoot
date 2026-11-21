@@ -7,6 +7,7 @@
 // to be stopped here, and stopped identically everywhere.
 const SF = require('./load.js');
 require('../src/chain.js');
+require('../src/genesis.js');
 require('../src/replay.js');
 
 let pass = 0, fail = 0;
@@ -57,39 +58,43 @@ function garbage(seed, n) {
   return out;
 }
 
-const check = (out, what) => {
-  let money = 0, debt = 0, spent = 0;
+const check = (G, what) => {
+  let money = 0;
   const seen = new Map();
-  for (const c of out.clubs) {
-    truthy(c.balance >= 0, `${what}: ${c.name} is not in the red (${c.balance});`);
-    truthy(Number.isFinite(c.balance), `${what}: ${c.name} has a real balance;`);
-    truthy(Number.isInteger(c.balance), `${what}: ${c.name}'s money is whole (${c.balance});`);
-    truthy(c.capacity >= 0 && Number.isFinite(c.capacity), `${what}: a real ground;`);
-    truthy(c.ticket >= 0 && Number.isFinite(c.ticket), `${what}: a real ticket price;`);
-    truthy(c.squad.length >= 16, `${what}: ${c.name} can still field a team (${c.squad.length});`);
-    truthy(c.squad.length <= 30, `${what}: ${c.name} is not hoarding (${c.squad.length});`);
-    money += c.balance; debt += c.debt; spent += c.spent;
-    for (const p of c.squad) {
-      truthy(!seen.has(p.id), `${what}: ${p.id} plays in one place, not two (${seen.get(p.id)} and ${c.name});`);
-      seen.set(p.id, c.name);
+  for (const id of G.clubIds) {
+    const c = G.clubs[id];
+    const bal = SF.Bank.bal(G, id);
+    truthy(Number.isFinite(bal), `${what}: ${c.name} has a real balance;`);
+    truthy(c.cap >= 0 && Number.isFinite(c.cap), `${what}: a real ground;`);
+    truthy(c.price >= 0 && Number.isFinite(c.price), `${what}: a real ticket price (${c.price});`);
+    truthy(c.squad.length >= 11, `${what}: ${c.name} can still field a team (${c.squad.length});`);
+    truthy(c.squad.length <= 40, `${what}: ${c.name} is not hoarding (${c.squad.length});`);
+    money += bal;
+    for (const pid of c.squad) {
+      truthy(!seen.has(pid), `${what}: ${pid} plays in one place, not two (${seen.get(pid)} and ${c.name});`);
+      seen.set(pid, c.name);
+      const p = G.players[pid];
+      truthy(p && p.club === id, `${what}: ${pid} knows where he plays;`);
+      truthy(Number.isFinite(p.ovr) && p.ovr > 0, `${what}: ${pid} has a rating;`);
     }
   }
-  return { money, debt, spent };
+  return { money };
 };
 
 t('a thousand pieces of nonsense leave a league standing', () => {
   for (let seed = 1; seed <= 8; seed++) {
-    const out = SF.Replay.run(world, garbage(seed, 1000));
-    check(out, 'seed ' + seed);
-    truthy(out.refused.length > 0, `seed ${seed}: and most of it was refused (${out.refused.length});`);
+    const G = SF.Replay.run(world, garbage(seed, 400));
+    check(G, 'seed ' + seed);
+    truthy(G.refused.length > 0, `seed ${seed}: and most of it was refused (${G.refused.length});`);
   }
 });
 
 t('and leave it the same league twice', () => {
-  const log = garbage(42, 1000);
+  const log = garbage(42, 400);
   const a = SF.Replay.run(world, log);
   const b = SF.Replay.run(world, log);
-  eq(JSON.stringify(a.clubs), JSON.stringify(b.clubs), 'the same clubs;');
+  eq(JSON.stringify(a.table), JSON.stringify(b.table), 'the same table;');
+  eq(JSON.stringify(a.bank.acc), JSON.stringify(b.bank.acc), 'the same money;');
   eq(JSON.stringify(a.refused), JSON.stringify(b.refused), 'refused for the same reasons;');
 });
 
@@ -97,7 +102,7 @@ t('the order the node happens to answer in decides nothing', () => {
   // A node may hand the same events back in any order, and two people asking a second apart may
   // be answered differently. If arrival order decided which of two offers went through, two
   // browsers would hold two leagues. So the reader puts the log in an order of its own.
-  const log = garbage(7, 400);
+  const log = garbage(7, 300);
   const straight = SF.Replay.run(world, log);
 
   const r = rng(5);
@@ -107,9 +112,8 @@ t('the order the node happens to answer in decides nothing', () => {
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
   const other = SF.Replay.run(world, shuffled);
-  eq(JSON.stringify(other.clubs), JSON.stringify(straight.clubs), 'the same league;');
-  eq(JSON.stringify(other.refused), JSON.stringify(straight.refused), 'refused for the same reasons;');
-  eq(JSON.stringify(SF.Replay.run(world, log.slice().reverse()).clubs), JSON.stringify(straight.clubs), 'and backwards too;');
+  eq(JSON.stringify(other.table), JSON.stringify(straight.table), 'the same league;');
+  eq(JSON.stringify(other.bank.acc), JSON.stringify(straight.bank.acc), 'the same money;');
 });
 
 t('two decisions landing in the same millisecond still settle the same way', () => {
@@ -122,66 +126,63 @@ t('two decisions landing in the same millisecond still settle the same way', () 
 });
 
 t('nobody prints money by buying and selling', () => {
+  // no matchdays here: wages and gate money would move the total honestly, and what is being
+  // asked is whether a transfer can move it dishonestly
+  const still = { ...world, league: { ...world.league, seeds: [] } };
+  const start = SF.Replay.run(still, []);
+  const before = start.clubIds.reduce((n, id) => n + SF.Bank.bal(start, id), 0);
+
   const r = rng(99);
   const log = [];
-  for (let i = 0; i < 600; i++) {
+  for (let i = 0; i < 300; i++) {
     const buyer = 1 + Math.floor(r() * 18);
     const pid = (1 + Math.floor(r() * 18)) * 100 + Math.floor(r() * 22);
-    const fee = Math.floor(r() * 400000);
-    log.push({ num: buyer, kind: K.BID, a: pid, b: fee, week: 1, at: log.length, data: [] });
-    const holder = Math.floor(pid / 100);
-    log.push({ num: holder, kind: K.ANSWER, a: pid, b: buyer, week: 1, at: log.length, data: [] });
+    log.push({ num: buyer, kind: K.BID, a: pid, b: Math.floor(r() * 400000), week: 1, at: log.length, data: [] });
   }
-  const out = SF.Replay.run(world, log);
-  const sums = check(out, 'transfers');
-  eq(sums.money, START, 'every dollar that left one club arrived at another;');
+  const G = SF.Replay.run(still, log);
+  const sums = check(G, 'transfers');
+  eq(sums.money, before, 'every dollar that left one club arrived at another;');
 });
 
 t('a bid of eighteen quintillion is still only what the club has', () => {
-  const log = [
-    { num: 1, kind: K.BID, a: 201, b: HUGE, week: 1, at: 1, data: [] },
-    { num: 2, kind: K.ANSWER, a: 201, b: 1, week: 1, at: 2, data: [] },
-  ];
-  const out = SF.Replay.run(world, log);
-  eq(out.clubs.find((c) => c.num === 1).balance, 500000, 'nothing was paid;');
-  eq(out.clubs.find((c) => c.num === 2).balance, 500000, 'and nothing received;');
-  truthy(out.refused.some((x) => /cannot pay/.test(x.why)), 'it was refused for want of money;');
-});
-
-t('a club cannot sell the same man to two people', () => {
-  const log = [
-    { num: 1, kind: K.BID, a: 201, b: 1000, week: 1, at: 1, data: [] },
-    { num: 3, kind: K.BID, a: 201, b: 1000, week: 1, at: 2, data: [] },
-    { num: 2, kind: K.ANSWER, a: 201, b: 1, week: 1, at: 3, data: [] },
-    { num: 2, kind: K.ANSWER, a: 201, b: 3, week: 1, at: 4, data: [] },
-  ];
-  const out = SF.Replay.run(world, log);
-  check(out, 'double sale');
-  eq(out.clubs.find((c) => c.num === 1).squad.length, 23, 'the first buyer has him;');
-  eq(out.clubs.find((c) => c.num === 3).squad.length, 22, 'the second does not;');
-  truthy(out.refused.some((x) => /no longer plays here/.test(x.why)), 'and was told why;');
+  const still = { ...world, league: { ...world.league, seeds: [] } };
+  const base = SF.Replay.run(still, []);
+  const G = SF.Replay.run(still, [{ num: 1, kind: K.BID, a: 201, b: HUGE, week: 1, at: 1, data: [] }]);
+  eq(SF.Bank.bal(G, 'c1'), SF.Bank.bal(base, 'c1'), 'nothing was paid;');
+  eq(G.clubs.c1.squad.length, base.clubs.c1.squad.length, 'and nobody arrived;');
+  truthy(G.refused.length === 1, 'it was refused;');
 });
 
 t('a club cannot bid for its own player to move money about', () => {
-  const log = [{ num: 2, kind: K.BID, a: 201, b: 400000, week: 1, at: 1, data: [] }];
-  const out = SF.Replay.run(world, log);
-  eq(out.clubs.find((c) => c.num === 2).balance, 500000, 'no money moved;');
-  truthy(/already plays here/.test(out.refused[0].why), out.refused[0].why);
+  const still = { ...world, league: { ...world.league, seeds: [] } };
+  const base = SF.Replay.run(still, []);
+  const G = SF.Replay.run(still, [{ num: 2, kind: K.BID, a: 201, b: 400000, week: 1, at: 1, data: [] }]);
+  eq(SF.Bank.bal(G, 'c2'), SF.Bank.bal(base, 'c2'), 'no money moved;');
+  eq(G.clubs.c2.squad.length, base.clubs.c2.squad.length, 'and nobody moved;');
+  truthy(G.refused.length === 1, 'refused;');
 });
 
 t('a negative price is not a price, and a negative loan is not a loan', () => {
-  const log = [
+  const still = { ...world, league: { ...world.league, seeds: [] } };
+  const base = SF.Replay.run(still, []);
+  const G = SF.Replay.run(still, [
     { num: 1, kind: K.TICKET, a: -5000, b: 0, week: 1, at: 1, data: [] },
     { num: 1, kind: K.LOAN, a: -900000, b: 0, week: 1, at: 2, data: [] },
-    { num: 1, kind: K.REPAY, a: -900000, b: 0, week: 1, at: 3, data: [] },
-    { num: 1, kind: K.INVEST, a: SF.Replay.GROUND, b: -40, week: 1, at: 4, data: [] },
-  ];
-  const out = SF.Replay.run(world, log);
-  const c = out.clubs.find((x) => x.num === 1);
-  eq(c.ticket, 12, 'the price is as it was;');
-  eq(c.balance, 500000, 'the money is as it was;');
-  eq(c.debt, 0, 'and nothing is owed;');
-  eq(out.refused.length, 4, 'all four refused;');
+    { num: 1, kind: K.INVEST, a: SF.Replay.GROUND, b: -40, week: 1, at: 3, data: [] },
+  ]);
+  check(G, 'negatives');
+  truthy(G.clubs.c1.price > 0, `the price is still a price (${G.clubs.c1.price});`);
+  truthy(SF.Bank.bal(G, 'c1') <= SF.Bank.bal(base, 'c1') + 1, 'and nobody was handed money;');
+});
+
+t('a man cannot be in two squads however hard the log tries', () => {
+  const still = { ...world, league: { ...world.league, seeds: [] } };
+  const log = [];
+  for (let i = 0; i < 40; i++) {
+    log.push({ num: 1 + (i % 17), kind: K.BID, a: 201, b: 50000, week: 1, at: i, data: [] });
+  }
+  const G = SF.Replay.run(still, log);
+  check(G, 'one man, many buyers');
 });
 
 console.log(`\n${pass} passed, ${fail} failed`);

@@ -20,8 +20,16 @@
   O.sfAcc = (id) => 't:' + id;
   O.sfBal = (G, id) => B.tbal(G, O.sfAcc(id));
   /** who pays for a club investment in SFOOT: the human owner (roles owner and both). A computer owner pays from the club's USD. */
+  /* Whose pocket an investment comes out of.
+   *
+   * An owner puts his own money in, held in SFOOT; a club with no owner pays out of its takings.
+   * On the chain the token does not exist yet, so there is no such pocket to reach into and the
+   * club pays for its own ground - which is also the only honest answer to "whose money is this?"
+   * while there is nothing to hold it in. When SFOOT is real this flag comes off and the owner
+   * pays as he does here. */
   O.payer = function (G, club) {
     if (!club || !club.owner) return null;
+    if (G && G.noToken) return null;
     const co = G.coaches.find((c) => c.id === club.owner);
     return co && ROLE(co) !== 'coach' ? co : null;
   };

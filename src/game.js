@@ -41,6 +41,10 @@
     if (co.replog.length > 60) co.replog.splice(0, co.replog.length - 60);
   };
 
+  /* A coach, as everything in the game expects one: he has a lineup, a notebook, a history. Made
+   * in one place so that a coach built for a league on the chain is the same animal as one built
+   * for a save here, and every rule that reaches for a field finds it. */
+  Game.makeCoach = (name, id) => makeCoach(null, name, id);
   function makeCoach(G, name, id) {
     return {
       id, name, club: null, rep: 20, xp: 0, board: 60, jobWeeks: 0, unemp: 0, sk: { train: 0, tact: 0, neg: 0, youth: 0 },
@@ -174,8 +178,13 @@
   /* The series of the league, numbered level by level: level 0 first, then level 1, and so on.
    * Each one knows its level, the series above it and the series below it. With one series per level
    * this is exactly the ladder of four divisions the game has always had. */
-  Game.buildSeries = function () {
-    const shape = CFG.series && CFG.series.length ? CFG.series : [1, 1, 1, 1];
+  /* The shape of the pyramid: how many series stand at each level, top first.
+   *
+   * Offline it is whatever the rules say. On the chain it is whatever is actually there, which at
+   * the start of a league is a single series at the foot and grows as people arrive - so the shape
+   * is asked for rather than assumed. */
+  Game.buildSeries = function (shape) {
+    shape = shape && shape.length ? shape : (CFG.series && CFG.series.length ? CFG.series : [1, 1, 1, 1]);
     const out = [], start = [];
     let n = 0;
     for (let lvl = 0; lvl < shape.length; lvl++) { start.push(n); for (let i = 0; i < shape[lvl]; i++) out.push({ lvl, parent: -1, kids: [] }); n += shape[lvl]; }
@@ -195,7 +204,7 @@
   Game.downFrom = (G, si) => CFG.promote * Math.max(1, (G.sers[si].kids || []).length);
 
   Game.startSeason = function (G) {
-    G.sers = Game.buildSeries();
+    G.sers = Game.buildSeries(G.shape);
     G.divs = G.sers.map((_, si) => G.clubIds.filter((id) => Game.serOf(G.clubs[id]) === si));
     G.table = {}; G.res = [];
     G.bank.sf = {};
@@ -212,7 +221,11 @@
     let md = 0, cup = 0;
     for (let m = 1; m <= CFG.LEAGUE_WEEKS; m++) {
       const fx = {};
-      rr.forEach((rounds, d) => { fx[d] = rounds[m - 1]; });
+      /* A series with nobody in it has no fixtures, and a pyramid is allowed to be half built: on
+       * the chain a league begins as one division at the foot and the levels above it stand empty
+       * until somebody climbs into them. An empty level contributes no matches rather than an
+       * absent round that the matchday would later try to read. */
+      rr.forEach((rounds, d) => { const r = rounds[m - 1]; if (r && r.length) fx[d] = r; });
       G.sched.push({ t: 'L', md: m, fx });
       if (CFG.CUP_AFTER.includes(m)) G.sched.push({ t: 'C', r: cup++ });
       const ei = CFG.EU_AFTER.indexOf(m);
@@ -233,7 +246,14 @@
   // ---------- european cup: 4 domestic qualifiers + 12 foreign clubs, 4 groups of 4, then QF / SF / final ----------
   function setupEuro(G, silent) {
     let q = (G.euroQ || []).filter((id) => G.clubs[id]);
-    if (q.length < CFG.EU_SLOTS) q = G.divs[0].slice().sort((a, b) => E.strength(G, G.clubs[b]) - E.strength(G, G.clubs[a])).slice(0, CFG.EU_SLOTS);
+    if (q.length < CFG.EU_SLOTS) {
+      /* The places go to the best of the highest division that actually has clubs in it. Offline
+       * that is always the first, because the pyramid is built whole. On the chain a league begins
+       * as a single division at the foot and grows upward, so for a while the first division is
+       * nobody, and Europe cannot be left waiting for clubs that do not exist yet. */
+      const top = G.divs.find((ids) => ids && ids.length) || [];
+      q = top.slice().sort((a, b) => E.strength(G, G.clubs[b]) - E.strength(G, G.clubs[a])).slice(0, CFG.EU_SLOTS);
+    }
     const teams = R.shuffle(q.concat(G.euIds));
     const groups = [];
     for (let g = 0; g < 4; g++) groups.push(teams.slice(g * 4, g * 4 + 4));

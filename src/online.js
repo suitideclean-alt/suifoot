@@ -55,12 +55,10 @@
    */
   O.build = function () {
     const all = (O.decisions || []).concat(O.pending || []);
-    const out = SF.Replay.run(O.genesis, all);
-    O.world = { league: O.genesis.league, clubs: out.clubs };
-    O.results = out.results;
-    O.refused = out.refused;
     O.game = SF.Bridge.toGame(O.genesis, SF.Wallet && SF.Wallet.addr, all);
-    if (O.playing) { SF.UI.G = O.game; SF.setG(O.game); }
+    O.world = O.genesis;
+    O.refused = O.game.refused;
+    if (O.playing) { SF.UI.G = O.game; SF.UI.ci = O.game.viewer || 0; SF.setG(O.game); }
     return O.game;
   };
 
@@ -297,7 +295,7 @@
     if (!O.game) return false;
     const UI = SF.UI;
     if (!O.saved) O.saved = UI.G;
-    UI.G = O.game; UI.ci = 0; UI.tab = 'home'; UI.live = null;
+    UI.G = O.game; UI.ci = O.game.viewer || 0; UI.tab = 'home'; UI.live = null;
     SF.setG(UI.G);
     O.playing = true;
     redraw();
@@ -325,12 +323,20 @@
   O.routes = {
     setprice: (arg, G) => [K().TICKET, Math.round(parseFloat(arg) * 100), 0],
     price: (arg, G) => [K().TICKET, Math.round((SF.UI.G.clubs[SF.UI.G.me].price + parseFloat(arg)) * 100), 0],
-    expand: (arg) => [K().INVEST, SF.Replay.GROUND, Math.max(1, Math.round(+arg / 500))],
+    expand: (arg) => [K().INVEST, SF.Replay.GROUND, Math.max(1, Math.round(+arg))],
     fac: (arg) => [K().INVEST, arg === 'youth' ? SF.Replay.ACADEMY : SF.Replay.TRAINING, 0],
     hirescout: () => [K().INVEST, SF.Replay.SCOUT, 0],
     unlist: (arg) => [K().LIST, +arg, 0],
     capt: (arg) => [K().CAPTAIN, +arg, 0],
     repay: (arg) => [K().REPAY, Math.round(+arg), 0],
+    wt: (arg) => [K().WATCH, +arg, 0],
+    skill: (arg) => [K().SKILL, ['train', 'tact', 'neg', 'youth'].indexOf(arg), 0],
+    reneg: (arg) => [K().RENEGOTIATE, +arg, 0],
+    sign: (arg) => [K().SIGNFREE, +arg, 0],
+    odec: (arg) => [K().ANSWER, +arg, 0],
+    oacc: (arg) => [K().ANSWER, +arg, 1],
+    'vac-start': (arg) => [K().VACATION, +arg, 0],
+    'vac-stop': () => [K().VACATION, 0, 0],
   };
 
   /* And the ones that need a number typed before they mean anything, which the screen asks for
@@ -339,11 +345,12 @@
     list: (pid, price) => [K().LIST, pid, Math.round(price)],
     buy: (pid, fee) => [K().BID, pid, Math.round(fee)],
     renew: (pid, years) => [K().RENEW, pid, Math.round(years * 34)],
-    oacc: (pid, from) => [K().ANSWER, pid, from],
     train: (what) => [K().TRAIN, what, 0],
     sellnow: (pid) => [K().SELLNOW, pid, 0],
     release: (pid) => [K().RELEASE, pid, 0],
     loan: (amount) => [K().LOAN, Math.round(amount), 0],
+    loanin: (pid, seasons) => [K().LOANIN, pid, seasons],
+    loanout: (pid, seasons) => [K().LOANOUT, pid, seasons],
   };
 
   const K = () => SF.Replay.kinds;

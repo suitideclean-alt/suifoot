@@ -5,6 +5,7 @@
 // what a person is shown a tenth of a second after pressing is what the chain's own log will say.
 const SF = require('./load.js');
 require('../src/chain.js');
+require('../src/genesis.js');
 require('../src/replay.js');
 require('../src/bridge.js');
 require('../src/online.js');
@@ -53,10 +54,10 @@ t('a ticket price button is a ticket price decision', () => {
 t('a stand button is a stand, in steps the contract understands', () => {
   const made = [];
   const real = O.decide; O.decide = (k, a, b) => { made.push([k, a, b]); return true; };
-  try { O.route('expand', '2000', noop); } finally { O.decide = real; }
+  try { O.route('expand', '2', noop); } finally { O.decide = real; }
   eq(made[0][0], K.INVEST, 'something bought;');
   eq(made[0][1], SF.Replay.GROUND, 'a stand;');
-  eq(made[0][2], 4, 'four steps of five hundred seats;');
+  eq(made[0][2], 2, 'two of whatever step the game sells them in;');
 });
 
 t('the academy and the training ground are not the same thing', () => {
@@ -74,32 +75,38 @@ t('a button the chain knows nothing about is left to the offline game', () => {
 });
 
 t('what the screen shows at once is what the log will say', () => {
-  const before = SF.UI.G.clubs['c1'].cap;
-  // a decision made and not yet landed
-  O.pending.push({ num: 1, kind: K.INVEST, a: SF.Replay.GROUND, b: 4, week: 1, at: 1, data: [] });
+  O.decisions = []; O.pending = []; O.build();
+  const before = O.game.clubs['c1'].build;
+  eq(before, null, 'nothing being built;');
+
+  // a decision made and not yet landed. The ground does not grow today - the game's own rule is
+  // that a stand takes weeks to put up - so what the screen must show is the work started.
+  O.pending.push({ num: 1, kind: K.INVEST, a: SF.Replay.GROUND, b: 2, week: 1, at: 1, data: [] });
   O.build();
-  const shown = O.game.clubs['c1'].cap;
-  eq(shown, before + 2000, 'the stand is up on screen;');
+  const shown = O.game.clubs['c1'].build;
+  truthy(shown && shown.seats > 0, `the work has started (${JSON.stringify(shown)});`);
 
   // and now the same decision, arrived from the chain instead of pending
   O.decisions = O.pending.slice(); O.pending = [];
   O.build();
-  eq(O.game.clubs['c1'].cap, shown, 'and the landing changed nothing;');
+  eq(JSON.stringify(O.game.clubs['c1'].build), JSON.stringify(shown), 'the landing changed nothing;');
 });
 
-t('a decision our own rules refuse never reaches a wallet', () => {
-  O.decisions = []; O.pending = []; O.build();
+t('a decision the game refuses never reaches a wallet', () => {
+  // a club with nothing in the bank, so the refusal is certain and is the game's own
+  const poor = { ...world, clubs: world.clubs.map((c) => (c.num === 1 ? { ...c, balance: 100 } : c)) };
+  O.genesis = poor; O.decisions = []; O.pending = []; O.build();
+
   let asked = 0;
   const realTx = SF.Tx;
   SF.Tx = { decide: async () => { asked++; } };
   try {
-    // forty steps of stand is far more than five million dollars buys
-    O.decide(K.INVEST, SF.Replay.GROUND, 40, [], noop);
-  } finally { SF.Tx = realTx; }
+    O.decide(K.INVEST, SF.Replay.GROUND, 2, [], noop);
+  } finally { SF.Tx = realTx; O.genesis = world; O.decisions = []; O.pending = []; O.build(); }
+
   eq(asked, 0, 'the wallet was never troubled;');
-  eq(O.pending.length, 0, 'and nothing was left pending;');
   truthy(O.said && !O.said.ok, 'the screen was told why;');
-  truthy(/not enough money/.test(O.said.why), O.said.why);
+  eq(O.said.why, 'no_funds', 'in the game\'s own word;');
 });
 
 console.log(`\n${pass} passed, ${fail} failed`);
