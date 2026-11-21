@@ -38,12 +38,19 @@ const PER_WEEK = +(process.env.PER_WEEK || 6);
 
 C.net.pkg = PKG; C.net.league = LEAGUE; C.net.clubs = CLUBS;
 
-const sui = (args, quiet) => {
+/* Never swallow what the tool said.
+ *
+ * An earlier version threw stderr away to keep the log readable, and the first thing that went
+ * wrong reported itself as an empty string. A harness whose job is to find faults cannot be the
+ * thing that hides them. */
+const sui = (args) => {
   try {
-    return execFileSync('sui', args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', quiet ? 'ignore' : 'pipe'] });
-  } catch (e) { return { bad: true, out: (e.stdout || '') + (e.stderr || '') }; }
+    return execFileSync('sui', args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] });
+  } catch (e) {
+    return { bad: true, out: [e.stdout, e.stderr, e.message].filter(Boolean).join(' | ').slice(0, 600) };
+  }
 };
-const json = (args) => { const r = sui(args, true); if (r.bad) return { bad: true, out: r.out }; try { return JSON.parse(r); } catch (_) { return { bad: true, out: String(r).slice(0, 400) }; } };
+const json = (args) => { const r = sui(args); if (r.bad) return { bad: true, out: r.out }; try { return JSON.parse(r); } catch (_) { return { bad: true, out: String(r).slice(0, 400) }; } };
 
 const report = { started: new Date().toISOString(), agents: [], steps: [], findings: [], gas: { calls: 0, mist: 0 } };
 const find = (what, detail) => { report.findings.push({ what, detail }); console.log(`  !! ${what}: ${detail}`); };
@@ -74,19 +81,27 @@ async function readLeague() {
 
   // ---- the people ----
   for (let i = 0; i < AGENTS; i++) {
-    const made = json(['client', 'new-address', 'ed25519', '--json']);
-    const addr = made.address || (made.bad ? null : null);
-    if (!addr) { find('a wallet could not be made', JSON.stringify(made).slice(0, 200)); continue; }
+    /* The CLI has moved this around between versions, so take the address out of whatever shape
+     * comes back rather than insisting on one. A key is made here and dies with the run; nobody's
+     * own wallet is wanted and none should ever be handed over. */
+    let made = json(['client', 'new-address', 'ed25519', '--json']);
+    let addr = made && (made.address || (made.result && made.result.address));
+    if (!addr) {
+      const raw = sui(['client', 'new-address', 'ed25519']);
+      const m = String(raw.bad ? raw.out : raw).match(/0x[0-9a-f]{64}/);
+      addr = m ? m[0] : null;
+      if (!addr) { find('a wallet could not be made', `${JSON.stringify(made).slice(0, 200)} :: ${String(raw.bad ? raw.out : raw).slice(0, 300)}`); continue; }
+    }
     report.agents.push({ n: i + 1, addr, club: null, role: ['owner', 'coach', 'both'][i % 3], done: 0, refused: 0, failed: 0 });
     console.log(`agent ${i + 1} (${['owner', 'coach', 'both'][i % 3]}) is ${addr}`);
   }
 
   for (const a of report.agents) {
-    sui(['client', 'switch', '--address', a.addr], true);
+    sui(['client', 'switch', '--address', a.addr]);
     /* Two goes each: one SUI covers a few dozen decisions, but taking a club and then signing a
      * matchday's worth of them on top is more than one comfortably carries. */
     for (let g = 0; g < 2; g++) {
-      const f = sui(['client', 'faucet', '--url', 'https://faucet.testnet.sui.io'], true);
+      const f = sui(['client', 'faucet', '--url', 'https://faucet.testnet.sui.io']);
       if (f.bad && g === 1) find('the faucet refused an agent', `${a.addr}: ${String(f.out).slice(0, 160)}`);
       await settle(12000);
     }
@@ -95,7 +110,7 @@ async function readLeague() {
 
   // ---- each takes a club ----
   for (const a of report.agents) {
-    sui(['client', 'switch', '--address', a.addr], true);
+    sui(['client', 'switch', '--address', a.addr]);
     const join = json(['client', 'call', '--package', PKG, '--module', 'market', '--function', 'request_join',
       '--args', LEAGUE, '0x8', '--gas-budget', '500000000', '--json']);
     if (join.bad) { find('taking a club failed outright', `agent ${a.n}: ${String(join.out).slice(0, 300)}`); a.failed++; continue; }
@@ -133,7 +148,7 @@ async function readLeague() {
 
     for (const a of report.agents) {
       if (!a.club) continue;
-      sui(['client', 'switch', '--address', a.addr], true);
+      sui(['client', 'switch', '--address', a.addr]);
       const plan = SF.Brain.plan(G, a.club, 7777 + week, week).slice(0, PER_WEEK);
       for (const p of plan) {
         tried.add(p.kind);
@@ -153,7 +168,7 @@ async function readLeague() {
     }
 
     // and the matchday itself, which anybody may draw while the league is played by hand
-    sui(['client', 'switch', '--address', report.agents[0].addr], true);
+    sui(['client', 'switch', '--address', report.agents[0].addr]);
     const draw = json(['client', 'call', '--package', PKG, '--module', 'league', '--function', 'draw_week',
       '--args', LEAGUE, '0x8', '0x6', '--gas-budget', '500000000', '--json']);
     if (draw.bad) find('the matchday could not be drawn', String(draw.out).slice(0, 200));
