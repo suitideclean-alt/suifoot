@@ -10,7 +10,7 @@
  */
 (function () {
   const SF = globalThis.SF;
-  const O = (SF.Online = { state: 'idle', world: null, error: null, club: null, gas: null });
+  const O = (SF.Online = { state: 'idle', world: null, error: null, club: null, gas: null, tickets: [] });
 
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const money = (n) => '$' + Number(n).toLocaleString('en-US');
@@ -25,7 +25,10 @@
        * the screen can say "you have nothing to spend" before anybody is shown a dialog. A failure
        * to weigh the address is not a failure to read the league, so it only clears the figure. */
       const addr = SF.Wallet && SF.Wallet.addr;
-      if (addr) { try { O.gas = await SF.Chain.gas(addr); } catch (_) { O.gas = null; } } else O.gas = null;
+      if (addr) {
+        try { O.gas = await SF.Chain.gas(addr); } catch (_) { O.gas = null; }
+        try { O.tickets = await SF.Chain.tickets(addr); } catch (_) { O.tickets = []; }
+      } else { O.gas = null; O.tickets = []; }
       O.state = 'ready';
     } catch (e) {
       O.error = e && e.message ? e.message : String(e);
@@ -63,6 +66,7 @@
       const addr = SF.Wallet && SF.Wallet.addr;
       if (addr) { try { O.gas = await SF.Chain.gas(addr); } catch (_) {} }
       if (O.gas != null && O.gas < 2e7) throw new Error('no_gas_here');
+      if (!O.world) await O.load(redraw);
       const out = await fn();
       O.said = { ok: true, what, digest: out && out.digest ? out.digest : null };
       await O.load(redraw);
@@ -101,6 +105,18 @@
           <button data-act="on:grow"${O.busy || broke ? ' disabled' : ''}>${esc(t('on_open_series'))}</button>
         </div>
         <p class="muted small">${esc(t('on_sign_d'))}</p>`;
+    }
+    /* A drawn club is not a held club. The draw hands back a ticket and takes the club off the
+     * free list; until the ticket is turned in the club has no owner and the person owns nothing.
+     * Anybody who stopped between the two steps was left with a screen that looked finished. */
+    if (O.tickets && O.tickets.length) {
+      for (const tk of O.tickets) {
+        const c = O.world && O.world.clubs.find((x) => x.id === tk.club);
+        const name = c ? c.name : short(tk.club);
+        act += `<p class="good">${esc(t('on_drawn'))}: <b>${esc(name)}</b></p>
+          <p class="muted small">${esc(t('on_drawn_d'))}</p>
+          <button data-act="on:claim:${esc(tk.id)}:${esc(tk.club)}"${O.busy ? ' disabled' : ''}>${esc(t('on_claim'))}</button>`;
+      }
     }
     if (O.busy) act += `<p>${esc(t('on_waiting'))}</p>`;
     if (O.said) {
@@ -191,6 +207,11 @@
     if (action === 'on:load') { O.load(redraw); return true; }
     if (action.startsWith('on:club:')) { O.club = action.slice(8); redraw(); return true; }
     if (action === 'on:join') { O.run('join', () => SF.Tx.requestJoin(), redraw); return true; }
+    if (action.startsWith('on:claim:')) {
+      const [, , id, club] = action.split(':');
+      O.run('claim', () => SF.Tx.claim(id, club), redraw);
+      return true;
+    }
     if (action === 'on:grow') { O.run('grow', () => SF.Tx.openSeries(), redraw); return true; }
     if (action === 'on:round') {
       const fx = SF.Chain.fixtures(O.world, 0);

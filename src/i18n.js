@@ -555,6 +555,13 @@
     on_done: [`Done.`, `Fait.`, `Feito.`, `Erledigt.`],
     on_refused: [`Refused`, `Refusé`, `Recusado`, `Abgelehnt`],
     on_gas: [`to spend`, `à dépenser`, `para gastar`, `verfügbar`],
+    on_drawn: [`The draw gave you`, `Le tirage vous a donné`, `O sorteio deu-te`, `Die Auslosung gab dir`],
+    on_drawn_d: [
+      `The club is off the free list but it is not yours until you turn the ticket in. One more signature.`,
+      `Le club est retiré de la liste libre, mais il n'est pas à vous tant que le billet n'est pas remis. Une signature de plus.`,
+      `O clube já saiu da lista de livres, mas só é teu quando entregares o bilhete. Falta uma assinatura.`,
+      `Der Verein ist von der freien Liste, gehört dir aber erst, wenn du das Ticket einlöst. Eine Signatur fehlt.`],
+    on_claim: [`Take the club`, `Prendre le club`, `Ficar com o clube`, `Verein übernehmen`],
     on_gas_none: [
       `This address holds no testnet SUI, so the wallet has nothing to pay the fee with. Ask the faucet for some, then read the chain again.`,
       `Cette adresse ne détient aucun SUI de testnet : le portefeuille n'a rien pour payer les frais. Demandez-en au robinet, puis relisez la chaîne.`,
