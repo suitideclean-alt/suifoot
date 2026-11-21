@@ -1,46 +1,28 @@
-# Is the domain pointed here yet?
+# Does that address have testnet SUI, and does the league still stand?
 name: probe
 on:
   workflow_dispatch:
 jobs:
-  domain:
+  look:
     runs-on: ubuntu-latest
     steps:
-      - name: Both certificates, and what GitHub thinks
+      - name: The wallet, on testnet
         run: |
           set +e
-          for H in suifoot.fun www.suifoot.fun; do
-            echo "=== $H ==="
-            echo | timeout 20 openssl s_client -servername "$H" -connect "$H":443 2>/dev/null \
-              | openssl x509 -noout -subject -issuer -dates -ext subjectAltName 2>/dev/null | sed 's/^/  /'
-            echo
-          done
-          echo "=== what the Pages API says ==="
-          curl -sS -m 20 -H "accept: application/vnd.github+json" \
-            https://api.github.com/repos/suitideclean-alt/suifoot/pages | head -c 900
-          echo
-          echo
-          echo "=== is the CNAME file actually being served ==="
-          curl -sS -m 20 https://suifoot.fun/CNAME -w ' <- %{http_code}\n'
+          A=0x1130
+          ADDR=$(echo "${{ github.event.inputs.addr }}")
+          ADDR=${ADDR:-0x1130000000000000000000000000000000000000000000000000000000055c4}
+          echo "asking about $ADDR"
+          Q='{"query":"{ address(address: \"'$ADDR'\") { balance { totalBalance } } }"}'
+          curl -sS -m 25 -X POST https://graphql.testnet.sui.io/graphql \
+            -H 'content-type: application/json' --data "$Q"
+          echo; echo
 
-      - name: suifoot.fun
+      - name: And the league itself
         run: |
           set +e
-          echo "=== what the name resolves to ==="
-          dig +short suifoot.fun A | sed 's/^/  apex : /'
-          dig +short www.suifoot.fun CNAME | sed 's/^/  www  : /'
+          L=0xc2dccce30329974a0503acae3ed9e6c32f70099034a0366b9fb3c39baf183119
+          Q='{"query":"{ object(address: \"'$L'\") { version asMoveObject { contents { json } } } }"}'
+          curl -sS -m 25 -X POST https://graphql.testnet.sui.io/graphql \
+            -H 'content-type: application/json' --data "$Q" | head -c 700
           echo
-          echo "  (GitHub Pages answers on 185.199.108-111.153)"
-          echo
-          echo "=== what answers over http ==="
-          for U in http://suifoot.fun/ https://suifoot.fun/ https://www.suifoot.fun/ https://suifoot.fun/badges/7.svg; do
-            OUT=$(curl -sS -o /tmp/b -D /tmp/h -m 25 -L -w '%{http_code} after %{num_redirects} redirect(s), %{size_download} bytes' "$U" 2>&1)
-            echo "  $U"
-            echo "    $OUT"
-            grep -i '^server:' /tmp/h 2>/dev/null | sed 's/^/    /'
-            head -c 60 /tmp/b 2>/dev/null | tr -d '\n' | sed 's/^/    body: /'
-            echo; echo
-          done
-          echo "=== certificate ==="
-          echo | timeout 20 openssl s_client -servername suifoot.fun -connect suifoot.fun:443 2>/dev/null \
-            | openssl x509 -noout -subject -issuer -dates 2>/dev/null | sed 's/^/  /' || echo "  no certificate yet"
