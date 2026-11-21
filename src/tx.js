@@ -206,6 +206,19 @@
      * So the loop lives in the contract, and this sends one command. The clubs go in the order the
      * fixtures give them; the contract checks each pair against its own fixture list, so an order
      * of our own invention aborts rather than playing a match nobody scheduled. */
+    async drawWeek() {
+      const { Transaction } = globalThis.SuiSDK;
+      const net = SF.Chain.net;
+      const [[league], sys] = await Promise.all([SF.Chain.sharedRefs([net.league]), system()]);
+
+      const tx = new Transaction();
+      tx.moveCall({
+        target: `${net.pkg}::league::draw_week`,
+        arguments: [tx.sharedObjectRef(league), tx.sharedObjectRef(sys.random), tx.sharedObjectRef(sys.clock)],
+      });
+      return Tx.send(tx);
+    },
+
     async playMatchday(fixtures) {
       const { Transaction } = globalThis.SuiSDK;
       const net = SF.Chain.net;

@@ -20,7 +20,13 @@
   O.load = async function (redraw) {
     O.state = 'loading'; O.error = null; redraw();
     try {
-      O.world = await SF.Chain.world();
+      const genesis = await SF.Chain.world();
+      /* What the chain gave us is the first day of the season. The season itself is worked out
+       * from it and the numbers drawn since, here, for nothing - see SF.Replay. */
+      O.genesis = genesis;
+      const out = SF.Replay.run(genesis, null);
+      O.world = { league: genesis.league, clubs: out.clubs };
+      O.results = out.results;
       /* And what the connected wallet has to pay with. Asked here rather than at signing time, so
        * the screen can say "you have nothing to spend" before anybody is shown a dialog. A failure
        * to weigh the address is not a failure to read the league, so it only clears the figure. */
@@ -213,11 +219,7 @@
       return true;
     }
     if (action === 'on:grow') { O.run('grow', () => SF.Tx.openSeries(), redraw); return true; }
-    if (action === 'on:round') {
-      const fx = SF.Chain.fixtures(O.world, 0);
-      O.run('round', () => SF.Tx.playMatchday(fx), redraw);
-      return true;
-    }
+    if (action === 'on:round') { O.run('round', () => SF.Tx.drawWeek(), redraw); return true; }
     return false;
   };
 })();

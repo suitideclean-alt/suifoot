@@ -117,22 +117,20 @@ jobs:
           for C in $CLUB_IDS; do echo "CLUB    $C"; done
           echo "::endgroup::" 
 
-      - name: Play a whole matchday on the chain
+      - name: Draw a matchday on the chain
         if: ${{ github.event.inputs.play != 'false' }}
         run: |
           set -euo pipefail
           export PATH="$HOME/.sui/bin:$PATH"
-          # The order is the fixture list's, worked out from the same rotation the contract uses.
-          # Handing the clubs over in any other order aborts, which is the point of the check.
-          ORDER=$(PKG="$PKG" LEAGUE="$LEAGUE" CLUBS="$CLUB_IDS" NAMES=1 node tools/order.js)
-          echo "playing: $ORDER"
-          sui client call --package "$PKG" --module league --function play_week \
-            --args "$LEAGUE" $ORDER 0x8 0x6 --gas-budget 2000000000 --json > match.json
+          # The whole cost of a matchday: one number. The six matches follow from it, and are
+          # worked out by whoever is looking rather than paid for here.
+          sui client call --package "$PKG" --module league --function draw_week \
+            --args "$LEAGUE" 0x8 0x6 --gas-budget 500000000 --json > match.json
           echo "=============================================="
-          echo "the result, as the chain recorded it:"
-          jq -r '.events[]? | .parsedJson | "  \(.home) \(.home_goals) - \(.away_goals) \(.away)   seed \(.seed)"' match.json
+          echo "the matchday, worked out from the number the chain drew:"
+          PKG="$PKG" LEAGUE="$LEAGUE" CLUBS="$CLUB_IDS" node tools/who.js || true
           echo ""
-          echo "what ninety minutes cost, in MIST (1 SUI = 1,000,000,000):"
+          echo "what a matchday now costs, in MIST (1 SUI = 1,000,000,000):"
           jq -r '.effects.gasUsed | "  computation \(.computationCost)\n  storage     \(.storageCost)\n  rebate      \(.storageRebate)"' match.json
           echo "=============================================="
 

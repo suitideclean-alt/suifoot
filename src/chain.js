@@ -210,6 +210,7 @@
         free: (f.free_at_foot || []).length,
         size: Number(f.series_size),
         manual: !!f.manual,
+        seeds: (f.seeds || []).map(Number),
         rosters: (f.rosters || []).map((r) => (r || []).map(Number)),
       };
     },
