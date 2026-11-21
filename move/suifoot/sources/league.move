@@ -42,6 +42,7 @@ const ETooEarly: vector<u8> = b"this matchday has not kicked off yet";
 const ENotYet: vector<u8> = b"it is not time to show a lineup yet";
 #[error]
 const EAlreadyPlayed: vector<u8> = b"one of these clubs has already played this matchday";
+#[error]
 const EAlreadyDrawn: vector<u8> = b"this matchday has already been drawn";
 #[error]
 const ESameClub: vector<u8> = b"a club cannot play itself";
