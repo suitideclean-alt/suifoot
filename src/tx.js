@@ -206,6 +206,36 @@
      * So the loop lives in the contract, and this sends one command. The clubs go in the order the
      * fixtures give them; the contract checks each pair against its own fixture list, so an order
      * of our own invention aborts rather than playing a match nobody scheduled. */
+    /* Write a decision down.
+     *
+     * One call for everything a person does that is not a match: what the week is spent training,
+     * what it costs to come and watch, a stand built, a scout taken on, a man listed, a bid made,
+     * a bid answered. The contract checks whose it is and whether it came in time; what it means
+     * is worked out from the log afterwards, the same way by everyone.
+     */
+    async decide(clubId, kind, a, b, data) {
+      const { Transaction } = globalThis.SuiSDK;
+      const net = SF.Chain.net;
+      const [[league, club], sys] = await Promise.all([
+        SF.Chain.sharedRefs([net.league, clubId]), system(),
+      ]);
+
+      const tx = new Transaction();
+      tx.moveCall({
+        target: `${net.pkg}::decide::decide`,
+        arguments: [
+          tx.sharedObjectRef({ ...league, mutable: false }),
+          tx.sharedObjectRef({ ...club, mutable: false }),
+          tx.pure.u8(kind),
+          tx.pure.u64(String(a || 0)),
+          tx.pure.u64(String(b || 0)),
+          tx.pure.vector('u8', Array.from(data || [])),
+          tx.sharedObjectRef(sys.clock),
+        ],
+      });
+      return Tx.send(tx);
+    },
+
     async drawWeek() {
       const { Transaction } = globalThis.SuiSDK;
       const net = SF.Chain.net;

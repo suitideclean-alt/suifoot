@@ -195,6 +195,44 @@
       }).filter((x) => x.club);
     },
 
+    /* Everything anybody decided, oldest first.
+     *
+     * This is the other half of the league. The clubs as they were made and a number a matchday
+     * say what happened on the pitch; this says what people did about it - who trained what, who
+     * raised a ticket price, who bid for whom. Read in order and applied in order, the two
+     * together are the whole game, and neither is any use without the other.
+     *
+     * They are read rather than kept: nothing in this browser remembers a decision, so there is
+     * nothing here to lose, to disagree with somebody else's copy, or to edit into being true.
+     */
+    async decisions(limit) {
+      const type = `${Chain.net.pkg}::decide::Decided`;
+      const out = [];
+      let after = null;
+      // a page at a time, following the cursor, until the chain says there is no more
+      for (let page = 0; page < (limit || 40); page++) {
+        const cursor = after ? `, after: "${after}"` : '';
+        const d = await Chain.query(`{ events(filter: { type: "${type}" }, first: 50${cursor}) {
+          pageInfo { hasNextPage endCursor }
+          nodes { timestamp contents { json } } } }`);
+        const ev = d && d.events;
+        if (!ev) break;
+        for (const n of ev.nodes || []) {
+          const f = n && n.contents ? n.contents.json : null;
+          if (!f) continue;
+          out.push({
+            club: f.club, num: Number(f.club_num), by: f.by,
+            season: Number(f.season), week: Number(f.week), at: Number(f.at),
+            kind: Number(f.kind), a: Number(f.a), b: Number(f.b),
+            data: f.data || [],
+          });
+        }
+        if (!ev.pageInfo || !ev.pageInfo.hasNextPage) break;
+        after = ev.pageInfo.endCursor;
+      }
+      return out;
+    },
+
     /** several at once, under names of our own, so it is one question and not eighteen */
     async objects(ids) {
       const parts = ids.map((id, i) => `o${i}: object(address: "${id}") { asMoveObject { contents { json } } }`);
