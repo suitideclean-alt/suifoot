@@ -243,6 +243,18 @@ public fun free_in_series(l: &League, series: u16): u64 {
     count
 }
 public fun week(l: &League): u16 { l.week }
+
+/// the phases by name, for anybody deciding whether a thing is still in time
+public fun drawn(): u8 { DRAWN }
+public fun played(): u8 { PLAYED }
+
+/// Is this club one of ours, in the series it says it is in? A club is a shared object and anybody
+/// may hand one over, so a decision naming a club has to be shown to be a decision about this
+/// league rather than about somebody else's.
+public fun holds(l: &League, num: u32, series: u16): bool {
+    if ((series as u64) >= l.rosters.length()) return false;
+    l.rosters[(series as u64)].contains(&num)
+}
 public fun t0(l: &League): u64 { l.t0 }
 
 // ---------- the clock ----------
