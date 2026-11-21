@@ -1,0 +1,38 @@
+# Which door does a browser knock on, now that JSON-RPC is closed?
+name: probe
+on:
+  workflow_dispatch:
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Try the endpoints a browser could use
+        run: |
+          set +e
+          OBJ=0xb882dd5f3819e8d4aa69b249cb6f17005ccd7a59e86596acd53d230fad69bf98
+          Q='{"query":"{ object(address: \"'$OBJ'\") { address asMoveObject { contents { json } } } }"}'
+          for URL in \
+            https://sui-testnet.mystenlabs.com/graphql \
+            https://graphql.testnet.sui.io \
+            https://sui-testnet.mystenlabs.com/graphql/stable \
+            https://testnet.sui.io/graphql ; do
+            echo "=================== $URL"
+            curl -sS -m 25 -D /tmp/h -X POST "$URL" -H 'content-type: application/json' \
+                 -H 'origin: https://suitideclean-alt.github.io' --data "$Q" -o /tmp/b
+            echo "status: $(head -1 /tmp/h)"
+            echo "cors:   $(grep -i 'access-control-allow-origin' /tmp/h || echo 'none')"
+            head -c 600 /tmp/b; echo; echo
+          done
+
+          echo "=================== REST / gRPC over HTTP"
+          for URL in \
+            "https://fullnode.testnet.sui.io/v1/objects/$OBJ" \
+            "https://fullnode.testnet.sui.io/v2/objects/$OBJ" \
+            "https://fullnode.testnet.sui.io/sui.rpc.v2.LedgerService/GetObject" ; do
+            echo "--- $URL"
+            curl -sS -m 20 -D /tmp/h2 -H 'accept: application/json' \
+                 -H 'origin: https://suitideclean-alt.github.io' "$URL" -o /tmp/b2
+            echo "status: $(head -1 /tmp/h2)"
+            echo "cors:   $(grep -i 'access-control-allow-origin' /tmp/h2 || echo 'none')"
+            head -c 400 /tmp/b2; echo; echo
+          done
