@@ -14,7 +14,14 @@ const C = globalThis.SF.Chain;
 
   const w = await C.world();
   const fx = C.fixtures(w, 0);
-  if (!fx.length) { console.error('no fixtures for week ' + w.league.week); process.exit(1); }
+  if (!fx.length) {
+    const roster = (w.league.rosters || [])[0] || [];
+    console.error(`no fixtures for week ${w.league.week}`);
+    console.error(`  rosters: ${JSON.stringify(w.league.rosters)}`);
+    console.error(`  clubs read: ${w.clubs.length}, nums ${w.clubs.map((c) => c.num).join(',')}`);
+    console.error(`  pairs: ${JSON.stringify(C.pairs(roster, w.league.week))}`);
+    process.exit(1);
+  }
   const order = [];
   for (const m of fx) order.push(m.home.id, m.away.id);
   if (process.env.NAMES) for (const m of fx) console.error(`  ${m.home.name} v ${m.away.name}`);
