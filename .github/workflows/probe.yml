@@ -9,11 +9,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Can a client read the decision log at all
-        run: node tools/who.js
+      - run: node tools/who.js
       - name: What the live site serves
         run: |
           echo -n "version: "; curl -sS -m 25 https://suifoot.fun/index.html | grep -o 'v=0\.9\.[0-9]*' | head -1
-          echo -n "buttons routed: "; curl -sS -m 25 "https://suifoot.fun/src/ui.js?v=0.9.52" | grep -c "Online.route"
-          echo -n "log read: "; curl -sS -m 25 "https://suifoot.fun/src/chain.js?v=0.9.52" | grep -c "decide::Decided"
-          echo -n "log written: "; curl -sS -m 25 "https://suifoot.fun/src/tx.js?v=0.9.52" | grep -c "decide::decide"
+          echo -n "package: "; curl -sS -m 25 "https://suifoot.fun/src/chain.js?v=0.9.54" | grep -o "pkg: '0x[0-9a-f]\{8\}" | head -1
+          echo -n "unwired buttons refused: "; curl -sS -m 25 "https://suifoot.fun/src/online.js?v=0.9.54" | grep -c "not_on_chain_yet"
