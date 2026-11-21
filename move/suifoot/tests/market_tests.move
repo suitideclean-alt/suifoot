@@ -30,7 +30,7 @@ fun a_ticket_names_one_club_and_that_club_becomes_yours() {
     assert!(club::is_free(&c), 0);
 
     let t = market::ticket_for_testing(object::id(&c), &mut ctx);
-    market::claim(t, &l, &mut c, &ctx);
+    market::claim(t, &l, &mut c, &mut ctx);
 
     assert!(!club::is_free(&c), 1);
     assert!(club::runs_it(&c, me), 2);
@@ -48,7 +48,7 @@ fun a_ticket_cannot_be_turned_in_against_a_different_club() {
     let mut nicer = world::new_club(2, 3, 0, 88, &mut ctx);
 
     let t = market::ticket_for_testing(object::id(&drawn), &mut ctx);
-    market::claim(t, &l, &mut nicer, &ctx); // the one that was drawn is not the one handed over
+    market::claim(t, &l, &mut nicer, &mut ctx); // the one that was drawn is not the one handed over
     abort 0
 }
 
@@ -61,7 +61,7 @@ fun a_club_somebody_already_runs_cannot_be_taken() {
     club::set_coach(&mut c, option::some(me));
 
     let t = market::ticket_for_testing(object::id(&c), &mut ctx);
-    market::claim(t, &l, &mut c, &ctx);
+    market::claim(t, &l, &mut c, &mut ctx);
     abort 0
 }
 
@@ -70,7 +70,7 @@ fun the_top_division_is_not_for_sale_however_badly_it_finished() {
     let mut ctx = tx_context::dummy();
     let mut l = a_league(&mut ctx);
     let mut bottom_of_the_top = club_that_finished(1, 0, 18, &mut ctx); // dead last in the first division
-    market::buy(&mut l, &mut bottom_of_the_top, &ctx);
+    market::buy(&mut l, &mut bottom_of_the_top, &mut ctx);
     abort 0
 }
 
@@ -79,7 +79,7 @@ fun a_club_that_finished_in_the_top_half_is_not_for_sale() {
     let mut ctx = tx_context::dummy();
     let mut l = a_league(&mut ctx);
     let mut ninth = club_that_finished(1, 2, 9, &mut ctx);
-    market::buy(&mut l, &mut ninth, &ctx);
+    market::buy(&mut l, &mut ninth, &mut ctx);
     abort 0
 }
 
@@ -89,11 +89,11 @@ fun a_club_that_finished_in_the_bottom_half_is() {
     let me = ctx.sender();
     let mut l = a_league(&mut ctx);
     let mut tenth = club_that_finished(1, 2, 10, &mut ctx);
-    market::buy(&mut l, &mut tenth, &ctx);
+    market::buy(&mut l, &mut tenth, &mut ctx);
     assert!(club::runs_it(&tenth, me), 0);
 
     let mut last = club_that_finished(2, 1, 18, &mut ctx);
-    market::buy(&mut l, &mut last, &ctx);
+    market::buy(&mut l, &mut last, &mut ctx);
     assert!(club::runs_it(&last, me), 1);
 
     club::destroy_for_testing(tenth);
@@ -108,7 +108,7 @@ fun in_a_leagues_first_season_nothing_is_for_sale_at_all() {
     // never finished a season, so there is nothing to judge it on and it counts as mid-table
     let mut brand_new = world::new_club(1, 2, 0, 99, &mut ctx);
     assert!(club::last_pos(&brand_new) == 0, 0);
-    market::buy(&mut l, &mut brand_new, &ctx);
+    market::buy(&mut l, &mut brand_new, &mut ctx);
     abort 0
 }
 
@@ -143,7 +143,7 @@ fun a_club_taken_once_the_season_is_under_way_owes_nothing_for_it() {
 
     let mut c = club_that_finished(1, 2, 14, &mut ctx);
     club::set_entry_paid(&mut c, true);
-    market::buy(&mut l, &mut c, &ctx);
+    market::buy(&mut l, &mut c, &mut ctx);
     assert!(!club::entry_paid(&c), 1); // nothing paid in, so nothing to be drawn out
 
     club::destroy_for_testing(c);
