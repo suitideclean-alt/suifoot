@@ -172,6 +172,23 @@
       return b ? Number(b.totalBalance) : 0;
     },
 
+    /* The tickets this address is holding.
+     *
+     * Taking a club is two steps on purpose: the draw happens on chain and hands back a ticket
+     * naming the club it landed on, and the ticket is turned in afterwards. Between the two the
+     * club is already off the free list but still has no owner, so a person who stops there owns
+     * nothing and the screen must say so rather than look finished. */
+    async tickets(addr) {
+      const d = await Chain.query(`{ a: address(address: "${addr}") {
+        objects(filter: { type: "${Chain.net.pkg}::market::JoinTicket" }) {
+          nodes { address asMoveObject { contents { json } } } } } }`);
+      const nodes = (d && d.a && d.a.objects && d.a.objects.nodes) || [];
+      return nodes.map((n) => {
+        const f = Chain.fieldsOf(n);
+        return { id: n.address, club: f && f.club ? f.club : null };
+      }).filter((x) => x.club);
+    },
+
     /** several at once, under names of our own, so it is one question and not eighteen */
     async objects(ids) {
       const parts = ids.map((id, i) => `o${i}: object(address: "${id}") { asMoveObject { contents { json } } }`);
