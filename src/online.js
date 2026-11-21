@@ -10,7 +10,7 @@
  */
 (function () {
   const SF = globalThis.SF;
-  const O = (SF.Online = { state: 'idle', world: null, error: null, club: null });
+  const O = (SF.Online = { state: 'idle', world: null, error: null, club: null, gas: null });
 
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const money = (n) => '$' + Number(n).toLocaleString('en-US');
@@ -21,6 +21,11 @@
     O.state = 'loading'; O.error = null; redraw();
     try {
       O.world = await SF.Chain.world();
+      /* And what the connected wallet has to pay with. Asked here rather than at signing time, so
+       * the screen can say "you have nothing to spend" before anybody is shown a dialog. A failure
+       * to weigh the address is not a failure to read the league, so it only clears the figure. */
+      const addr = SF.Wallet && SF.Wallet.addr;
+      if (addr) { try { O.gas = await SF.Chain.gas(addr); } catch (_) { O.gas = null; } } else O.gas = null;
       O.state = 'ready';
     } catch (e) {
       O.error = e && e.message ? e.message : String(e);
@@ -30,6 +35,22 @@
   };
 
   const when = (ms) => new Date(ms).toISOString().replace('T', ' ').slice(0, 16) + ' UTC';
+
+  /* Wallets report their failures in their own words, and those words are rarely anybody's. Slush
+   * answers a network it cannot reach with "TRPCClientError", which names its own plumbing and not
+   * the problem. Where we recognise the cause we say the cause instead, and where we do not we pass
+   * the original through rather than guess. */
+  const WHY = [
+    [/trpc|fetch failed|network error|timed? ?out/i, 'on_why_trpc'],
+    [/insufficient|no valid gas|gas coins|balance/i, 'on_why_gas'],
+    [/reject|denied|cancel|user refused/i, 'on_why_no'],
+    [/not this (week|match)|already|version|conflict|equivocat/i, 'on_why_stale'],
+  ];
+
+  O.explain = function (why, t) {
+    for (const [pat, key] of WHY) if (pat.test(why)) return t(key);
+    return why;
+  };
 
   /** run one of the chain calls and say plainly what happened */
   O.run = async function (what, fn, redraw) {
@@ -60,10 +81,17 @@
     } else if (stop) {
       act += `<p class="muted">${esc(t('on_cannot_' + stop) || stop)}</p>`;
     } else {
-      act += `<p class="muted small">${esc(t('on_signing_as'))} ${esc(SF.Wallet.short(addr))}</p>
-        <div class="row" style="gap:8px;flex-wrap:wrap">
-          <button data-act="on:join"${O.busy ? ' disabled' : ''}>${esc(t('on_take_club'))}</button>
-          <button data-act="on:grow"${O.busy ? ' disabled' : ''}>${esc(t('on_open_series'))}</button>
+      const sui = O.gas == null ? null : O.gas / 1e9;
+      const broke = sui != null && sui < 0.02;
+      act += `<p class="muted small">${esc(t('on_signing_as'))} ${esc(SF.Wallet.short(addr))}${
+        sui == null ? '' : ` · ${sui.toFixed(3)} SUI ${esc(t('on_gas'))}`}</p>`;
+      if (broke) {
+        act += `<p class="bad">${esc(t('on_gas_none'))}</p>
+          <p><a href="${net.faucet}" target="_blank" rel="noopener">${esc(t('on_faucet'))}</a></p>`;
+      }
+      act += `<div class="row" style="gap:8px;flex-wrap:wrap">
+          <button data-act="on:join"${O.busy || broke ? ' disabled' : ''}>${esc(t('on_take_club'))}</button>
+          <button data-act="on:grow"${O.busy || broke ? ' disabled' : ''}>${esc(t('on_open_series'))}</button>
         </div>
         <p class="muted small">${esc(t('on_sign_d'))}</p>`;
     }
@@ -71,7 +99,7 @@
     if (O.said) {
       act += O.said.ok
         ? `<p class="good">${esc(t('on_done'))}${O.said.digest ? ` <span class="muted small">${esc(O.said.digest)}</span>` : ''}</p>`
-        : `<p class="bad">${esc(t('on_refused'))}: ${esc(O.said.why)}</p>`;
+        : `<p class="bad">${esc(t('on_refused'))}: ${esc(O.explain(O.said.why, t))}</p>`;
     }
     act += '</div>';
 

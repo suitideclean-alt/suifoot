@@ -26,6 +26,7 @@
   const TESTNET = {
     graphql: 'https://graphql.testnet.sui.io/graphql',
     explorer: 'https://suiscan.xyz/testnet/object/',
+    faucet: 'https://faucet.sui.io/?network=testnet',
     pkg: '0x6d1a4ad96866233ea6a1eb024b2feb966a1cbb1229c9870191cb1abe97a35881',
     league: '0xc2dccce30329974a0503acae3ed9e6c32f70099034a0366b9fb3c39baf183119',
     clubs: [
@@ -159,6 +160,16 @@
         if (!sh) throw new Error('that object is not shared: ' + id);
         return { objectId: id, initialSharedVersion: String(sh), mutable: true };
       });
+    },
+
+    /* What the wallet has to pay with, in MIST. A transaction that costs nothing to build still
+     * costs gas to run, and an empty address is by far the commonest reason a wallet refuses: the
+     * refusal arrives as its own internal error, which explains nothing. So we ask first. */
+    async gas(addr) {
+      const d = await Chain.query(
+        `{ a: address(address: "${addr}") { balance(coinType: "0x2::sui::SUI") { totalBalance } } }`);
+      const b = d && d.a && d.a.balance;
+      return b ? Number(b.totalBalance) : 0;
     },
 
     /** several at once, under names of our own, so it is one question and not eighteen */

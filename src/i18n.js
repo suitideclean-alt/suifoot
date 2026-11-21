@@ -554,6 +554,33 @@
     on_waiting: [`Waiting for the chain…`, `En attente de la chaîne…`, `À espera da cadeia…`, `Warte auf die Kette…`],
     on_done: [`Done.`, `Fait.`, `Feito.`, `Erledigt.`],
     on_refused: [`Refused`, `Refusé`, `Recusado`, `Abgelehnt`],
+    on_gas: [`to spend`, `à dépenser`, `para gastar`, `verfügbar`],
+    on_gas_none: [
+      `This address holds no testnet SUI, so the wallet has nothing to pay the fee with. Ask the faucet for some, then read the chain again.`,
+      `Cette adresse ne détient aucun SUI de testnet : le portefeuille n'a rien pour payer les frais. Demandez-en au robinet, puis relisez la chaîne.`,
+      `Este endereço não tem SUI de testnet, por isso a carteira não tem com que pagar a taxa. Pede ao torneira e depois volta a ler a cadeia.`,
+      `Diese Adresse hält kein Testnet-SUI, also hat die Brieftasche nichts, womit sie die Gebühr zahlen kann. Hole welches beim Faucet und lies die Kette erneut.`],
+    on_faucet: [`Get testnet SUI`, `Obtenir du SUI de testnet`, `Obter SUI de testnet`, `Testnet-SUI holen`],
+    on_why_trpc: [
+      `The wallet could not reach the testnet. Check that it is set to Testnet and not Mainnet, then try again.`,
+      `Le portefeuille n'a pas pu joindre le testnet. Vérifiez qu'il est réglé sur Testnet et non sur Mainnet, puis réessayez.`,
+      `A carteira não conseguiu falar com a testnet. Confirma que está na rede Testnet e não na Mainnet, e tenta outra vez.`,
+      `Die Brieftasche konnte das Testnet nicht erreichen. Prüfe, ob sie auf Testnet und nicht auf Mainnet steht, und versuche es erneut.`],
+    on_why_gas: [
+      `Not enough testnet SUI to pay the fee.`,
+      `Pas assez de SUI de testnet pour payer les frais.`,
+      `Não há SUI de testnet suficiente para pagar a taxa.`,
+      `Nicht genug Testnet-SUI, um die Gebühr zu zahlen.`],
+    on_why_no: [
+      `You said no in the wallet. Nothing was sent.`,
+      `Vous avez refusé dans le portefeuille. Rien n'a été envoyé.`,
+      `Disseste que não na carteira. Nada foi enviado.`,
+      `Du hast in der Brieftasche abgelehnt. Es wurde nichts gesendet.`],
+    on_why_stale: [
+      `Somebody got there first and the league has moved on. Read the chain again and retry.`,
+      `Quelqu'un est passé avant et la ligue a avancé. Relisez la chaîne et réessayez.`,
+      `Alguém chegou primeiro e a liga já avançou. Volta a ler a cadeia e tenta de novo.`,
+      `Jemand war schneller und die Liga ist weiter. Lies die Kette erneut und versuche es nochmal.`],
     on_state: [`Where the season stands`, `Où en est la saison`, `Onde está a época`, `Wo die Saison steht`],
     on_season: [`Season`, `Saison`, `Época`, `Saison`],
     on_week: [`Matchday`, `Journée`, `Jornada`, `Spieltag`],

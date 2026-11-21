@@ -134,6 +134,16 @@ const eq = (a, b, m) => { if (a !== b) throw new Error((m || '') + ` expected ${
   const best = table[0].squad.slice().sort((a, b) => b.ovr - a.ovr)[0];
   console.log(`\n  best man at ${table[0].name}: ${best.name}, ${best.pos}, ${best.age}, rated ${best.ovr} of a possible ${best.pot}`);
 
+  /* The question the game now asks before it shows anybody a wallet dialog. The node wants the
+   * coin type named, and said so the only way it could; getting it wrong reads as a zero balance,
+   * which would wrongly tell a funded player he has nothing to spend. */
+  const admin = await C.gas(w.league.admin);
+  const nobody = await C.gas('0x' + '1'.repeat(64));
+  t('an address can be weighed', () => {
+    truthy(typeof admin === 'number' && admin > 0, `the deployer holds ${(admin / 1e9).toFixed(3)} SUI;`);
+    eq(nobody, 0, 'and an address nobody uses holds nothing;');
+  });
+
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 })().catch((e) => { console.log('could not read the chain: ' + e.message); process.exit(1); });
