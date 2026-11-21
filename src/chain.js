@@ -5,10 +5,26 @@
  * anything - no rating, no result, no balance comes from this file. It asks, and it shows.
  *
  * There is no library and no build step, because the game is a folder of files served as they are.
- * A Sui full node answers plain JSON-RPC over HTTPS, so that is what this speaks.
+ *
+ * THE TRANSPORT IS CURRENTLY BROKEN, AND NOT BY ANYTHING HERE. Sui has retired JSON-RPC on public
+ * full nodes. Every endpoint tried - the official one, BlockVision, PublicNode, Suiscan - answers
+ * the same way: "Sui JSON-RPC has been deprecated. Please migrate to gRPC." The official node does
+ * serve the replacement at /sui.rpc.v2.LedgerService/, and it sends access-control-allow-origin: *
+ * so a browser is welcome there, but it speaks gRPC: a compression byte, a four-byte length and a
+ * protobuf message. Posting JSON at it comes back with "invalid compression flag: 123", 123 being
+ * the opening brace.
+ *
+ * So the door is open and the language has changed. Three ways through it, none of them written yet:
+ *   - decode protobuf by hand. The wire format is simple and only a few messages are needed, but it
+ *     is real work and it has to be right.
+ *   - find a node that still answers GraphQL over HTTPS, which is JSON both ways.
+ *   - put a small service of our own in front, which is one more thing to run and to trust.
+ *
+ * Everything below the transport - what the fields mean, how a name follows from a number, how the
+ * table sorts, when a matchday locks - is written, tested, and waiting.
  *
  * Reading needs no wallet and no permission: a published object is public. Writing - sealing a
- * lineup, taking a club - needs a signature, and that is a separate thing the person must connect.
+ * lineup, taking a club - needs a signature, and that is a separate thing again.
  */
 (function () {
   const SF = (globalThis.SF = globalThis.SF || {});
@@ -83,7 +99,11 @@
       });
       if (!res.ok) throw new Error('the node answered ' + res.status);
       const body = await res.json();
-      if (body.error) throw new Error(body.error.message || 'the node refused the question');
+      if (body.error) {
+        const msg = body.error.message || 'the node refused the question';
+        if (/deprecat|grpc/i.test(msg)) { const e = new Error(msg); e.deprecated = true; throw e; }
+        throw new Error(msg);
+      }
       return body.result;
     },
 

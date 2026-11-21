@@ -24,7 +24,7 @@
       O.state = 'ready';
     } catch (e) {
       O.error = e && e.message ? e.message : String(e);
-      O.state = 'failed';
+      O.state = e && e.deprecated ? 'moved' : 'failed';
     }
     redraw();
   };
@@ -41,6 +41,11 @@
 
     if (O.state === 'idle') return head;
     if (O.state === 'loading') return head + `<div class="card"><p>${esc(t('on_asking'))}</p></div>`;
+    if (O.state === 'moved') {
+      return head + `<div class="card"><h4>${esc(t('on_moved'))}</h4>
+        <p>${esc(t('on_moved_d'))}</p>
+        <p class="muted small">${esc(O.error)}</p></div>`;
+    }
     if (O.state === 'failed') {
       return head + `<div class="card"><h4>${esc(t('on_failed'))}</h4><p class="muted">${esc(O.error)}</p>
         <p class="muted small">${esc(t('on_failed_d'))}</p></div>`;
