@@ -16,3 +16,7 @@ jobs:
       - run: node tools/who.js
         env:
           ADDR: ${{ github.event.inputs.addr }}
+      - name: And what the live site serves
+        run: |
+          echo -n "version: "; curl -sS -m 25 https://suifoot.fun/index.html | grep -o 'v=0\.9\.[0-9]*' | head -1
+          echo -n "claim button present: "; curl -sS -m 25 "https://suifoot.fun/src/online.js?v=0.9.46" | grep -c "on:claim"
