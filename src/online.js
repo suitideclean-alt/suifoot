@@ -31,6 +31,19 @@
 
   const when = (ms) => new Date(ms).toISOString().replace('T', ' ').slice(0, 16) + ' UTC';
 
+  /** run one of the chain calls and say plainly what happened */
+  O.run = async function (what, fn, redraw) {
+    O.busy = what; O.said = null; redraw();
+    try {
+      const out = await fn();
+      O.said = { ok: true, what, digest: out && out.digest ? out.digest : null };
+      await O.load(redraw);
+    } catch (e) {
+      O.said = { ok: false, what, why: (e && e.message ? e.message : String(e)) };
+    }
+    O.busy = null; redraw();
+  };
+
   O.view = function (t) {
     const net = SF.Chain.net;
     const head = `<div class="card"><h3>${esc(t('on_title'))}</h3>
@@ -39,10 +52,33 @@
       · ${esc(t('on_league'))}: <a href="${net.explorer}${net.league}" target="_blank" rel="noopener">${short(net.league)}</a></p>
       <button data-act="on:load">${esc(O.state === 'ready' ? t('on_again') : t('on_read'))}</button></div>`;
 
-    if (O.state === 'idle') return head;
-    if (O.state === 'loading') return head + `<div class="card"><p>${esc(t('on_asking'))}</p></div>`;
+    const addr = SF.Wallet && SF.Wallet.addr;
+    const stop = SF.Tx ? SF.Tx.why() : 'no_sdk';
+    let act = `<div class="card"><h4>${esc(t('on_play'))}</h4>`;
+    if (!addr) {
+      act += `<p class="muted">${esc(t('on_need_wallet'))}</p><button data-act="wl-menu">${esc(t('wl_connect'))}</button>`;
+    } else if (stop) {
+      act += `<p class="muted">${esc(t('on_cannot_' + stop) || stop)}</p>`;
+    } else {
+      act += `<p class="muted small">${esc(t('on_signing_as'))} ${esc(SF.Wallet.short(addr))}</p>
+        <div class="row" style="gap:8px;flex-wrap:wrap">
+          <button data-act="on:join"${O.busy ? ' disabled' : ''}>${esc(t('on_take_club'))}</button>
+          <button data-act="on:grow"${O.busy ? ' disabled' : ''}>${esc(t('on_open_series'))}</button>
+        </div>
+        <p class="muted small">${esc(t('on_sign_d'))}</p>`;
+    }
+    if (O.busy) act += `<p>${esc(t('on_waiting'))}</p>`;
+    if (O.said) {
+      act += O.said.ok
+        ? `<p class="good">${esc(t('on_done'))}${O.said.digest ? ` <span class="muted small">${esc(O.said.digest)}</span>` : ''}</p>`
+        : `<p class="bad">${esc(t('on_refused'))}: ${esc(O.said.why)}</p>`;
+    }
+    act += '</div>';
+
+    if (O.state === 'idle') return head + act;
+    if (O.state === 'loading') return head + act + `<div class="card"><p>${esc(t('on_asking'))}</p></div>`;
     if (O.state === 'failed') {
-      return head + `<div class="card"><h4>${esc(t('on_failed'))}</h4><p class="muted">${esc(O.error)}</p>
+      return head + act + `<div class="card"><h4>${esc(t('on_failed'))}</h4><p class="muted">${esc(O.error)}</p>
         <p class="muted small">${esc(t('on_failed_d'))}</p></div>`;
     }
 
@@ -89,13 +125,15 @@
       squad = `<div class="card"><p class="muted">${esc(t('on_pick'))}</p></div>`;
     }
 
-    return head + state + standings + squad;
+    return head + act + state + standings + squad;
   };
 
   /** the clicks this screen answers */
   O.act = function (action, redraw) {
     if (action === 'on:load') { O.load(redraw); return true; }
     if (action.startsWith('on:club:')) { O.club = action.slice(8); redraw(); return true; }
+    if (action === 'on:join') { O.run('join', () => SF.Tx.requestJoin(), redraw); return true; }
+    if (action === 'on:grow') { O.run('grow', () => SF.Tx.openSeries(), redraw); return true; }
     return false;
   };
 })();
