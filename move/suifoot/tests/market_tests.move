@@ -149,3 +149,66 @@ fun a_club_taken_once_the_season_is_under_way_owes_nothing_for_it() {
     club::destroy_for_testing(c);
     league::destroy_for_testing(l);
 }
+
+#[test]
+fun a_newcomer_goes_where_there_is_least_room_left() {
+    let mut ctx = tx_context::dummy();
+    let mut l = a_league(&mut ctx);
+
+    // one series nearly full, another barely touched
+    let mut nearly = vector[];
+    let mut i = 0u32;
+    while (i < 2) { nearly.push_back(world::new_club(100 + i, 3, 0, 1, &mut ctx)); i = i + 1; };
+    let mut empty = vector[];
+    let mut j = 0u32;
+    while (j < 9) { empty.push_back(world::new_club(200 + j, 3, 1, 1, &mut ctx)); j = j + 1; };
+
+    let mut k = 0;
+    while (k < nearly.length()) { league::register_free(&mut l, object::id(&nearly[k]), 0); k = k + 1; };
+    let mut m = 0;
+    while (m < empty.length()) { league::register_free(&mut l, object::id(&empty[m]), 1); m = m + 1; };
+
+    assert!(league::free_in_series(&l, 0) == 2, 0);
+    assert!(league::free_in_series(&l, 1) == 9, 1);
+    // the one with least room left is where the next person goes, so it fills rather than both
+    // half-filling and both costing a full matchday
+    assert!(league::tightest_series(&l) == 0, 2);
+
+    while (!nearly.is_empty()) { club::destroy_for_testing(nearly.pop_back()); };
+    nearly.destroy_empty();
+    while (!empty.is_empty()) { club::destroy_for_testing(empty.pop_back()); };
+    empty.destroy_empty();
+    league::destroy_for_testing(l);
+}
+
+#[test]
+fun a_place_taken_comes_off_the_list_of_its_own_series() {
+    let mut ctx = tx_context::dummy();
+    let mut l = a_league(&mut ctx);
+    let a = world::new_club(1, 3, 0, 1, &mut ctx);
+    let b = world::new_club(2, 3, 0, 1, &mut ctx);
+    let c = world::new_club(3, 3, 1, 1, &mut ctx);
+    league::register_free(&mut l, object::id(&a), 0);
+    league::register_free(&mut l, object::id(&b), 0);
+    league::register_free(&mut l, object::id(&c), 1);
+
+    league::forget_free(&mut l, &object::id(&a));
+    assert!(league::free_in_series(&l, 0) == 1, 0);
+    assert!(league::free_in_series(&l, 1) == 1, 1); // the other series is untouched
+    assert!(league::free_at_foot(&l) == 2, 2);
+
+    club::destroy_for_testing(a); club::destroy_for_testing(b); club::destroy_for_testing(c);
+    league::destroy_for_testing(l);
+}
+
+#[test]
+fun each_new_series_gets_a_number_of_its_own() {
+    let mut ctx = tx_context::dummy();
+    let mut l = a_league(&mut ctx);
+    assert!(league::foot_series(&l) == 0, 0);
+    assert!(league::next_foot_series(&mut l) == 0, 1);
+    assert!(league::next_foot_series(&mut l) == 1, 2);
+    assert!(league::next_foot_series(&mut l) == 2, 3);
+    assert!(league::foot_series(&l) == 3, 4);
+    league::destroy_for_testing(l);
+}

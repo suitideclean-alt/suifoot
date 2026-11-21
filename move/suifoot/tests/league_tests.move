@@ -213,3 +213,15 @@ fun evenly_matched_sides_do_not_all_end_alike() {
     assert!(not_home_wins > 0, 1);
     league::destroy_for_testing(l);
 }
+
+#[test, expected_failure(abort_code = league::ENotSameSeries)]
+fun two_clubs_from_different_series_cannot_be_made_to_play_each_other() {
+    let mut ctx = tx_context::dummy();
+    let l = a_league(&mut ctx);
+    let mut top = club::new(1, string::utf8(b"Top"), 0, 0, 100000, &mut ctx);
+    let mut bottom = club::new(2, string::utf8(b"Bottom"), 3, 5, 100000, &mut ctx);
+    club::add_player(&mut top, man(11, player::gk(), 70));
+    club::add_player(&mut bottom, man(21, player::gk(), 40));
+    league::play_for_testing(&l, &mut top, &mut bottom, 1);
+    abort 0
+}
