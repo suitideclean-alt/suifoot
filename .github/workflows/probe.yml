@@ -6,6 +6,23 @@ jobs:
   domain:
     runs-on: ubuntu-latest
     steps:
+      - name: Both certificates, and what GitHub thinks
+        run: |
+          set +e
+          for H in suifoot.fun www.suifoot.fun; do
+            echo "=== $H ==="
+            echo | timeout 20 openssl s_client -servername "$H" -connect "$H":443 2>/dev/null \
+              | openssl x509 -noout -subject -issuer -dates -ext subjectAltName 2>/dev/null | sed 's/^/  /'
+            echo
+          done
+          echo "=== what the Pages API says ==="
+          curl -sS -m 20 -H "accept: application/vnd.github+json" \
+            https://api.github.com/repos/suitideclean-alt/suifoot/pages | head -c 900
+          echo
+          echo
+          echo "=== is the CNAME file actually being served ==="
+          curl -sS -m 20 https://suifoot.fun/CNAME -w ' <- %{http_code}\n'
+
       - name: suifoot.fun
         run: |
           set +e
