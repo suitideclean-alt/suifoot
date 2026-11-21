@@ -6,6 +6,28 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
+      - name: Who still speaks JSON to a browser
+        run: |
+          set +e
+          OBJ=0xb882dd5f3819e8d4aa69b249cb6f17005ccd7a59e86596acd53d230fad69bf98
+          BODY="{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"sui_getObject\",\"params\":[\"$OBJ\",{\"showContent\":true}]}"
+          for URL in \
+            https://sui-testnet-endpoint.blockvision.org \
+            https://sui-testnet.public.blastapi.io \
+            https://rpc-testnet.suiscan.xyz \
+            https://sui-testnet-rpc.publicnode.com \
+            https://testnet.suiet.app \
+            https://sui-testnet.nodeinfra.com ; do
+            echo "=== $URL"
+            OUT=$(curl -sS -m 20 --compressed -D /tmp/h -X POST "$URL" \
+                  -H 'content-type: application/json' \
+                  -H 'origin: https://suitideclean-alt.github.io' --data "$BODY" 2>&1)
+            echo "  status: $(head -1 /tmp/h 2>/dev/null)"
+            echo "  cors:   $(grep -i 'access-control-allow-origin' /tmp/h 2>/dev/null || echo none)"
+            echo "  body:   $(echo "$OUT" | head -c 220)"
+            echo
+          done
+
       - name: What shape does GetObject want
         run: |
           set +e
