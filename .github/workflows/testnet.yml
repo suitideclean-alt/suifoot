@@ -118,7 +118,10 @@ jobs:
           for C in $CLUB_IDS; do echo "CLUB    $C"; done
           echo "::endgroup::" 
 
+      # Only in a rehearsal. The key that takes this club is thrown away with the run, so a league
+      # meant to be used must not have one of its clubs held for ever by nobody.
       - name: Take a club, and decide something with it
+        if: ${{ github.event.inputs.play != 'false' }}
         run: |
           set -euo pipefail
           export PATH="$HOME/.sui/bin:$PATH"
