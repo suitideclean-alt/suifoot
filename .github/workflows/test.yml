@@ -18,6 +18,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
       - run: npm run chain
+      - run: npm run tx
 
       # A deed in a wallet asks the web for its badge. A broken picture there is a broken NFT, so
       # the file has to actually be where the contract says it is.

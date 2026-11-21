@@ -1,6 +1,6 @@
 {
   "name": "suifoot",
-  "version": "0.9.40",
+  "version": "0.9.41",
   "description": "SuiFoot - a free football manager game with fictional clubs, career mode, transfers, finances and local multiplayer. SFOOT in-game currency.",
   "private": true,
   "license": "MIT",
@@ -9,6 +9,7 @@
     "balance": "node tests/balance.js 100",
     "sim": "node tests/sim.js 30 5",
     "serve": "python3 -m http.server 8765",
-    "chain": "node tests/chain.js"
+    "chain": "node tests/chain.js",
+    "tx": "node tests/tx.js"
   }
 }

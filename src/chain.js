@@ -140,6 +140,21 @@
       return f;
     },
 
+    /* What a transaction needs to name a shared object: not the version it is on now, but the
+     * version it was on when it was first shared. That number never changes, and the chain uses it
+     * to know which object is meant. */
+    async sharedRefs(ids) {
+      const parts = ids.map((id, i) =>
+        `o${i}: object(address: "${id}") { address owner { __typename ... on Shared { initialSharedVersion } } }`);
+      const d = await Chain.query('{ ' + parts.join(' ') + ' }');
+      return ids.map((id, i) => {
+        const o = d && d['o' + i];
+        const sh = o && o.owner && o.owner.initialSharedVersion;
+        if (!sh) throw new Error('that object is not shared: ' + id);
+        return { objectId: id, initialSharedVersion: String(sh), mutable: true };
+      });
+    },
+
     /** several at once, under names of our own, so it is one question and not eighteen */
     async objects(ids) {
       const parts = ids.map((id, i) => `o${i}: object(address: "${id}") { asMoveObject { contents { json } } }`);
