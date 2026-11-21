@@ -41,6 +41,7 @@
    * the problem. Where we recognise the cause we say the cause instead, and where we do not we pass
    * the original through rather than guess. */
   const WHY = [
+    [/^no_gas_here$/, 'on_gas_none'],
     [/trpc|fetch failed|network error|timed? ?out/i, 'on_why_trpc'],
     [/insufficient|no valid gas|gas coins|balance/i, 'on_why_gas'],
     [/reject|denied|cancel|user refused/i, 'on_why_no'],
@@ -56,6 +57,12 @@
   O.run = async function (what, fn, redraw) {
     O.busy = what; O.said = null; redraw();
     try {
+      /* Weigh the address first, whether or not the league has been read. An empty one cannot pay,
+       * and finding that out here costs one question; finding it out in the wallet costs a dialog
+       * that could never have been completed and an error naming the wallet's plumbing. */
+      const addr = SF.Wallet && SF.Wallet.addr;
+      if (addr) { try { O.gas = await SF.Chain.gas(addr); } catch (_) {} }
+      if (O.gas != null && O.gas < 2e7) throw new Error('no_gas_here');
       const out = await fn();
       O.said = { ok: true, what, digest: out && out.digest ? out.digest : null };
       await O.load(redraw);
@@ -99,7 +106,8 @@
     if (O.said) {
       act += O.said.ok
         ? `<p class="good">${esc(t('on_done'))}${O.said.digest ? ` <span class="muted small">${esc(O.said.digest)}</span>` : ''}</p>`
-        : `<p class="bad">${esc(t('on_refused'))}: ${esc(O.explain(O.said.why, t))}</p>`;
+        : `<p class="bad">${esc(t('on_refused'))}: ${esc(O.explain(O.said.why, t))}</p>` +
+          (O.explain(O.said.why, t) === O.said.why ? '' : `<p class="muted small">${esc(O.said.why)}</p>`);
     }
     act += '</div>';
 

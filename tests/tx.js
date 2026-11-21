@@ -104,6 +104,26 @@ const callOf = (j) => j.commands.find((c) => c.MoveCall).MoveCall;
     } finally { globalThis.SF.Wallet = saved; }
   });
 
+  /* The bug this pins cost a day of blaming wallets. Every shared object a transaction names must
+   * carry the version it was FIRST shared at. The clock's is 1; randomness was shared much later
+   * and its own number is nothing like it. Writing 1 for both built a transaction naming an object
+   * that has never existed, which no wallet can report usefully. These must come from the chain. */
+  t('the system objects are named at the version the chain shared them at', () => {
+    const shared = (j) => j.inputs.filter((i) => i.Object && i.Object.SharedObject)
+      .map((i) => i.Object.SharedObject);
+    const pick = (j, addr) => shared(j).find((o) => BigInt(o.objectId) === BigInt(addr));
+
+    for (const [name, j] of [['join', join], ['open', open], ['play', play]]) {
+      const r = pick(j, '0x8');
+      truthy(r, name + ': randomness is named;');
+      truthy(Number(r.initialSharedVersion) > 1,
+        name + `: at version ${r && r.initialSharedVersion}, not a guessed 1;`);
+    }
+    const clock = pick(play, '0x6');
+    truthy(clock, 'the clock is named;');
+    eq(Number(clock.initialSharedVersion), 1, 'the clock has been shared since the first block;');
+  });
+
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 })().catch((e) => { console.log('could not build: ' + (e && e.stack ? e.stack : e)); process.exit(1); });

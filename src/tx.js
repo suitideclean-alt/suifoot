@@ -18,6 +18,26 @@
   const CLOCK = '0x6';
   const RANDOM = '0x8';
 
+  /* A transaction names a shared object by the version it was FIRST shared at, not the version it
+   * is on now. That number is not guessable and it is not the same for every object. The clock has
+   * been there since the chain's first block, so its number is 1; randomness was added years later
+   * and carries a large one instead - on testnet, forty-three million and change.
+   *
+   * Writing 1 for both named an object that has never existed. Nothing rejects that cleanly: the
+   * node cannot resolve the input, so the wallet's rehearsal of the transaction falls over before
+   * it can say anything useful, and reports a fault of its own plumbing. Hence a wallet claiming
+   * it was short of gas on an address that was not, and then an internal error with no cause in
+   * it. So we ask the chain, once, and hold the answer for the session - these two never change.
+   */
+  let SYS = null;
+  async function system() {
+    if (!SYS) {
+      const [clock, random] = await SF.Chain.sharedRefs([CLOCK, RANDOM]);
+      SYS = { clock: { ...clock, mutable: false }, random: { ...random, mutable: false } };
+    }
+    return SYS;
+  }
+
   const Tx = (SF.Tx = {
     /** is there anything here to sign with? */
     ready: () => !!(globalThis.SuiSDK && SF.Wallet && SF.Wallet.addr && SF.Wallet.current),
@@ -62,12 +82,12 @@
     async requestJoin() {
       const { Transaction } = globalThis.SuiSDK;
       const net = SF.Chain.net;
-      const [league] = await SF.Chain.sharedRefs([net.league]);
+      const [[league], sys] = await Promise.all([SF.Chain.sharedRefs([net.league]), system()]);
 
       const tx = new Transaction();
       tx.moveCall({
         target: `${net.pkg}::market::request_join`,
-        arguments: [tx.sharedObjectRef(league), tx.sharedObjectRef({ objectId: RANDOM, initialSharedVersion: '1', mutable: false })],
+        arguments: [tx.sharedObjectRef(league), tx.sharedObjectRef(sys.random)],
       });
       return Tx.send(tx);
     },
@@ -104,12 +124,12 @@
     async openSeries() {
       const { Transaction } = globalThis.SuiSDK;
       const net = SF.Chain.net;
-      const [league] = await SF.Chain.sharedRefs([net.league]);
+      const [[league], sys] = await Promise.all([SF.Chain.sharedRefs([net.league]), system()]);
 
       const tx = new Transaction();
       tx.moveCall({
         target: `${net.pkg}::world::open_series`,
-        arguments: [tx.sharedObjectRef(league), tx.sharedObjectRef({ objectId: RANDOM, initialSharedVersion: '1', mutable: false })],
+        arguments: [tx.sharedObjectRef(league), tx.sharedObjectRef(sys.random)],
       });
       return Tx.send(tx);
     },
@@ -122,7 +142,7 @@
     async commitLineup(clubId, week, seal) {
       const { Transaction } = globalThis.SuiSDK;
       const net = SF.Chain.net;
-      const [league, club] = await SF.Chain.sharedRefs([net.league, clubId]);
+      const [[league, club], sys] = await Promise.all([SF.Chain.sharedRefs([net.league, clubId]), system()]);
 
       const tx = new Transaction();
       tx.moveCall({
@@ -132,7 +152,7 @@
           tx.sharedObjectRef(club),
           tx.pure.u16(week),
           tx.pure.vector('u8', Array.from(seal)),
-          tx.sharedObjectRef({ objectId: CLOCK, initialSharedVersion: '1', mutable: false }),
+          tx.sharedObjectRef(sys.clock),
         ],
       });
       return Tx.send(tx);
@@ -142,7 +162,7 @@
     async revealLineup(clubId, week, xi, bench, tactic, salt) {
       const { Transaction } = globalThis.SuiSDK;
       const net = SF.Chain.net;
-      const [league, club] = await SF.Chain.sharedRefs([net.league, clubId]);
+      const [[league, club], sys] = await Promise.all([SF.Chain.sharedRefs([net.league, clubId]), system()]);
 
       const tx = new Transaction();
       tx.moveCall({
@@ -155,7 +175,7 @@
           tx.pure.vector('u32', bench),
           tx.pure.u8(tactic),
           tx.pure.u64(String(salt)),
-          tx.sharedObjectRef({ objectId: CLOCK, initialSharedVersion: '1', mutable: false }),
+          tx.sharedObjectRef(sys.clock),
         ],
       });
       return Tx.send(tx);
@@ -186,10 +206,8 @@
 
       const ids = [net.league];
       for (const m of fixtures) ids.push(m.home.id, m.away.id);
-      const refs = await SF.Chain.sharedRefs(ids);
+      const [refs, sys] = await Promise.all([SF.Chain.sharedRefs(ids), system()]);
       const league = refs[0];
-      const random = { objectId: RANDOM, initialSharedVersion: '1', mutable: false };
-      const clock = { objectId: CLOCK, initialSharedVersion: '1', mutable: false };
 
       const tx = new Transaction();
       fixtures.forEach((m, i) => {
@@ -199,8 +217,8 @@
             tx.sharedObjectRef({ ...league, mutable: false }),
             tx.sharedObjectRef(refs[1 + i * 2]),
             tx.sharedObjectRef(refs[2 + i * 2]),
-            tx.sharedObjectRef(random),
-            tx.sharedObjectRef(clock),
+            tx.sharedObjectRef(sys.random),
+            tx.sharedObjectRef(sys.clock),
           ],
         });
       });
@@ -212,7 +230,7 @@
     async playFixture(homeId, awayId) {
       const { Transaction } = globalThis.SuiSDK;
       const net = SF.Chain.net;
-      const [league, home, away] = await SF.Chain.sharedRefs([net.league, homeId, awayId]);
+      const [[league, home, away], sys] = await Promise.all([SF.Chain.sharedRefs([net.league, homeId, awayId]), system()]);
 
       const tx = new Transaction();
       tx.moveCall({
@@ -221,8 +239,8 @@
           tx.sharedObjectRef({ ...league, mutable: false }),
           tx.sharedObjectRef(home),
           tx.sharedObjectRef(away),
-          tx.sharedObjectRef({ objectId: RANDOM, initialSharedVersion: '1', mutable: false }),
-          tx.sharedObjectRef({ objectId: CLOCK, initialSharedVersion: '1', mutable: false }),
+          tx.sharedObjectRef(sys.random),
+          tx.sharedObjectRef(sys.clock),
         ],
       });
       return Tx.send(tx);
