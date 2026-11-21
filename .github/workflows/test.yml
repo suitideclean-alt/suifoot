@@ -22,18 +22,19 @@ jobs:
 
       # A deed in a wallet asks the web for its badge. A broken picture there is a broken NFT, so
       # the file has to actually be where the contract says it is.
+      # A deed in a wallet asks the web for its badge. A broken picture there is a broken NFT, so
+      # the file has to actually be where the contract says it is - which is suifoot.fun, the address
+      # written into the deed. The old github.io address now redirects there, and that is checked too.
       - name: The badges are where a wallet will look for them
         run: |
           set -euo pipefail
           for N in 0 7 42 599; do
-            for HOST in https://suitideclean-alt.github.io/suifoot https://suifoot.fun; do
-              CODE=$(curl -sS -o /tmp/b -w '%{http_code}' -m 20 "$HOST/badges/$N.svg" || echo 000)
-              SIZE=$(wc -c < /tmp/b 2>/dev/null || echo 0)
-              echo "$HOST/badges/$N.svg -> $CODE, $SIZE bytes"
-              if [ "$HOST" = "https://suitideclean-alt.github.io/suifoot" ]; then
-                [ "$CODE" = "200" ] || { echo "the badge is not there"; exit 1; }
-                head -c 5 /tmp/b | grep -q '<svg' || { echo "that is not an svg"; exit 1; }
-              fi
-            done
+            CODE=$(curl -sS -o /tmp/b -w '%{http_code}' -m 20 "https://suifoot.fun/badges/$N.svg")
+            echo "  suifoot.fun/badges/$N.svg -> $CODE, $(wc -c < /tmp/b) bytes"
+            [ "$CODE" = "200" ] || { echo "the badge the deed points at is not there"; exit 1; }
+            head -c 5 /tmp/b | grep -q '<svg' || { echo "that is not an svg"; exit 1; }
           done
-          echo "(suifoot.fun is expected to fail until the domain is pointed here)" 
+          OLD=$(curl -sS -o /dev/null -w '%{http_code} -> %{redirect_url}' -m 20 \
+                "https://suitideclean-alt.github.io/suifoot/badges/7.svg")
+          echo "  the old address: $OLD"
+
