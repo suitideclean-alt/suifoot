@@ -576,6 +576,11 @@
       `Du besitzt hier noch keinen Verein, also sind die Seiten zum Ansehen, nicht zum Verwalten.`],
     on_back: [`Back to my own game`, `Retour à ma partie`, `Voltar ao meu jogo`, `Zurück zu meinem Spiel`],
     on_chain_pill: [`on the chain`, `sur la chaîne`, `na cadeia`, `auf der Kette`],
+    on_why_not_on_chain_yet: [
+      `That one is not on the chain yet. It would change what you see here and nothing else, so it is refused rather than pretended.`,
+      `Celui-ci n'est pas encore sur la chaîne. Il ne changerait que ce que vous voyez ici, donc il est refusé plutôt que simulé.`,
+      `Esse ainda não está na cadeia. Mudava o que vês aqui e mais nada, por isso é recusado em vez de fingido.`,
+      `Das ist noch nicht auf der Kette. Es würde nur ändern, was du hier siehst, also wird es abgelehnt statt vorgetäuscht.`],
     on_gas_none: [
       `This address holds no testnet SUI, so the wallet has nothing to pay the fee with. Ask the faucet for some, then read the chain again.`,
       `Cette adresse ne détient aucun SUI de testnet : le portefeuille n'a rien pour payer les frais. Demandez-en au robinet, puis relisez la chaîne.`,

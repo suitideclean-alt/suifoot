@@ -30,7 +30,11 @@
 
   /* What a decision is about, as the contract numbers them. */
   const TEAM = 1, SHOW = 2, TRAIN = 3, TICKET = 4, LIST = 5, BID = 6, ANSWER = 7, SKILL = 8,
-    INVEST = 9, RENEW = 10;
+    INVEST = 9, RENEW = 10, RELEASE = 11, SELLNOW = 12, CAPTAIN = 13, LOAN = 14, REPAY = 15;
+
+  /* A new kind of decision needs no new contract. The contract reads the number only to know
+   * whether the window for it is still open; what it means is worked out here. So the game can
+   * grow a new thing a person can do without anybody republishing anything. */
 
   /* What an owner can put money into. A stand holds more people; an academy finds better boys; a
    * scout sees further into other clubs' squads. Each is bought once and kept. */
@@ -54,7 +58,8 @@
   const Replay = (SF.Replay = {
     seedFor,
     GROUND, ACADEMY, TRAINING, SCOUT,
-    kinds: { TEAM, SHOW, TRAIN, TICKET, LIST, BID, ANSWER, SKILL, INVEST, RENEW },
+    kinds: { TEAM, SHOW, TRAIN, TICKET, LIST, BID, ANSWER, SKILL, INVEST, RENEW,
+      RELEASE, SELLNOW, CAPTAIN, LOAN, REPAY },
 
     /* The season so far.
      *
@@ -68,7 +73,7 @@
       const clubs = world.clubs.map((c) => ({
         ...c,
         played: 0, won: 0, drawn: 0, lost: 0, gf: 0, ga: 0, points: 0,
-        training: 0, academy: 1, coaching: 1, scout: 0, spent: 0,
+        training: 0, academy: 1, coaching: 1, scout: 0, spent: 0, debt: 0, captain: 0,
         squad: c.squad.map(manOf),
       }));
       const byNum = new Map(clubs.map((c) => [c.num, c]));
@@ -178,6 +183,61 @@
         return null;
       }
 
+      /* What a man is worth, to anybody working it out: his rating, what he might still become,
+       * and how much of a career he has left. Whole numbers, because a price half a dollar apart is
+       * two browsers with two different leagues. */
+      if (d.kind === SELLNOW) {
+        const man = club.squad.find((p) => p.id === d.a);
+        if (!man) return 'he does not play here';
+        if (club.squad.length <= MIN_SQUAD) return 'a squad cannot go below the minimum';
+        // selling in a hurry is selling cheap: what the market would give, less a third
+        const paid = Math.floor((Replay.worth(man) * 2) / 3);
+        club.balance += paid;
+        club.squad = club.squad.filter((p) => p.id !== man.id);
+        return null;
+      }
+
+      if (d.kind === RELEASE) {
+        const man = club.squad.find((p) => p.id === d.a);
+        if (!man) return 'he does not play here';
+        if (club.squad.length <= MIN_SQUAD) return 'a squad cannot go below the minimum';
+        // paying a man off costs what is left of his contract
+        const cost = Math.round((man.wage * (man.contractWeeks || 0)) / 34);
+        if (club.balance < cost) return 'not enough money to pay him off';
+        club.balance -= cost;
+        club.squad = club.squad.filter((p) => p.id !== man.id);
+        if (club.captain === man.id) club.captain = 0;
+        return null;
+      }
+
+      if (d.kind === CAPTAIN) {
+        if (!club.squad.some((p) => p.id === d.a)) return 'he does not play here';
+        club.captain = d.a;
+        return null;
+      }
+
+      /* A loan is money now against money later, and the limit is what the club could plausibly
+       * pay back: a year of what it takes at the gate, roughly. Nobody can borrow their way out of
+       * a league. */
+      if (d.kind === LOAN) {
+        const amount = Math.floor(d.a);
+        if (amount <= 0) return 'a loan is for something';
+        const limit = Replay.creditLimit(club);
+        if (club.debt + amount > limit) return 'that is more than this club could pay back';
+        club.balance += amount;
+        club.debt += amount;
+        return null;
+      }
+
+      if (d.kind === REPAY) {
+        const amount = Math.min(Math.floor(d.a), club.debt);
+        if (amount <= 0) return 'there is nothing to repay';
+        if (club.balance < amount) return 'not enough money to repay that';
+        club.balance -= amount;
+        club.debt -= amount;
+        return null;
+      }
+
       /* A transfer is the only thing here that two people have to agree on, so it is the only one
        * that takes two decisions: one club offers, the other answers. Between the two the money
        * has not moved and neither has the man - there is nothing held in escrow, because there is
@@ -235,6 +295,21 @@
       }
 
       return null;
+    },
+
+    /* What a man is worth. Written out in whole numbers and in one place, because the asking
+     * price, the hurried sale and the refusals all have to agree, in every browser, to the dollar.
+     */
+    worth(p) {
+      const base = Math.round(SF.Q.exp(0.108 * (p.ovr - 30)) * 1200);
+      const young = p.age < 27 ? Math.max(0, p.pot - p.ovr) : 0;
+      const prime = p.age <= 24 ? 115 : p.age <= 29 ? 100 : p.age <= 32 ? 72 : 45;
+      return Math.max(1000, Math.round((base * (100 + young * 4) * prime) / 10000));
+    },
+
+    /** how much a club could borrow: about a season of what it takes at the gate */
+    creditLimit(club) {
+      return Math.round(club.fans * Math.max(1, club.ticket) * 17);
     },
 
     /** which club a man plays for, since a bid names the man and not the club */

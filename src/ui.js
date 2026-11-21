@@ -1359,29 +1359,52 @@
       case 'repay': return res(A.repayLoan(G, c, +arg), t('ok_done'));
       case 'loan': {
         const lim = B.creditLimit(G, myClub().id);
-        return modal(`<h3>${t('take_loan')}</h3><label>${t('loan_amount')} (≤ ${money(lim)})</label><input name="amt" type="number" value="${Math.round(lim / 2 / 1000) * 1000}"><label>${t('loan_seasons')}</label><select name="seasons"><option>1</option><option>2</option><option>3</option></select><p class="mut sm">+${Math.round(CFG.loanRate * 100)}% / ${t('season')}</p>`, (f) => res(A.takeLoan(G, c, +f.amt, +f.seasons), t('ok_done')));
+        return modal(`<h3>${t('take_loan')}</h3><label>${t('loan_amount')} (≤ ${money(lim)})</label><input name="amt" type="number" value="${Math.round(lim / 2 / 1000) * 1000}"><label>${t('loan_seasons')}</label><select name="seasons"><option>1</option><option>2</option><option>3</option></select><p class="mut sm">+${Math.round(CFG.loanRate * 100)}% / ${t('season')}</p>`, (f) => {
+          if (SF.Bridge && SF.Bridge.isOnline(G)) return SF.Online.decide(...SF.Online.asked.loan(+f.amt), [], render);
+          return res(A.takeLoan(G, c, +f.amt, +f.seasons), t('ok_done'));
+        });
       }
       case 'list': {
         const p = G.players[+arg];
-        return modal(`<h3>${esc(p.n)}</h3><label>${t('list_price_q')}</label><input name="price" type="number" value="${Math.round(E.value(p) * 1.05 / 100) * 100}">`, (f) => res(A.listPlayer(G, c, p.id, +f.price), t('ok_done')));
+        const on = SF.Bridge && SF.Bridge.isOnline(G);
+        const suggested = on ? SF.Replay.worth(p) : Math.round(E.value(p) * 1.05 / 100) * 100;
+        return modal(`<h3>${esc(p.n)}</h3><label>${t('list_price_q')}</label><input name="price" type="number" value="${suggested}">`, (f) => {
+          if (on) return SF.Online.decide(...SF.Online.asked.list(p.id, +f.price), [], render);
+          return res(A.listPlayer(G, c, p.id, +f.price), t('ok_done'));
+        });
       }
       case 'unlist': return res(A.listPlayer(G, c, +arg, 0));
       case 'sellnow': {
         const p = G.players[+arg];
-        const price = Math.round((E.value(p) * 0.65 * (1 + 0.015 * c.sk.neg)) / 100) * 100;
-        return modal(`<h3>${esc(p.n)}</h3><p>${t('sell_now')}: <b>${money(price)}</b> USD</p>`, () => { res(A.sellNow(G, c, p.id), t('ok_sold', { fee: price })); });
+        const on = SF.Bridge && SF.Bridge.isOnline(G);
+        const price = on ? Math.floor((SF.Replay.worth(p) * 2) / 3)
+          : Math.round((E.value(p) * 0.65 * (1 + 0.015 * c.sk.neg)) / 100) * 100;
+        return modal(`<h3>${esc(p.n)}</h3><p>${t('sell_now')}: <b>${money(price)}</b> USD</p>`, () => {
+          if (on) return SF.Online.decide(...SF.Online.asked.sellnow(p.id), [], render);
+          res(A.sellNow(G, c, p.id), t('ok_sold', { fee: price }));
+        });
       }
       case 'release': {
         const p = G.players[+arg];
-        return modal(`<h3>${esc(p.n)}</h3><p>${t('release')}: ${t('cost')} <b>${money(A.releaseCost(p))}</b> USD</p>`, () => { res(A.release(G, c, p.id)); });
+        const on = SF.Bridge && SF.Bridge.isOnline(G);
+        const cost = on ? Math.round((p.wage * (p.ct * 34)) / 34) : A.releaseCost(p);
+        return modal(`<h3>${esc(p.n)}</h3><p>${t('release')}: ${t('cost')} <b>${money(cost)}</b> USD</p>`, () => {
+          if (on) return SF.Online.decide(...SF.Online.asked.release(p.id), [], render);
+          res(A.release(G, c, p.id));
+        });
       }
       case 'renew': {
         const p = G.players[+arg];
+        if (SF.Bridge && SF.Bridge.isOnline(G)) {
+          return modal(`<h3>${esc(p.n)}</h3><label>${t('renew_years')}</label><select name="y"><option>1</option><option selected>2</option><option>3</option><option>4</option></select>`,
+            (f) => { SF.Online.decide(...SF.Online.asked.renew(p.id, +f.y), [], render); return true; });
+        }
         return modal(`<h3>${esc(p.n)}</h3><label>${t('renew_years')}</label><select name="y"><option>1</option><option selected>2</option><option>3</option><option>4</option></select><p class="mut sm">${t('sq_wage')}: ${money(Math.round(E.wage(p) / 10) * 10)}</p>`, (f) => res(A.renew(G, c, p.id, +f.y), t('ok_done')));
       }
       case 'buy': {
         const p = G.players[+arg], ask = A.askPrice(G, c, p);
         return modal(`<h3>${esc(p.n)} ${posTag(p.pos)} ${ovTag(p.ovr)}</h3><p class="mut">${ctag(p.club, 16)} · ${t('asking_price')}: ${money(ask)}</p>${p.hot ? '<p class="sm warn">🔥 ' + t('hot_info', { n: p.hot.left }) + '</p>' : ''}<p class="sm mut">${t('clause_info', { fee: E.clause(p) })}</p><label>${t('offer_fee')}</label><input name="fee" type="number" value="${ask}">`, (f) => {
+          if (SF.Bridge && SF.Bridge.isOnline(G)) { SF.Online.decide(...SF.Online.asked.buy(p.id, +f.fee), [], render); return true; }
           const r = A.buy(G, c, p.id, +f.fee);
           if (r.ok) { toast(t('ok_bought', { name: p.n, fee: r.fee })); save(); render(); return true; }
           toast(errMsg(r), true); return false;

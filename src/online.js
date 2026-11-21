@@ -121,6 +121,7 @@
    * the original through rather than guess. */
   const WHY = [
     [/^no_gas_here$/, 'on_gas_none'],
+    [/^not_on_chain_yet$/, 'on_why_not_on_chain_yet'],
     [/trpc|fetch failed|network error|timed? ?out/i, 'on_why_trpc'],
     [/insufficient|no valid gas|gas coins|balance/i, 'on_why_gas'],
     [/reject|denied|cancel|user refused/i, 'on_why_no'],
@@ -328,6 +329,8 @@
     fac: (arg) => [K().INVEST, arg === 'youth' ? SF.Replay.ACADEMY : SF.Replay.TRAINING, 0],
     hirescout: () => [K().INVEST, SF.Replay.SCOUT, 0],
     unlist: (arg) => [K().LIST, +arg, 0],
+    capt: (arg) => [K().CAPTAIN, +arg, 0],
+    repay: (arg) => [K().REPAY, Math.round(+arg), 0],
   };
 
   /* And the ones that need a number typed before they mean anything, which the screen asks for
@@ -338,22 +341,56 @@
     renew: (pid, years) => [K().RENEW, pid, Math.round(years * 34)],
     oacc: (pid, from) => [K().ANSWER, pid, from],
     train: (what) => [K().TRAIN, what, 0],
+    sellnow: (pid) => [K().SELLNOW, pid, 0],
+    release: (pid) => [K().RELEASE, pid, 0],
+    loan: (amount) => [K().LOAN, Math.round(amount), 0],
   };
 
   const K = () => SF.Replay.kinds;
 
-  /* Try to deal with a click as a decision. Returns true if it was one, so the offline handler
-   * knows to stand down. */
+  /* Buttons that change nothing anybody else could see: moving between pages, opening a man's
+   * card, the sound, the live match controls, saving this browser's own file. These run exactly as
+   * they do offline, because there is nothing about them for a chain to hold.
+   */
+  const LOCAL = new Set([
+    'tab', 'coach', 'tr', 'eu', 'lg', 'md', 'afford', 'pl', 'chat', 'settings', 'squad', 'league',
+    'cup', 'europe', 'transfers', 'finance', 'owner', 'online', 'save', 'export', 'snd', 'newgame',
+    'newcareer', 'continue', 'setup-start', 'wl-menu', 'wl-go', 'm-ok', 'm-cancel', 'o_hl', 'o_go',
+    'jobview', 'untouch', 'hall', 'auto', 'scoutrep',
+    'live-toggle', 'live-speed', 'live-skip', 'live-continue', 'live-sub',
+    'cs', 'ct', 'cvc', 'cvf', 'et', 'goal', 'shot', 'pen', 'pens', 'red', 'yellow', 'inj', 'sub',
+    'play-live', 'sim-week', 'sim-season', 'next-season',
+  ]);
+
+  /* Try to deal with a click as a decision.
+   *
+   * Returns true when the click has been dealt with here, so the offline handler stands down.
+   *
+   * The last branch is the one that matters. A button this file does not yet know how to put on
+   * the chain used to fall through to the offline handler, which would change this browser's
+   * memory and nothing else: the screen moved, the league did not, and the next refresh quietly
+   * undid it. A button that lies is worse than a button that is missing, so an unknown one is
+   * refused out loud until it has been wired up.
+   */
   O.route = function (act, arg, redraw) {
     if (!O.playing) return false;
+    if (LOCAL.has(act)) return false;
+
     const make = O.routes[act];
-    if (!make) return false;
-    let args;
-    try { args = make(arg, SF.UI.G); } catch (_) { return false; }
-    if (!args) return false;
-    O.decide(args[0], args[1], args[2], [], redraw);
+    if (make) {
+      let args;
+      try { args = make(arg, SF.UI.G); } catch (_) { args = null; }
+      if (args) { O.decide(args[0], args[1], args[2], [], redraw); return true; }
+    }
+
+    O.said = { ok: false, what: act, why: 'not_on_chain_yet' };
+    redraw();
     return true;
   };
+
+  /** what this browser can and cannot do to the chain's league yet, for anybody wanting to know */
+  O.wired = () => Object.keys(O.routes).concat(Object.keys(O.asked));
+  O.localOnly = () => Array.from(LOCAL);
 
   /** the clicks this screen answers */
   O.act = function (action, redraw) {

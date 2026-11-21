@@ -154,5 +154,61 @@ t('the decisions are done before the matchday they were made for', () => {
   eq(out.played, 2, 'and both matchdays were played;');
 });
 
+t('a man can be sold in a hurry, for less than he is worth', () => {
+  const out = SF.Replay.run(world, [dec(1, K.SELLNOW, 101, 0)]);
+  const c = of(out, 1);
+  eq(c.squad.length, 21, 'he is gone;');
+  truthy(c.balance > 1000000, 'and the money came in;');
+  const got = c.balance - 1000000;
+  truthy(got < SF.Replay.worth({ ovr: 50, pot: 70, age: 25 }), `${got} is less than he is worth;`);
+});
+
+t('a man is paid off, and it costs what is left of his contract', () => {
+  const out = SF.Replay.run(world, [dec(1, K.RELEASE, 101, 0)]);
+  const c = of(out, 1);
+  eq(c.squad.length, 21, 'he is gone;');
+  eq(c.balance, 1000000 - Math.round((1000 * 68) / 34), 'two seasons of wages paid;');
+});
+
+t('a captain has to play here', () => {
+  const out = SF.Replay.run(world, [dec(1, K.CAPTAIN, 101, 0), dec(1, K.CAPTAIN, 999, 0)]);
+  eq(of(out, 1).captain, 101, 'the one who does;');
+  eq(out.refused.length, 1, 'and the one who does not was refused;');
+});
+
+t('a club can borrow, but not its way out of a league', () => {
+  const limit = SF.Replay.creditLimit(world.clubs[0]);
+  const ok = SF.Replay.run(world, [dec(1, K.LOAN, Math.floor(limit / 2), 0)]);
+  eq(of(ok, 1).debt, Math.floor(limit / 2), 'half the limit went through;');
+  eq(of(ok, 1).balance, 1000000 + Math.floor(limit / 2), 'and the money arrived;');
+
+  const no = SF.Replay.run(world, [dec(1, K.LOAN, limit * 3, 0)]);
+  eq(of(no, 1).debt, 0, 'three times the limit did not;');
+  truthy(/pay back/.test(no.refused[0].why), no.refused[0].why);
+});
+
+t('a debt gets repaid, and offering more than is owed just clears it', () => {
+  const some = SF.Replay.run(world, [dec(1, K.LOAN, 100000, 0), dec(1, K.REPAY, 40000, 0)]);
+  eq(of(some, 1).debt, 60000, 'part of it;');
+  eq(of(some, 1).balance, 1000000 + 100000 - 40000, 'and the money adds up;');
+
+  // somebody who types a big number means "pay it off", so it is paid off rather than refused
+  const all = SF.Replay.run(world, [dec(1, K.LOAN, 100000, 0), dec(1, K.REPAY, 500000, 0)]);
+  eq(of(all, 1).debt, 0, 'the debt is gone;');
+  eq(of(all, 1).balance, 1000000, 'and only what was owed was taken;');
+  eq(all.refused.length, 0, 'nothing refused;');
+
+  const none = SF.Replay.run(world, [dec(1, K.REPAY, 1000, 0)]);
+  eq(none.refused.length, 1, 'but repaying a debt nobody has is refused;');
+});
+
+t('what a man is worth is the same number everywhere', () => {
+  const p = { ovr: 62, pot: 78, age: 23 };
+  eq(SF.Replay.worth(p), SF.Replay.worth(p), 'twice the same;');
+  truthy(Number.isInteger(SF.Replay.worth(p)), 'and a whole number of dollars;');
+  truthy(SF.Replay.worth({ ovr: 70, pot: 70, age: 25 }) > SF.Replay.worth({ ovr: 50, pot: 50, age: 25 }), 'better is worth more;');
+  truthy(SF.Replay.worth({ ovr: 60, pot: 85, age: 20 }) > SF.Replay.worth({ ovr: 60, pot: 60, age: 34 }), 'and young with a future beats old without one;');
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
