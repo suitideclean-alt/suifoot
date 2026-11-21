@@ -9,6 +9,10 @@ use suifoot::league;
 use suifoot::lineup;
 use suifoot::player::{Self, Player};
 
+/// A league id for clubs in tests that are not about which league they play in.
+fun test_league(): ID { object::id_from_address(@0x1EA6DE) }
+
+
 const DAY: u64 = 86400000;
 const MIN: u64 = 60000;
 const H: u64 = 3600000;
@@ -19,7 +23,7 @@ const T0: u64 = 1800000000000 / DAY * DAY;
 fun man(num: u32, pos: u8, ovr: u16): Player { player::new(num, pos, player::pro(), 25, ovr, ovr, 1000, 52) }
 
 fun squad_of(base: u32, strength: u16, ctx: &mut TxContext): Club {
-    let mut c = club::new(base, string::utf8(b"Test"), 3, 0, 100000, ctx);
+    let mut c = club::new(base, string::utf8(b"Test"), 3, 0, 100000, test_league(), ctx);
     club::add_player(&mut c, man(base + 1, player::gk(), strength));
     let mut i = 0;
     while (i < 5) { club::add_player(&mut c, man(base + 2 + i, player::df(), strength - 2)); i = i + 1; };
@@ -218,8 +222,8 @@ fun evenly_matched_sides_do_not_all_end_alike() {
 fun two_clubs_from_different_series_cannot_be_made_to_play_each_other() {
     let mut ctx = tx_context::dummy();
     let l = a_league(&mut ctx);
-    let mut top = club::new(1, string::utf8(b"Top"), 0, 0, 100000, &mut ctx);
-    let mut bottom = club::new(2, string::utf8(b"Bottom"), 3, 5, 100000, &mut ctx);
+    let mut top = club::new(1, string::utf8(b"Top"), 0, 0, 100000, test_league(), &mut ctx);
+    let mut bottom = club::new(2, string::utf8(b"Bottom"), 3, 5, 100000, test_league(), &mut ctx);
     club::add_player(&mut top, man(11, player::gk(), 70));
     club::add_player(&mut bottom, man(21, player::gk(), 40));
     league::play_for_testing(&l, &mut top, &mut bottom, 1);

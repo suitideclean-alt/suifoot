@@ -9,6 +9,10 @@ use suifoot::player;
 use suifoot::rng;
 use suifoot::world;
 
+/// A league id for clubs in tests that are not about which league they play in.
+fun test_league(): ID { object::id_from_address(@0x1EA6DE) }
+
+
 #[test]
 fun every_club_number_gets_a_name_of_its_own() {
     assert!(world::club_name(0) == string::utf8(b"Asterford FC"), 0);
@@ -24,7 +28,7 @@ fun every_club_number_gets_a_name_of_its_own() {
 #[test]
 fun a_squad_is_twenty_two_men_with_two_keepers() {
     let mut ctx = tx_context::dummy();
-    let c = world::new_club(0, 3, 0, 12345, &mut ctx);
+    let c = world::new_club(0, 3, 0, 12345, test_league(), &mut ctx);
     assert!(club::squad_size(&c) == 22, 0);
 
     let mut keepers = 0;
@@ -51,7 +55,7 @@ fun a_squad_is_twenty_two_men_with_two_keepers() {
 #[test]
 fun the_men_are_footballers_and_not_nonsense() {
     let mut ctx = tx_context::dummy();
-    let c = world::new_club(7, 2, 0, 999, &mut ctx);
+    let c = world::new_club(7, 2, 0, 999, test_league(), &mut ctx);
     let mut i = 0;
     while (i < club::squad_size(&c)) {
         let p = club::player_at(&c, i);
@@ -73,8 +77,8 @@ fun the_better_division_has_the_better_players() {
     let mut bottom = 0u64;
     let mut seed = 1u32;
     while (seed <= 6) {
-        let a = world::new_club(seed, 0, 0, seed, &mut ctx);
-        let b = world::new_club(seed + 100, 3, 0, seed, &mut ctx);
+        let a = world::new_club(seed, 0, 0, seed, test_league(), &mut ctx);
+        let b = world::new_club(seed + 100, 3, 0, seed, test_league(), &mut ctx);
         let mut i = 0;
         while (i < 22) {
             top = top + (player::ovr(club::player_at(&a, i)) as u64);
@@ -87,15 +91,15 @@ fun the_better_division_has_the_better_players() {
     };
     // seventy-one against forty-seven is the gap it was asked for, and the squads show it
     assert!(top > bottom + 20 * 22 * 6 / 10, top);
-    club::destroy_for_testing(world::new_club(999, 0, 0, 1, &mut ctx));
+    club::destroy_for_testing(world::new_club(999, 0, 0, 1, test_league(), &mut ctx));
 }
 
 #[test]
 fun the_same_seed_makes_the_same_club_and_another_makes_another() {
     let mut ctx = tx_context::dummy();
-    let a = world::new_club(5, 2, 0, 4242, &mut ctx);
-    let b = world::new_club(5, 2, 0, 4242, &mut ctx);
-    let c = world::new_club(5, 2, 0, 4243, &mut ctx);
+    let a = world::new_club(5, 2, 0, 4242, test_league(), &mut ctx);
+    let b = world::new_club(5, 2, 0, 4242, test_league(), &mut ctx);
+    let c = world::new_club(5, 2, 0, 4243, test_league(), &mut ctx);
 
     let mut same = true;
     let mut differs = false;

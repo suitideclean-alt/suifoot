@@ -6,7 +6,11 @@ use suifoot::club::{Self, Club};
 use suifoot::money;
 use suifoot::world;
 
-fun a_club(level: u8, ctx: &mut TxContext): Club { world::new_club(1, level, 0, 4242, ctx) }
+/// A league id for clubs in tests that are not about which league they play in.
+fun test_league(): ID { object::id_from_address(@0x1EA6DE) }
+
+
+fun a_club(level: u8, ctx: &mut TxContext): Club { world::new_club(1, level, 0, 4242, test_league(), ctx) }
 
 #[test]
 fun a_ground_never_holds_more_than_it_holds() {
@@ -84,8 +88,8 @@ fun winning_brings_people_through_the_gate() {
 #[test]
 fun the_first_division_earns_more_than_the_fourth() {
     let mut ctx = tx_context::dummy();
-    let top = world::new_club(1, 0, 0, 7, &mut ctx);
-    let bottom = world::new_club(2, 3, 0, 7, &mut ctx);
+    let top = world::new_club(1, 0, 0, 7, test_league(), &mut ctx);
+    let bottom = world::new_club(2, 3, 0, 7, test_league(), &mut ctx);
     assert!(money::television(&top) > money::television(&bottom), 0);
     assert!(money::sponsorship(&top) > money::sponsorship(&bottom), 1);
     assert!(money::gate(&top, false) > money::gate(&bottom, false), 2);

@@ -6,7 +6,11 @@ use suifoot::club::{Self, Club};
 use suifoot::deed;
 use suifoot::world;
 
-fun a_club(num: u32, ctx: &mut TxContext): Club { world::new_club(num, 3, 0, 77, ctx) }
+/// A league id for clubs in tests that are not about which league they play in.
+fun test_league(): ID { object::id_from_address(@0x1EA6DE) }
+
+
+fun a_club(num: u32, ctx: &mut TxContext): Club { world::new_club(num, 3, 0, 77, test_league(), ctx) }
 
 #[test]
 fun a_deed_names_one_club_and_carries_what_a_wallet_needs() {

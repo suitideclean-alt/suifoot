@@ -8,6 +8,10 @@ use suifoot::player;
 use suifoot::progress;
 use suifoot::world;
 
+/// A league id for clubs in tests that are not about which league they play in.
+fun test_league(): ID { object::id_from_address(@0x1EA6DE) }
+
+
 const DAY: u64 = 86400000;
 const T0: u64 = 1800000000000 / DAY * DAY;
 
@@ -35,8 +39,8 @@ fun totals(c: &Club): (u64, u64, u64, u64) {
 fun ninety_minutes_tires_the_men_who_played_them() {
     let mut ctx = tx_context::dummy();
     let l = a_league(&mut ctx);
-    let mut home = world::new_club(1, 3, 0, 11, &mut ctx);
-    let mut away = world::new_club(2, 3, 0, 22, &mut ctx);
+    let mut home = world::new_club(1, 3, 0, 11, test_league(), &mut ctx);
+    let mut away = world::new_club(2, 3, 0, 22, test_league(), &mut ctx);
 
     let mut i = 0;
     while (i < club::squad_size(&home)) { assert!(player::cond(club::player_at(&home, i)) == 100, i); i = i + 1; };
@@ -67,8 +71,8 @@ fun ninety_minutes_tires_the_men_who_played_them() {
 fun whoever_scored_has_it_on_his_name() {
     let mut ctx = tx_context::dummy();
     let l = a_league(&mut ctx);
-    let mut home = world::new_club(1, 0, 0, 7, &mut ctx);   // a strong side
-    let mut away = world::new_club(2, 3, 0, 7, &mut ctx);   // against a weak one
+    let mut home = world::new_club(1, 0, 0, 7, test_league(), &mut ctx);   // a strong side
+    let mut away = world::new_club(2, 3, 0, 7, test_league(), &mut ctx);   // against a weak one
     let (hg, _ag) = league::play_for_testing(&l, &mut home, &mut away, 3);
 
     let mut scored = 0;
@@ -87,8 +91,8 @@ fun whoever_scored_has_it_on_his_name() {
 #[test]
 fun a_week_of_training_brings_legs_back_and_an_easy_week_brings_more() {
     let mut ctx = tx_context::dummy();
-    let mut easy = world::new_club(1, 3, 0, 9, &mut ctx);
-    let mut hard = world::new_club(2, 3, 0, 9, &mut ctx);
+    let mut easy = world::new_club(1, 3, 0, 9, test_league(), &mut ctx);
+    let mut hard = world::new_club(2, 3, 0, 9, test_league(), &mut ctx);
 
     let mut i = 0;
     while (i < 22) {
@@ -113,7 +117,7 @@ fun a_week_of_training_brings_legs_back_and_an_easy_week_brings_more() {
 #[test]
 fun nobody_recovers_past_being_fully_fit() {
     let mut ctx = tx_context::dummy();
-    let mut c = world::new_club(1, 3, 0, 9, &mut ctx);
+    let mut c = world::new_club(1, 3, 0, 9, test_league(), &mut ctx);
     progress::train_week(&mut c);
     progress::train_week(&mut c);
     assert!(player::cond(club::player_at(&c, 0)) == 100, 0);
@@ -123,13 +127,13 @@ fun nobody_recovers_past_being_fully_fit() {
 #[test]
 fun a_club_nobody_runs_eases_off_when_its_legs_have_gone() {
     let mut ctx = tx_context::dummy();
-    let mut worn = world::new_club(1, 3, 0, 9, &mut ctx);
+    let mut worn = world::new_club(1, 3, 0, 9, test_league(), &mut ctx);
     let mut i = 0;
     while (i < 22) { player::set_cond(club::player_mut(&mut worn, i), 40); i = i + 1; };
     progress::choose_training(&mut worn);
     assert!(club::training(&worn) == 0, 0); // light
 
-    let mut fresh = world::new_club(2, 3, 0, 9, &mut ctx);
+    let mut fresh = world::new_club(2, 3, 0, 9, test_league(), &mut ctx);
     progress::choose_training(&mut fresh);
     assert!(club::training(&fresh) == 2, 1); // and a fresh squad is worked hard
 
@@ -140,7 +144,7 @@ fun a_club_nobody_runs_eases_off_when_its_legs_have_gone() {
 #[test]
 fun the_turn_of_a_season_ages_everyone_and_sends_up_the_next_lot() {
     let mut ctx = tx_context::dummy();
-    let mut c = world::new_club(1, 2, 0, 31, &mut ctx);
+    let mut c = world::new_club(1, 2, 0, 31, test_league(), &mut ctx);
     let (before_n, _, before_age, _) = totals(&c);
 
     progress::season_turn(&mut c, 4242);
@@ -165,7 +169,7 @@ fun the_turn_of_a_season_ages_everyone_and_sends_up_the_next_lot() {
 #[test]
 fun last_seasons_goals_belong_to_last_season() {
     let mut ctx = tx_context::dummy();
-    let mut c = world::new_club(1, 2, 0, 31, &mut ctx);
+    let mut c = world::new_club(1, 2, 0, 31, test_league(), &mut ctx);
     let him = player::num(club::player_at(&c, 20));
     progress::scored(&mut c, him);
     assert!(player::goals(club::player_at(&c, 20)) == 1, 0);
@@ -180,7 +184,7 @@ fun last_seasons_goals_belong_to_last_season() {
 #[test]
 fun the_young_improve_and_the_old_decline() {
     let mut ctx = tx_context::dummy();
-    let mut c = world::new_club(1, 2, 0, 77, &mut ctx);
+    let mut c = world::new_club(1, 2, 0, 77, test_league(), &mut ctx);
 
     // one of each, with room to grow and a long way past it
     let young = player::new(900, player::mf(), player::pro(), 19, 50, 80, 500, 156);
@@ -204,7 +208,7 @@ fun the_young_improve_and_the_old_decline() {
 #[test]
 fun a_squad_survives_twenty_seasons_without_rotting() {
     let mut ctx = tx_context::dummy();
-    let mut c = world::new_club(1, 2, 0, 1234, &mut ctx);
+    let mut c = world::new_club(1, 2, 0, 1234, test_league(), &mut ctx);
 
     let mut season = 1u32;
     while (season <= 20) {

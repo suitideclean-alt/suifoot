@@ -112,7 +112,7 @@ fun draw_temper(r: &mut Rng, pos: u8): u8 {
 /// A club and the twenty-two men in it. The squad is drawn around what the level is worth, with the
 /// third keeper and the deeper reserves a notch below the rest, as a real squad thins out.
 public fun new_club(
-    num: u32, level: u8, series: u16, seed: u32, ctx: &mut TxContext,
+    num: u32, level: u8, series: u16, seed: u32, league: ID, ctx: &mut TxContext,
 ): Club {
     let mut r = rng::new(seed);
     let mean = DIV_OVR[(level as u64)];
@@ -134,7 +134,7 @@ public fun new_club(
 
     let mut c = club::new_with_ground(
         num, club_name(num), level, series, balance,
-        (fans as u32), (seats as u32), TICKET_CENTS[(level as u64)], ctx,
+        (fans as u32), (seats as u32), TICKET_CENTS[(level as u64)], league, ctx,
     );
 
     let mut pid = num * 100; // the player numbers of a club sit under the club's own
@@ -213,7 +213,7 @@ entry fun create_club(l: &mut League, num: u32, level: u8, series: u16, r: &Rand
     assert!(ctx.sender() == league::admin(l), ENotAdmin);
     let mut gen = random::new_generator(r, ctx);
     let seed = random::generate_u32(&mut gen);
-    let c = new_club(num, level, series, seed, ctx);
+    let c = new_club(num, level, series, seed, object::id(l), ctx);
     if (level == league::bottom_level(l)) league::register_free(l, object::id(&c), series);
     league::add_to_series(l, series, num);
     transfer::public_share_object(c);
@@ -242,7 +242,7 @@ entry fun open_series(l: &mut League, r: &Random, ctx: &mut TxContext) {
     while (i < size) {
         let seed = random::generate_u32(&mut gen);
         let num = base + (i as u32);
-        let c = new_club(num, level, series, seed, ctx);
+        let c = new_club(num, level, series, seed, object::id(l), ctx);
         league::register_free(l, object::id(&c), series);
         league::add_to_series(l, series, num);
         transfer::public_share_object(c);

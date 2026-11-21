@@ -72,6 +72,8 @@ public fun renew(): u8 { RENEW }
 /// skill and a level - and `data` whatever does not fit in two numbers, such as a sealed team
 /// sheet. Read together, in the order the chain put them in, they are the game.
 public struct Decided has copy, drop {
+    /// which league this was decided in, so that a reader of the log never has to guess
+    league: ID,
     club: ID,
     club_num: u32,
     by: address,
@@ -98,6 +100,14 @@ entry fun decide(
     assert!(data.length() <= MAX_DATA, ETooMuch);
     let who = ctx.sender();
     assert!(club::runs_it(c, who), ENotYours);
+    /* And that this club belongs to this league.
+     *
+     * Asking only whether the club's number is on the league's list is not enough, and the reason
+     * is easy to miss: club numbers run from one inside each league, so two leagues both have a
+     * club number one. A club from another league, held by its rightful owner, would answer that
+     * question correctly and get a decision written into a league it has never played in. The
+     * club carries its league, so the two are shown to belong to each other. */
+    assert!(club::league(c) == object::id(l), ENotThisLeague);
     assert!(league::holds(l, club::num(c), club::series(c)), ENotThisLeague);
 
     let week = league::week(l);
@@ -105,6 +115,7 @@ entry fun decide(
     assert!(open_for(l, kind, week, now), EShut);
 
     event::emit(Decided {
+        league: object::id(l),
         club: object::id(c),
         club_num: club::num(c),
         by: who,

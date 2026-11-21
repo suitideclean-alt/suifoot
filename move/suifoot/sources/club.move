@@ -55,6 +55,13 @@ public struct Club has key, store {
     points: u16,
     /// whether the entry fee for this season was paid, which decides a claim on the prize pool
     entry_paid: bool,
+    /// Which league this club plays in.
+    ///
+    /// Not a convenience. Club numbers run from one inside each league, so two leagues both have a
+    /// club number one, and a check that asks only "is this number on your list?" says yes to the
+    /// wrong club. Anything taking a league and a club together has to be shown they belong to
+    /// each other, and this is what shows it.
+    league: ID,
     /// the lineup sealed for a matchday, and the one revealed
     seal: vector<u8>,
     seal_week: u16,
@@ -68,13 +75,13 @@ public struct Club has key, store {
     training: u8,
 }
 
-public fun new(num: u32, name: String, level: u8, series: u16, balance: u64, ctx: &mut TxContext): Club {
-    new_with_ground(num, name, level, series, balance, 3000, 4500, 150, ctx)
+public fun new(num: u32, name: String, level: u8, series: u16, balance: u64, league: ID, ctx: &mut TxContext): Club {
+    new_with_ground(num, name, level, series, balance, 3000, 4500, 150, league, ctx)
 }
 
 public fun new_with_ground(
     num: u32, name: String, level: u8, series: u16, balance: u64,
-    fans: u32, capacity: u32, ticket_cents: u64, ctx: &mut TxContext,
+    fans: u32, capacity: u32, ticket_cents: u64, league: ID, ctx: &mut TxContext,
 ): Club {
     Club {
         id: object::new(ctx),
@@ -87,6 +94,7 @@ public fun new_with_ground(
         last_pos: 0,
         played: 0, won: 0, drawn: 0, lost: 0, goals_for: 0, goals_against: 0, points: 0,
         entry_paid: false,
+        league,
         seal: vector::empty(),
         seal_week: 0,
         current: option::none(),
@@ -127,6 +135,9 @@ public fun goals_for(c: &Club): u16 { c.goals_for }
 public fun goals_against(c: &Club): u16 { c.goals_against }
 public fun last_pos(c: &Club): u8 { c.last_pos }
 public fun entry_paid(c: &Club): bool { c.entry_paid }
+
+/// which league this club plays in, so that a league and a club can be shown to belong together
+public fun league(c: &Club): ID { c.league }
 public fun last_week(c: &Club): u16 { c.last_week }
 public fun training(c: &Club): u8 { c.training }
 public(package) fun set_training(c: &mut Club, mode: u8) { if (mode <= 2) c.training = mode }
@@ -315,6 +326,6 @@ public fun set_goals_for_testing(c: &mut Club, gf: u16, ga: u16) { c.goals_for =
 public fun destroy_for_testing(c: Club) {
     let Club { id, num: _, name: _, level: _, series: _, squad: _, balance: _, owner: _, coach: _,
         fans: _, capacity: _, ticket_cents: _, last_pos: _, played: _, won: _, drawn: _, lost: _, goals_for: _, goals_against: _, points: _,
-        training: _, entry_paid: _, seal: _, seal_week: _, current: _, current_week: _, last_played: _, last_week: _ } = c;
+        training: _, entry_paid: _, league: _, seal: _, seal_week: _, current: _, current_week: _, last_played: _, last_week: _ } = c;
     id.delete();
 }

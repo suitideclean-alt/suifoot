@@ -6,9 +6,13 @@ use suifoot::club::{Self, Club};
 use suifoot::season;
 use suifoot::world;
 
+/// A league id for clubs in tests that are not about which league they play in.
+fun test_league(): ID { object::id_from_address(@0x1EA6DE) }
+
+
 /// a club with a season's record already on it
 fun with_record(num: u32, level: u8, wins: u16, draws: u16, losses: u16, gf: u16, ga: u16, ctx: &mut TxContext): Club {
-    let mut c = world::new_club(num, level, 0, 1, ctx);
+    let mut c = world::new_club(num, level, 0, 1, test_league(), ctx);
     let mut i = 0;
     while (i < wins) { club::record(&mut c, 1, 0); i = i + 1; };
     let mut j = 0;

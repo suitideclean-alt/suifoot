@@ -7,6 +7,10 @@ use suifoot::league;
 use suifoot::market;
 use suifoot::world;
 
+/// A league id for clubs in tests that are not about which league they play in.
+fun test_league(): ID { object::id_from_address(@0x1EA6DE) }
+
+
 const DAY: u64 = 86400000;
 const T0: u64 = 1800000000000 / DAY * DAY;
 
@@ -16,7 +20,7 @@ fun a_league(ctx: &mut TxContext): league::League {
 
 /// a club that finished where it is told to have finished
 fun club_that_finished(num: u32, level: u8, pos: u8, ctx: &mut TxContext): Club {
-    let mut c = world::new_club(num, level, 0, 1234, ctx);
+    let mut c = world::new_club(num, level, 0, 1234, test_league(), ctx);
     club::new_season(&mut c, pos);
     c
 }
@@ -26,7 +30,7 @@ fun a_ticket_names_one_club_and_that_club_becomes_yours() {
     let mut ctx = tx_context::dummy();
     let me = ctx.sender();
     let l = a_league(&mut ctx);
-    let mut c = world::new_club(1, 3, 0, 77, &mut ctx);
+    let mut c = world::new_club(1, 3, 0, 77, test_league(), &mut ctx);
     assert!(club::is_free(&c), 0);
 
     let t = market::ticket_for_testing(object::id(&c), &mut ctx);
@@ -44,8 +48,8 @@ fun a_ticket_names_one_club_and_that_club_becomes_yours() {
 fun a_ticket_cannot_be_turned_in_against_a_different_club() {
     let mut ctx = tx_context::dummy();
     let l = a_league(&mut ctx);
-    let drawn = world::new_club(1, 3, 0, 77, &mut ctx);
-    let mut nicer = world::new_club(2, 3, 0, 88, &mut ctx);
+    let drawn = world::new_club(1, 3, 0, 77, test_league(), &mut ctx);
+    let mut nicer = world::new_club(2, 3, 0, 88, test_league(), &mut ctx);
 
     let t = market::ticket_for_testing(object::id(&drawn), &mut ctx);
     market::claim(t, &l, &mut nicer, &mut ctx); // the one that was drawn is not the one handed over
@@ -57,7 +61,7 @@ fun a_club_somebody_already_runs_cannot_be_taken() {
     let mut ctx = tx_context::dummy();
     let me = ctx.sender();
     let l = a_league(&mut ctx);
-    let mut c = world::new_club(1, 3, 0, 77, &mut ctx);
+    let mut c = world::new_club(1, 3, 0, 77, test_league(), &mut ctx);
     club::set_coach(&mut c, option::some(me));
 
     let t = market::ticket_for_testing(object::id(&c), &mut ctx);
@@ -106,7 +110,7 @@ fun in_a_leagues_first_season_nothing_is_for_sale_at_all() {
     let mut ctx = tx_context::dummy();
     let mut l = a_league(&mut ctx);
     // never finished a season, so there is nothing to judge it on and it counts as mid-table
-    let mut brand_new = world::new_club(1, 2, 0, 99, &mut ctx);
+    let mut brand_new = world::new_club(1, 2, 0, 99, test_league(), &mut ctx);
     assert!(club::last_pos(&brand_new) == 0, 0);
     market::buy(&mut l, &mut brand_new, &mut ctx);
     abort 0
@@ -118,8 +122,8 @@ fun the_free_list_holds_only_the_foot_and_shrinks_as_clubs_are_taken() {
     let mut l = a_league(&mut ctx);
     assert!(league::free_at_foot(&l) == 0, 0);
 
-    let a = world::new_club(1, 3, 0, 1, &mut ctx);
-    let b = world::new_club(2, 3, 0, 2, &mut ctx);
+    let a = world::new_club(1, 3, 0, 1, test_league(), &mut ctx);
+    let b = world::new_club(2, 3, 0, 2, test_league(), &mut ctx);
     league::register_free(&mut l, object::id(&a), 0);
     league::register_free(&mut l, object::id(&b), 0);
     league::register_free(&mut l, object::id(&a), 0); // the same club twice is still one club
@@ -158,10 +162,10 @@ fun a_newcomer_goes_where_there_is_least_room_left() {
     // one series nearly full, another barely touched
     let mut nearly = vector[];
     let mut i = 0u32;
-    while (i < 2) { nearly.push_back(world::new_club(100 + i, 3, 0, 1, &mut ctx)); i = i + 1; };
+    while (i < 2) { nearly.push_back(world::new_club(100 + i, 3, 0, 1, test_league(), &mut ctx)); i = i + 1; };
     let mut empty = vector[];
     let mut j = 0u32;
-    while (j < 9) { empty.push_back(world::new_club(200 + j, 3, 1, 1, &mut ctx)); j = j + 1; };
+    while (j < 9) { empty.push_back(world::new_club(200 + j, 3, 1, 1, test_league(), &mut ctx)); j = j + 1; };
 
     let mut k = 0;
     while (k < nearly.length()) { league::register_free(&mut l, object::id(&nearly[k]), 0); k = k + 1; };
@@ -185,9 +189,9 @@ fun a_newcomer_goes_where_there_is_least_room_left() {
 fun a_place_taken_comes_off_the_list_of_its_own_series() {
     let mut ctx = tx_context::dummy();
     let mut l = a_league(&mut ctx);
-    let a = world::new_club(1, 3, 0, 1, &mut ctx);
-    let b = world::new_club(2, 3, 0, 1, &mut ctx);
-    let c = world::new_club(3, 3, 1, 1, &mut ctx);
+    let a = world::new_club(1, 3, 0, 1, test_league(), &mut ctx);
+    let b = world::new_club(2, 3, 0, 1, test_league(), &mut ctx);
+    let c = world::new_club(3, 3, 1, 1, test_league(), &mut ctx);
     league::register_free(&mut l, object::id(&a), 0);
     league::register_free(&mut l, object::id(&b), 0);
     league::register_free(&mut l, object::id(&c), 1);
