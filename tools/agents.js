@@ -158,7 +158,12 @@ async function readLeague() {
     for (const a of report.agents) {
       if (!a.club) continue;
       sui(['client', 'switch', '--address', a.addr]);
-      const plan = SF.Brain.plan(G, a.club, 7777 + week, week).slice(0, PER_WEEK);
+      /* Take a different slice each week, so that over a season every button is pressed rather
+       * than the same handful every time. A run that only ever tries the first six is a run that
+       * says nothing about the other twenty-five. */
+      const all = SF.Brain.plan(G, a.club, 7777 + week, week);
+      const from = ((week - 1) * PER_WEEK) % Math.max(1, all.length);
+      const plan = all.concat(all).slice(from, from + PER_WEEK);
       for (const p of plan) {
         tried.add(p.kind);
         const r = json(['client', 'call', '--package', PKG, '--module', 'decide', '--function', 'decide',
