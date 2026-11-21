@@ -25,7 +25,7 @@
   const manOf = (p) => ({
     id: p.num, num: p.num, name: p.name, pos: p.pos, temper: p.temper,
     age: p.age, ovr: p.ovr, pot: p.pot, cond: p.cond, mood: p.mood,
-    wage: p.wage, goals: p.goals, apps: p.apps,
+    wage: p.wage, goals: p.goals, apps: p.apps, contractWeeks: p.contractWeeks,
   });
 
   const Replay = (SF.Replay = {

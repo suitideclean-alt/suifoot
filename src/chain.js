@@ -230,6 +230,7 @@
           age: Number(p.age), ovr: Number(p.ovr), pot: Number(p.pot),
           cond: Number(p.cond), mood: Number(p.mood),
           wage: Number(p.wage), goals: Number(p.goals), apps: Number(p.apps),
+          contractWeeks: Number(p.contract_weeks || 0),
         };
       });
       return {
