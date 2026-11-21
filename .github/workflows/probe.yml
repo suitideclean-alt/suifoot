@@ -6,6 +6,33 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
+      - name: What shape does GetObject want
+        run: |
+          set +e
+          OBJ=0xb882dd5f3819e8d4aa69b249cb6f17005ccd7a59e86596acd53d230fad69bf98
+          URL=https://fullnode.testnet.sui.io/sui.rpc.v2.LedgerService/GetObject
+          try() {
+            echo "--- $1"
+            curl -sS -m 20 -X POST "$URL" -H 'content-type: application/json' \
+                 -H 'origin: https://suitideclean-alt.github.io' --data "$1" | head -c 1200
+            echo; echo
+          }
+          try "{\"object_id\":\"$OBJ\"}"
+          try "{\"objectId\":\"$OBJ\"}"
+          try "{\"object_id\":\"$OBJ\",\"read_mask\":{\"paths\":[\"json\"]}}"
+          try "{\"object_id\":\"$OBJ\",\"read_mask\":{\"paths\":[\"object_id\",\"version\",\"json\",\"object_type\"]}}"
+          try "{\"object_id\":\"$OBJ\",\"read_mask\":{\"paths\":[\"*\"]}}"
+
+      - name: And can several be asked for at once
+        run: |
+          set +e
+          A=0xf018fa353ba993ba938f7a2d94fc4da641332cf7b50cad2b83e109b34533e21c
+          B=0x8dda0f412dd1a9317d108d44c1aa8fd725bd620d939d7745ef90c99756f4e03a
+          curl -sS -m 20 -X POST https://fullnode.testnet.sui.io/sui.rpc.v2.LedgerService/BatchGetObjects \
+               -H 'content-type: application/json' \
+               --data "{\"requests\":[{\"object_id\":\"$A\"},{\"object_id\":\"$B\"}],\"read_mask\":{\"paths\":[\"object_id\",\"json\"]}}" | head -c 900
+          echo
+
       - name: Try the endpoints a browser could use
         run: |
           set +e
