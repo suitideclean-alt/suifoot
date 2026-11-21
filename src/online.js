@@ -20,16 +20,13 @@
   O.load = async function (redraw) {
     O.state = 'loading'; O.error = null; redraw();
     try {
-      const genesis = await SF.Chain.world();
-      /* What the chain gave us is the first day of the season. The season itself is worked out
-       * from it and the numbers drawn since, here, for nothing - see SF.Replay. */
+      const [genesis, decisions] = await Promise.all([SF.Chain.world(), SF.Chain.decisions()]);
+      /* What the chain gave us is the first day of the season and the list of everything anybody
+       * has decided since. The season itself is worked out from the two, here, for nothing. */
       O.genesis = genesis;
-      const out = SF.Replay.run(genesis, null);
-      O.world = { league: genesis.league, clubs: out.clubs };
-      O.results = out.results;
-      /* And the same thing in the shape every other screen reads, ready for whoever wants to stop
-       * looking at the league through a window of its own and just play it. */
-      O.game = SF.Bridge.toGame(genesis, SF.Wallet && SF.Wallet.addr);
+      O.decisions = decisions;
+      O.pending = [];
+      O.build();
       /* And what the connected wallet has to pay with. Asked here rather than at signing time, so
        * the screen can say "you have nothing to spend" before anybody is shown a dialog. A failure
        * to weigh the address is not a failure to read the league, so it only clears the figure. */
@@ -47,6 +44,76 @@
   };
 
   const when = (ms) => new Date(ms).toISOString().replace('T', ' ').slice(0, 16) + ' UTC';
+
+  /* Work the league out from what the chain holds plus whatever has been decided in the last
+   * second and not yet landed.
+   *
+   * There is one set of rules, and this is where they run. What a person sees a tenth of a second
+   * after pressing a button is not a guess at what the chain will say - it is the same working-out
+   * the chain's own log will produce, with their decision added to the end of it. When the
+   * transaction lands, nothing changes on screen, because nothing needed to.
+   */
+  O.build = function () {
+    const all = (O.decisions || []).concat(O.pending || []);
+    const out = SF.Replay.run(O.genesis, all);
+    O.world = { league: O.genesis.league, clubs: out.clubs };
+    O.results = out.results;
+    O.refused = out.refused;
+    O.game = SF.Bridge.toGame(O.genesis, SF.Wallet && SF.Wallet.addr, all);
+    if (O.playing) { SF.UI.G = O.game; SF.setG(O.game); }
+    return O.game;
+  };
+
+  /* Do something, now, and tell the chain about it.
+   *
+   * The screen answers immediately, as a game should. The decision goes to the chain underneath,
+   * and because the working-out above already included it, the landing changes nothing a person
+   * can see. If the chain refuses - a wallet closed, a window shut, a club no longer theirs - the
+   * decision is taken back out and the screen returns to what is actually true, with the reason.
+   * Nothing is ever left showing something the chain did not accept.
+   */
+  O.decide = async function (kind, a, b, data, redraw) {
+    const club = O.myClub();
+    if (!club) return false;
+    const d = {
+      num: club.num, club: club.id, kind, a: a || 0, b: b || 0,
+      week: O.genesis.league.week, at: Date.now(), data: data || [], pending: true,
+    };
+    O.pending.push(d);
+    const before = O.refused ? O.refused.length : 0;
+    O.build();
+
+    // if our own rules refuse it, there is no point troubling the chain or the person's wallet
+    const mine = (O.refused || []).slice(before).find((x) => x.at === d.at);
+    if (mine) {
+      O.pending = O.pending.filter((x) => x !== d);
+      O.build();
+      O.said = { ok: false, what: 'decide', why: mine.why };
+      redraw();
+      return false;
+    }
+
+    redraw();
+    try {
+      await SF.Tx.decide(club.id, kind, d.a, d.b, d.data);
+      d.pending = false;
+    } catch (e) {
+      O.pending = O.pending.filter((x) => x !== d);
+      O.build();
+      O.said = { ok: false, what: 'decide', why: (e && e.message) || String(e) };
+      redraw();
+      return false;
+    }
+    redraw();
+    return true;
+  };
+
+  /** the club the person is running here, as the chain holds it */
+  O.myClub = function () {
+    const me = SF.Wallet && SF.Wallet.addr;
+    if (!me || !O.world) return null;
+    return O.world.clubs.find((c) => c.owner === me) || null;
+  };
 
   /* Wallets report their failures in their own words, and those words are rarely anybody's. Slush
    * answers a network it cannot reach with "TRPCClientError", which names its own plumbing and not
@@ -242,6 +309,49 @@
     if (UI.G) SF.setG(UI.G);
     O.playing = false;
     redraw();
+    return true;
+  };
+
+  /* Which decision a button is.
+   *
+   * The game's own buttons, unchanged, pointed at the log instead of at this browser's memory. A
+   * person raising a ticket price or bidding for a player does not press anything different online
+   * - the same button does the same thing, and the only difference is where it is written down.
+   *
+   * Anything not here is not yet a decision the chain knows about, and is left to the offline
+   * game. That is a list that should end up empty.
+   */
+  O.routes = {
+    setprice: (arg, G) => [K().TICKET, Math.round(parseFloat(arg) * 100), 0],
+    price: (arg, G) => [K().TICKET, Math.round((SF.UI.G.clubs[SF.UI.G.me].price + parseFloat(arg)) * 100), 0],
+    expand: (arg) => [K().INVEST, SF.Replay.GROUND, Math.max(1, Math.round(+arg / 500))],
+    fac: (arg) => [K().INVEST, arg === 'youth' ? SF.Replay.ACADEMY : SF.Replay.TRAINING, 0],
+    hirescout: () => [K().INVEST, SF.Replay.SCOUT, 0],
+    unlist: (arg) => [K().LIST, +arg, 0],
+  };
+
+  /* And the ones that need a number typed before they mean anything, which the screen asks for
+   * and hands over here. */
+  O.asked = {
+    list: (pid, price) => [K().LIST, pid, Math.round(price)],
+    buy: (pid, fee) => [K().BID, pid, Math.round(fee)],
+    renew: (pid, years) => [K().RENEW, pid, Math.round(years * 34)],
+    oacc: (pid, from) => [K().ANSWER, pid, from],
+    train: (what) => [K().TRAIN, what, 0],
+  };
+
+  const K = () => SF.Replay.kinds;
+
+  /* Try to deal with a click as a decision. Returns true if it was one, so the offline handler
+   * knows to stand down. */
+  O.route = function (act, arg, redraw) {
+    if (!O.playing) return false;
+    const make = O.routes[act];
+    if (!make) return false;
+    let args;
+    try { args = make(arg, SF.UI.G); } catch (_) { return false; }
+    if (!args) return false;
+    O.decide(args[0], args[1], args[2], [], redraw);
     return true;
   };
 

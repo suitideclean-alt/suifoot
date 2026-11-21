@@ -1252,6 +1252,9 @@
     if (e.preventDefault && el.tagName === 'A') e.preventDefault();
     const [act, arg] = el.dataset.act.split(':');
     const G = UI.G;
+    /* On the chain, the game's own buttons write to the log rather than to this browser's memory.
+     * The button is the same button; only where it is written down differs. */
+    if (SF.Online && SF.Bridge && SF.Bridge.isOnline(G) && SF.Online.route(act, arg, render)) return;
     if (act === 'm-cancel') { closeModal(); return popups(); }
     if (act === 'm-ok') { const r = UI.mok ? UI.mok(readModal()) : true; if (r !== false) closeModal(); return; }
     if (UI.owner && UI.owner.act(act, arg, el)) return;

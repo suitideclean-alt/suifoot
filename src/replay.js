@@ -34,7 +34,7 @@
 
   /* What an owner can put money into. A stand holds more people; an academy finds better boys; a
    * scout sees further into other clubs' squads. Each is bought once and kept. */
-  const GROUND = 1, ACADEMY = 2, SCOUT = 3;
+  const GROUND = 1, ACADEMY = 2, TRAINING = 3, SCOUT = 4;
 
   /* What each costs and what each buys. Whole numbers throughout: money in this game is dollars,
    * never fractions of one, and two browsers that round differently are two browsers that
@@ -53,7 +53,7 @@
 
   const Replay = (SF.Replay = {
     seedFor,
-    GROUND, ACADEMY, SCOUT,
+    GROUND, ACADEMY, TRAINING, SCOUT,
     kinds: { TEAM, SHOW, TRAIN, TICKET, LIST, BID, ANSWER, SKILL, INVEST, RENEW },
 
     /* The season so far.
@@ -68,7 +68,7 @@
       const clubs = world.clubs.map((c) => ({
         ...c,
         played: 0, won: 0, drawn: 0, lost: 0, gf: 0, ga: 0, points: 0,
-        training: 0, ground: 0, academy: 1, scout: 0, spent: 0,
+        training: 0, academy: 1, coaching: 1, scout: 0, spent: 0,
         squad: c.squad.map(manOf),
       }));
       const byNum = new Map(clubs.map((c) => [c.num, c]));
@@ -146,8 +146,8 @@
           club.capacity += steps * SEATS_PER_STEP;
           return null;
         }
-        if (d.a === ACADEMY || d.a === SCOUT) {
-          const which = d.a === ACADEMY ? 'academy' : 'scout';
+        if (d.a === ACADEMY || d.a === TRAINING || d.a === SCOUT) {
+          const which = d.a === ACADEMY ? 'academy' : d.a === TRAINING ? 'coaching' : 'scout';
           const to = club[which] + 1;
           if (to > MAX_FACILITY) return 'that is as far as it goes';
           const cost = FACILITY_COST[to];

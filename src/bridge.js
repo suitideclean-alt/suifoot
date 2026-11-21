@@ -27,8 +27,8 @@
      * `world` is what the chain holds, `me` the address of whoever is looking - his clubs are the
      * ones marked as his, so the screens that ask "is this mine?" get the right answer.
      */
-    toGame(world, me) {
-      const out = SF.Replay.run(world, null);
+    toGame(world, me, decisions) {
+      const out = SF.Replay.run(world, decisions || null);
       const lg = world.league;
 
       const G = {
@@ -51,7 +51,8 @@
           div: c.level, ser: 0,
           c1: col.c1, c2: col.c2,
           squad: [], fans: c.fans, cap: c.capacity, price: c.ticket,
-          facility: { youth: 3, train: 3 }, build: null, lastRevenue: 0,
+          facility: { youth: c.academy || 1, train: c.coaching || 1 }, scout: c.scout || 0,
+          build: null, lastRevenue: 0,
           hist: [], title: 0, cups: 0, form: [], acad: [], style: 'bal',
           human: 0, owner: 0, rival: null, capt: 0,
           /* the table the chain's own numbers give, so the league page is the league */
