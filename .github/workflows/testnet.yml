@@ -13,7 +13,7 @@ on:
     inputs:
       clubs:
         description: how many clubs to make
-        default: "2"
+        default: "12"
       play:
         description: play a matchday as well
         default: "true" 
@@ -24,6 +24,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
       - name: Cache the Sui CLI
         id: cache-sui
@@ -114,13 +117,17 @@ jobs:
           for C in $CLUB_IDS; do echo "CLUB    $C"; done
           echo "::endgroup::" 
 
-      - name: Play a match on the chain
+      - name: Play a whole matchday on the chain
         if: ${{ github.event.inputs.play != 'false' }}
         run: |
           set -euo pipefail
           export PATH="$HOME/.sui/bin:$PATH"
-          sui client call --package "$PKG" --module league --function play_fixture \
-            --args "$LEAGUE" "$CLUB1" "$CLUB2" 0x8 0x6 --gas-budget 500000000 --json > match.json
+          # The order is the fixture list's, worked out from the same rotation the contract uses.
+          # Handing the clubs over in any other order aborts, which is the point of the check.
+          ORDER=$(PKG="$PKG" LEAGUE="$LEAGUE" CLUBS="$CLUB_IDS" NAMES=1 node tools/order.js)
+          echo "playing: $ORDER"
+          sui client call --package "$PKG" --module league --function play_week \
+            --args "$LEAGUE" $ORDER 0x8 0x6 --gas-budget 2000000000 --json > match.json
           echo "=============================================="
           echo "the result, as the chain recorded it:"
           jq -r '.events[]? | .parsedJson | "  \(.home) \(.home_goals) - \(.away_goals) \(.away)   seed \(.seed)"' match.json

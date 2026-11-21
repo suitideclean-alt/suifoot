@@ -195,11 +195,17 @@
       return Tx.send(tx);
     },
 
-    /* A whole matchday in one transaction.
+    /* A whole matchday in one call - one call, not one transaction holding seven.
      *
-     * Six matches, one after another, and then the league moves on. They go together because they
-     * belong together: a matchday half played is a table that lies, and anybody looking at it in
-     * between would be looking at something that was never true. */
+     * They belong together: a matchday half played is a table that lies, and anybody looking at it
+     * in between would see something that was never true. But the chain will not let a transaction
+     * do anything after a command that draws randomness except transfer things, so that somebody
+     * cannot read the draw and abort the rest until the dice fall their way. Six matches and an
+     * advance is exactly that shape, and the node refuses it.
+     *
+     * So the loop lives in the contract, and this sends one command. The clubs go in the order the
+     * fixtures give them; the contract checks each pair against its own fixture list, so an order
+     * of our own invention aborts rather than playing a match nobody scheduled. */
     async playMatchday(fixtures) {
       const { Transaction } = globalThis.SuiSDK;
       const net = SF.Chain.net;
@@ -210,19 +216,11 @@
       const league = refs[0];
 
       const tx = new Transaction();
-      fixtures.forEach((m, i) => {
-        tx.moveCall({
-          target: `${net.pkg}::league::play_fixture`,
-          arguments: [
-            tx.sharedObjectRef({ ...league, mutable: false }),
-            tx.sharedObjectRef(refs[1 + i * 2]),
-            tx.sharedObjectRef(refs[2 + i * 2]),
-            tx.sharedObjectRef(sys.random),
-            tx.sharedObjectRef(sys.clock),
-          ],
-        });
+      const clubs = refs.slice(1).map((r) => tx.sharedObjectRef(r));
+      tx.moveCall({
+        target: `${net.pkg}::league::play_week`,
+        arguments: [tx.sharedObjectRef(league), ...clubs, tx.sharedObjectRef(sys.random), tx.sharedObjectRef(sys.clock)],
       });
-      tx.moveCall({ target: `${net.pkg}::league::advance`, arguments: [tx.sharedObjectRef(league)] });
       return Tx.send(tx);
     },
 
