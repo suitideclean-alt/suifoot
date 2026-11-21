@@ -115,8 +115,37 @@ than once:
 The seed-42 test still demands all seventeen of that match's events in order, with the same scorers
 at the same minutes. None of this could have changed a number without it saying so.
 
+## The browser reads the chain
+
+`src/chain.js` asks the public Sui GraphQL service and `src/online.js` draws what comes back: where
+the season stands, the table, and the squad of whichever club you pick. Nothing on that screen is
+decided in the browser. Edit a rating in the console and you have edited a copy the next read throws
+away.
+
+Getting there meant finding out that **Sui has retired JSON-RPC on public full nodes** - the official
+node, BlockVision, PublicNode and Suiscan all answer the same way. What replaced it on the node is
+gRPC: a compression byte, a four-byte length, a protobuf message, which a browser cannot produce
+without a library and a build step. GraphQL is the other replacement, it is JSON in both directions,
+and the public testnet service sends `access-control-allow-origin: *`, so a page may simply ask.
+The path was the thing: `graphql.testnet.sui.io` answers 404, `graphql.testnet.sui.io/graphql`
+answers with the league.
+
+One request fetches the lot - several objects asked for in a single query under names of our own.
+A whole league came back in 227 ms. `tests/chain.js` reads the live chain through that very file on
+every push, so the day a field is renamed, that is what says so.
+
+The contract stores no player names: two thousand strings on chain to say what a number already says.
+A name is worked out from the number instead, by the same rule in the contract's world and in the
+browser. A hundred and thirty-two men on testnet, a hundred and thirty-two names.
+
 ## What is not built
 
+- **Prizes.** Wages, upkeep, television, a sponsor and the gate all move money now. Prizes do not,
+  because they are paid in the token and the token does not exist.
+- **Transfers.** Nobody can buy or sell a player.
+- **The token.** Nothing of SFOOT exists. It is a package of its own and comes after this one.
+- **Playing from the browser.** Reading works; writing does not. Sealing a lineup or taking a club
+  needs a signed transaction, and nothing yet builds one.
 - **Prizes.** Wages, upkeep, television, a sponsor and the gate all move money now. Prizes do not,
   because they are paid in the token and the token does not exist.
 - **Transfers.** Nobody can buy or sell a player.
