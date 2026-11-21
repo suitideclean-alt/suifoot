@@ -69,7 +69,8 @@ jobs:
           # the package has grown; publishing is the one call that needs real room
           if ! sui client publish --gas-budget 2500000000 --json move/suifoot > publish.json 2> publish.err; then
             echo "--- what the node said ---"
-            tail -40 publish.err
+            echo '(stderr)'; tail -20 publish.err
+            echo '(stdout, where sui puts the refusal)'; tail -40 publish.json
             exit 1
           fi
           PKG=$(jq -r '.objectChanges[] | select(.type=="published") | .packageId' publish.json)
