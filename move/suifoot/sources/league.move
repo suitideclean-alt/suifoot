@@ -45,6 +45,8 @@ const EAlreadyPlayed: vector<u8> = b"one of these clubs has already played this 
 #[error]
 const EAlreadyDrawn: vector<u8> = b"this matchday has already been drawn";
 #[error]
+const EOddSize: vector<u8> = b"a series holds an even number of clubs, or one is idle every matchday";
+#[error]
 const ESameClub: vector<u8> = b"a club cannot play itself";
 #[error]
 const ENotAdmin: vector<u8> = b"only the league may do that";
@@ -131,9 +133,23 @@ public fun new(t0_ms: u64, kickoffs: vector<u64>, weeks_in_season: u16, ctx: &mu
     }
 }
 
-entry fun create(t0_ms: u64, kickoffs: vector<u64>, weeks_in_season: u16, bottom_level: u8, ctx: &mut TxContext) {
+/// How many clubs make a series is settled when the league is made, not written into the code.
+///
+/// It used to be written in, because every club in a series was another match the contract played
+/// on a matchday and another slice of what a transaction may spend. A matchday now costs one drawn
+/// number whether the series holds twelve clubs or thirty, so the number is a league's to choose:
+/// bigger series hold more owners before a new one has to be opened, and make a longer season.
+///
+/// It must be even. An odd series leaves a club idle every matchday, and the rotation the fixtures
+/// are worked out from has no way to say so.
+entry fun create(
+    t0_ms: u64, kickoffs: vector<u64>, weeks_in_season: u16, bottom_level: u8, series_size: u8,
+    ctx: &mut TxContext,
+) {
+    assert!(series_size >= 2 && series_size % 2 == 0, EOddSize);
     let mut l = new(t0_ms, kickoffs, weeks_in_season, ctx);
     l.bottom_level = bottom_level;
+    l.series_size = series_size;
     transfer::share_object(l);
 }
 

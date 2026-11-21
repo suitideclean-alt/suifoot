@@ -12,8 +12,8 @@ on:
   workflow_dispatch:
     inputs:
       clubs:
-        description: how many clubs to make
-        default: "12"
+        description: how many clubs to make (even)
+        default: "18"
       play:
         description: play a matchday as well
         default: "true" 
@@ -91,15 +91,16 @@ jobs:
           NOW=$(( $(date +%s) * 1000 ))
           # a league whose first matchday kicked off yesterday, so a fixture can be played at once
           T0=$(( NOW - 172800000 ))
+          SIZE=${{ github.event.inputs.clubs || 18 }}
           sui client call --package "$PKG" --module league --function create \
-            --args "$T0" "[720,1200]" 34 3 --gas-budget 200000000 --json > league.json
+            --args "$T0" "[720,1200]" $(( (SIZE - 1) * 2 )) 3 "$SIZE" --gas-budget 200000000 --json > league.json
           LEAGUE=$(jq -r '.objectChanges[] | select(.objectType != null and (.objectType | test("::league::League$"))) | .objectId' league.json)
           echo "league: $LEAGUE"
           echo "LEAGUE=$LEAGUE" >> "$GITHUB_ENV"
           echo "league cost (MIST):"
           jq -r '.effects.gasUsed | "computation \(.computationCost)  storage \(.storageCost)"' league.json
 
-          for N in $(seq 1 ${{ github.event.inputs.clubs || 2 }}); do
+          for N in $(seq 1 ${{ github.event.inputs.clubs || 18 }}); do
             sui client call --package "$PKG" --module world --function create_club \
               --args "$LEAGUE" "$N" 3 0 0x8 --gas-budget 500000000 --json > "club$N.json"
             CID=$(jq -r '.objectChanges[] | select(.objectType != null and (.objectType | test("::club::Club$"))) | .objectId' "club$N.json")
