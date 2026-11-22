@@ -117,10 +117,11 @@ public fun minted(t: &Treasury): u64 { coin::total_supply(&t.cap) }
 /// Wind the treasury down. Here so that a testnet deployment is not a one-way door.
 public fun close(t: &mut Treasury, ctx: &mut TxContext): Coin<SFOOT> {
     assert!(ctx.sender() == t.admin, ENotAdmin);
-    let all = t.kept.value() + t.pool.value();
-    let mut b = t.kept.split(t.kept.value());
-    b.join(t.pool.split(t.pool.value()));
-    let _ = all;
+    // read the amounts first: a field cannot be looked at while it is being changed
+    let k = t.kept.value();
+    let p = t.pool.value();
+    let mut b = t.kept.split(k);
+    b.join(t.pool.split(p));
     coin::from_balance(b, ctx)
 }
 
