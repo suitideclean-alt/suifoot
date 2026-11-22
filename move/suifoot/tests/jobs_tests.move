@@ -7,7 +7,7 @@ use suifoot::club::{Self, Club};
 use suifoot::jobs;
 use suifoot::league::{Self, League};
 
-const OWNER: address = @0x0WNE2;
+const OWNER: address = @0xB055;
 const COACH: address = @0xC0AC4;
 const DAY: u64 = 86400000;
 const T0: u64 = 1800000000000 / DAY * DAY;
