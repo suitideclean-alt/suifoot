@@ -596,6 +596,23 @@
     on_no_club: [`no club`, `sans club`, `sem clube`, `ohne Verein`],
     on_nobody_yet: [`Nobody has taken a job here yet.`, `Personne n'a encore pris de poste ici.`, `Ainda ninguém aceitou um lugar aqui.`, `Hier hat noch niemand eine Stelle angenommen.`],
     on_nobody_looking: [`Nobody is out of work.`, `Personne n'est sans poste.`, `Não há ninguém sem lugar.`, `Niemand ist ohne Stelle.`],
+    on_offer_job: [`Offer the job`, `Proposer le poste`, `Oferecer o lugar`, `Stelle anbieten`],
+    on_offered_you: [
+      `{club} has offered you the job at {wage} a week.`,
+      `{club} vous propose le poste à {wage} par semaine.`,
+      `O {club} ofereceu-te o lugar por {wage} por semana.`,
+      `{club} bietet dir die Stelle für {wage} pro Woche an.`],
+    on_take_job: [`Take it`, `Accepter`, `Aceitar`, `Annehmen`],
+    on_you_run: [`You pick the team at {club}.`, `Vous dirigez {club}.`, `Escolhes a equipa do {club}.`, `Du stellst die Mannschaft von {club} auf.`],
+    on_resign: [`Walk away`, `Démissionner`, `Demitir-me`, `Hinwerfen`],
+    on_they_run: [`{who} picks the team at {club}.`, `{who} dirige {club}.`, `{who} escolhe a equipa do {club}.`, `{who} stellt die Mannschaft von {club} auf.`],
+    on_dismiss: [`Let them go`, `Le renvoyer`, `Despedir`, `Entlassen`],
+    on_vacant_d: [
+      `Some clubs here have nobody running them. Taking one is how a record is made when nobody has offered you anything yet.`,
+      `Certains clubs ici n'ont personne à leur tête. En prendre un, c'est ainsi qu'on se fait un bilan quand personne ne vous a rien proposé.`,
+      `Há clubes aqui sem ninguém a treiná-los. Pegar num é como se faz um currículo quando ainda ninguém te ofereceu nada.`,
+      `Einige Vereine hier haben niemanden. Einen zu übernehmen ist der Weg zu einer Bilanz, wenn dir noch niemand etwas angeboten hat.`],
+    on_take_vacant: [`Run {club}`, `Diriger {club}`, `Treinar o {club}`, `{club} übernehmen`],
     on_why_not_on_chain_yet: [
       `That one is not on the chain yet. It would change what you see here and nothing else, so it is refused rather than pretended.`,
       `Celui-ci n'est pas encore sur la chaîne. Il ne changerait que ce que vous voyez ici, donc il est refusé plutôt que simulé.`,

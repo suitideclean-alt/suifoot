@@ -236,6 +236,41 @@
       return Tx.send(tx);
     },
 
+    /* Employment. Five calls, and between them every way a job here begins or ends.
+     *
+     * Each takes the club as a shared object, because a job is a thing done to a club: the
+     * contract reads who owns it and who holds the job from the club itself rather than from
+     * anything we tell it. */
+    async job(clubId, fn, more) {
+      const { Transaction } = globalThis.SuiSDK;
+      const net = SF.Chain.net;
+      const [league, club] = await SF.Chain.sharedRefs([net.league, clubId]);
+      const tx = new Transaction();
+      /* The extra arguments are built here rather than handed in ready-made: a value belongs to
+       * the transaction it was made in, and one made in another is not the same thing however
+       * alike it looks. */
+      tx.moveCall({
+        target: `${net.pkg}::jobs::${fn}`,
+        arguments: [tx.sharedObjectRef({ ...league, mutable: false }), tx.sharedObjectRef(club)]
+          .concat(more ? more(tx) : []),
+      });
+      return Tx.send(tx);
+    },
+
+    /** put the job to somebody, on terms they can take or leave */
+    offerJob(clubId, to, wage, weeks, win) {
+      return Tx.job(clubId, 'offer', (tx) => [
+        tx.pure.address(to), tx.pure.u64(String(Math.round(wage))),
+        tx.pure.u16(Math.round(weeks)), tx.pure.u64(String(Math.round(win || 0))),
+      ]);
+    },
+
+    acceptJob: (clubId) => Tx.job(clubId, 'accept'),
+    takeVacant: (clubId) => Tx.job(clubId, 'take_vacant'),
+    resignJob: (clubId) => Tx.job(clubId, 'resign'),
+    dismissCoach: (clubId) => Tx.job(clubId, 'dismiss'),
+    withdrawOffer: (clubId) => Tx.job(clubId, 'withdraw'),
+
     async drawWeek() {
       const { Transaction } = globalThis.SuiSDK;
       const net = SF.Chain.net;

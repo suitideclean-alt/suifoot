@@ -315,6 +315,12 @@
         balance: Number(f.balance),
         fans: Number(f.fans), capacity: Number(f.capacity), ticket: Number(f.ticket_cents) / 100,
         owner: optional(f.owner),
+        coach: optional(f.coach),
+        /* The job and the offer the chain is holding for this club. Everything else about
+         * employment is worked out; these two are held, because the contract has to be able to
+         * check them before it takes anybody's signature. */
+        job: (() => { const j = optional(f.job); return j ? { wage: Number((j.fields || j).wage), weeks: Number((j.fields || j).weeks), win: Number((j.fields || j).win), since: Number((j.fields || j).since), agreed: !!(j.fields || j).agreed } : null; })(),
+        offerTo: (() => { const o = optional(f.offer); const g = o && (o.fields || o); return g ? { to: g.to, wage: Number(g.wage), weeks: Number(g.weeks), win: Number(g.win) } : null; })(),
         played: Number(f.played), won: Number(f.won), drawn: Number(f.drawn), lost: Number(f.lost),
         gf: Number(f.goals_for), ga: Number(f.goals_against), points: Number(f.points),
         lastPos: Number(f.last_pos),

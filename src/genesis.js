@@ -60,6 +60,9 @@
           hist: [], title: 0, cups: 0, form: [], acad: [], style: 'bal',
           human: 0, owner: 0, rival: null, capt: 0, rev: 0,
           chainOwner: c.owner || null,
+          chainCoach: c.coach || null,
+          chainJob: c.job || null,
+          chainOffer: c.offerTo || null,
         };
         for (const p of c.squad) {
           G.players[p.num] = {
@@ -88,7 +91,10 @@
       let n = 0;
       for (const id of G.clubIds) {
         const club = G.clubs[id];
-        if (!club.chainOwner) continue;
+        /* Whoever picks the team here is its coach, owner or not. A club somebody else was hired
+         * to run is run by them: the owner keeps the money side and the hired man keeps the team
+         * sheet, which is the whole distinction a job makes. */
+        if (!club.chainOwner && !club.chainCoach) continue;
         n += 1;
         club.human = n; club.owner = n;
         /* Run as a manager rather than as an investor, for now.
@@ -98,8 +104,16 @@
          * so an owner here would be asked to pay for a stand out of a pocket nobody has. Until
          * the token is real, a club pays for its own ground out of its own takings - which is
          * also the honest answer to "whose money is this?" while there is no token to hold. */
-        const coach = SF.Game.makeCoach(club.chainOwner.slice(0, 6), n);
-        coach.club = id; coach.role = 'both'; coach.rep = 50; coach.addr = club.chainOwner;
+        const runs = club.chainCoach || club.chainOwner;
+        const isOwner = !!club.chainOwner && club.chainOwner === runs;
+        const coach = SF.Game.makeCoach(runs.slice(0, 6), n);
+        coach.club = id; coach.role = isOwner ? 'both' : 'coach'; coach.rep = 50; coach.addr = runs;
+        if (club.chainJob) coach.contract = {
+          club: id, years: Math.round(club.chainJob.weeks / 34), left: club.chainJob.weeks,
+          wage: club.chainJob.wage, win: club.chainJob.win, draw: 0,
+          bonus: { title: 0, promo: 0, euro: 0 }, share: 0, exit: null, brk: null, cap: false,
+          mitigate: true, late: 0,
+        };
         G.coaches.push(coach);
         SF.Owner.openWallet(G, n);
       }

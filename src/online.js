@@ -197,6 +197,27 @@
           <button data-act="on:claim:${esc(tk.id)}:${esc(tk.club)}"${O.busy ? ' disabled' : ''}>${esc(t('on_claim'))}</button>`;
       }
     }
+    /* Whatever employment is open to this person right now, in one place rather than scattered.
+     * A job put to you, a job you hold, a club nobody is running - each is one button. */
+    if (addr && O.world) {
+      const offered = O.world.clubs.filter((c) => c.offerTo && c.offerTo.to === addr);
+      const holding = O.world.clubs.filter((c) => c.coach === addr && c.owner !== addr);
+      const theirs = O.world.clubs.filter((c) => c.owner === addr && c.coach && c.coach !== addr);
+      const vacant = O.world.clubs.filter((c) => !c.owner && !c.coach);
+      let jobs = '';
+      for (const c of offered) jobs += `<p>${esc(t('on_offered_you', { club: c.name, wage: money(c.offerTo.wage) }))}
+        <button data-act="on:accept:${esc(c.id)}"${O.busy ? ' disabled' : ''}>${esc(t('on_take_job'))}</button></p>`;
+      for (const c of holding) jobs += `<p class="muted small">${esc(t('on_you_run', { club: c.name }))}
+        <button class="btn sm" data-act="on:resign:${esc(c.id)}"${O.busy ? ' disabled' : ''}>${esc(t('on_resign'))}</button></p>`;
+      for (const c of theirs) jobs += `<p class="muted small">${esc(t('on_they_run', { club: c.name, who: SF.Wallet.short(c.coach) }))}
+        <button class="btn sm" data-act="on:dismiss:${esc(c.id)}"${O.busy ? ' disabled' : ''}>${esc(t('on_dismiss'))}</button></p>`;
+      if (!holding.length && !myClubs.length && vacant.length) {
+        const c = vacant[0];
+        jobs += `<p class="muted small">${esc(t('on_vacant_d'))}</p>
+          <button data-act="on:vacant:${esc(c.id)}"${O.busy ? ' disabled' : ''}>${esc(t('on_take_vacant', { club: c.name }))}</button>`;
+      }
+      if (jobs) act += `<div style="margin-top:12px">${jobs}</div>`;
+    }
     if (O.busy) act += `<p>${esc(t('on_waiting'))}</p>`;
     if (O.said) {
       act += O.said.ok
@@ -267,17 +288,31 @@
     const people = O.careers || [];
     const working = SF.Careers.employed(people);
     const free = SF.Careers.looking(people);
-    const line = (p, j) => `<tr${SF.Wallet && p.addr === SF.Wallet.addr ? ' class="on"' : ''}>
+    /* An owner looking at somebody out of work can put the job to them, at what the game says a
+     * club of this standing pays somebody of that record. A figure arrived at rather than haggled
+     * over is one neither side can call unfair. */
+    const myClubs = (O.world ? O.world.clubs : []).filter((c) => addr && c.owner === addr);
+    const hireable = myClubs.filter((c) => !c.offerTo);
+    const offerBtn = (p) => {
+      if (!hireable.length) return '';
+      const c = hireable[0];
+      const g = O.game && O.game.clubs['c' + c.num];
+      const wage = g && SF.Owner.salaryFor ? SF.Owner.salaryFor(g, Math.max(8, Math.min(95, 20 + p.jobs.length * 6))) : 0;
+      return `<button class="btn sm" data-act="on:offer:${esc(c.id)}:${esc(p.addr)}:${wage}"${O.busy ? ' disabled' : ''}>${esc(t('on_offer_job'))} · ${money(wage)}</button>`;
+    };
+
+    const line = (p, j, withOffer) => `<tr${SF.Wallet && p.addr === SF.Wallet.addr ? ' class="on"' : ''}>
       <td><b>${p.rep}</b></td>
       <td class="muted">${esc(SF.Wallet ? SF.Wallet.short(p.addr) : short(p.addr))}</td>
       <td>${j ? esc(j.clubName) : `<span class="muted">${esc(t('on_no_club'))}</span>`}</td>
       <td class="muted">${j && j.record ? `${j.record.w}-${j.record.d}-${j.record.l}` : '—'}</td>
       <td>${j ? money0(j.wage) : '—'}</td>
-      <td class="muted">${p.seasons}</td></tr>`;
+      <td class="muted">${p.seasons}</td>
+      <td>${withOffer ? offerBtn(p) : ''}</td></tr>`;
 
     const head2 = `<thead><tr><th>${esc(t('on_standing'))}</th><th>${esc(t('on_person'))}</th>
       <th>${esc(t('on_club'))}</th><th>${esc(t('on_record'))}</th><th>${esc(t('on_wage'))}</th>
-      <th>${esc(t('on_jobs'))}</th></tr></thead>`;
+      <th>${esc(t('on_jobs'))}</th><th></th></tr></thead>`;
 
     const people_cards = `<div class="card"><h4>${esc(t('on_in_work'))}</h4>
       <p class="muted small">${esc(t('on_in_work_d'))}</p>
@@ -285,7 +320,7 @@
         : `<p class="muted">${esc(t('on_nobody_yet'))}</p>`}</div>
       <div class="card"><h4>${esc(t('on_looking'))}</h4>
       <p class="muted small">${esc(t('on_looking_d'))}</p>
-      ${free.length ? `<table class="tbl">${head2}<tbody>${free.map((p) => line(p, p.jobs[p.jobs.length - 1])).join('')}</tbody></table>`
+      ${free.length ? `<table class="tbl">${head2}<tbody>${free.map((p) => line(p, p.jobs[p.jobs.length - 1], true)).join('')}</tbody></table>`
         : `<p class="muted">${esc(t('on_nobody_looking'))}</p>`}</div>`;
 
     const table = SF.Chain.table(clubs);
@@ -453,6 +488,15 @@
   /** the clicks this screen answers */
   O.act = function (action, redraw) {
     if (action === 'on:load') { O.load(redraw); return true; }
+    if (action.startsWith('on:offer:')) {
+      const [, , club, who, wage] = action.split(':');
+      O.run('offer', () => SF.Tx.offerJob(club, who, +wage, 68, 0), redraw);
+      return true;
+    }
+    if (action.startsWith('on:accept:')) { O.run('accept', () => SF.Tx.acceptJob(action.slice(10)), redraw); return true; }
+    if (action.startsWith('on:resign:')) { O.run('resign', () => SF.Tx.resignJob(action.slice(10)), redraw); return true; }
+    if (action.startsWith('on:dismiss:')) { O.run('dismiss', () => SF.Tx.dismissCoach(action.slice(11)), redraw); return true; }
+    if (action.startsWith('on:vacant:')) { O.run('vacant', () => SF.Tx.takeVacant(action.slice(10)), redraw); return true; }
     if (action === 'on:play') return O.enter(redraw);
     if (action === 'on:back') return O.leave(redraw);
     if (action.startsWith('on:club:')) { O.club = action.slice(8); redraw(); return true; }
