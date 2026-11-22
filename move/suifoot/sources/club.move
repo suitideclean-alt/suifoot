@@ -55,6 +55,20 @@ public struct Club has key, store {
     points: u16,
     /// whether the entry fee for this season was paid, which decides a claim on the prize pool
     entry_paid: bool,
+    /// What the club pays whoever runs the team, and for how long.
+    ///
+    /// Only the terms two people had to agree on are kept: the wage, the length, and what a win
+    /// pays. Everything that follows from them - what a dismissal costs, whether there was just
+    /// cause, what is owed on the way out - is worked out from the same numbers by everybody, so
+    /// writing it down would only be a second place for it to be wrong.
+    ///
+    /// `agreed` marks a wage two people settled on. A club nobody owns has nobody to settle with,
+    /// so the job it offers pays what the game says such a club pays, and that is not a term
+    /// anybody can dispute either.
+    job: Option<Job>,
+    /// A job put to somebody, which is theirs to take or leave. Held rather than emitted, because
+    /// the contract has to be able to check it when they answer - an event it cannot read back.
+    offer: Option<Offer>,
     /// Which league this club plays in.
     ///
     /// Not a convenience. Club numbers run from one inside each league, so two leagues both have a
@@ -94,6 +108,8 @@ public fun new_with_ground(
         last_pos: 0,
         played: 0, won: 0, drawn: 0, lost: 0, goals_for: 0, goals_against: 0, points: 0,
         entry_paid: false,
+        job: option::none(),
+        offer: option::none(),
         league,
         seal: vector::empty(),
         seal_week: 0,
@@ -135,6 +151,45 @@ public fun goals_for(c: &Club): u16 { c.goals_for }
 public fun goals_against(c: &Club): u16 { c.goals_against }
 public fun last_pos(c: &Club): u8 { c.last_pos }
 public fun entry_paid(c: &Club): bool { c.entry_paid }
+
+/// what a club pays the person who picks its team
+public struct Job has store, drop, copy {
+    wage: u64,
+    weeks: u16,
+    win: u64,
+    since: u16,
+    agreed: bool,
+}
+
+/// a job put to somebody who has not answered yet
+public struct Offer has store, drop, copy {
+    to: address,
+    wage: u64,
+    weeks: u16,
+    win: u64,
+}
+
+public fun job(c: &Club): Option<Job> { c.job }
+public fun job_wage(j: &Job): u64 { j.wage }
+public fun job_weeks(j: &Job): u16 { j.weeks }
+public fun job_win(j: &Job): u64 { j.win }
+public fun job_since(j: &Job): u16 { j.since }
+public fun job_agreed(j: &Job): bool { j.agreed }
+
+public fun offer(c: &Club): Option<Offer> { c.offer }
+public fun offer_to(o: &Offer): address { o.to }
+public fun offer_wage(o: &Offer): u64 { o.wage }
+public fun offer_weeks(o: &Offer): u16 { o.weeks }
+public fun offer_win(o: &Offer): u64 { o.win }
+
+public(package) fun new_job(wage: u64, weeks: u16, win: u64, since: u16, agreed: bool): Job {
+    Job { wage, weeks, win, since, agreed }
+}
+public(package) fun new_offer(to: address, wage: u64, weeks: u16, win: u64): Offer {
+    Offer { to, wage, weeks, win }
+}
+public(package) fun set_job(c: &mut Club, j: Option<Job>) { c.job = j }
+public(package) fun set_offer(c: &mut Club, o: Option<Offer>) { c.offer = o }
 
 /// which league this club plays in, so that a league and a club can be shown to belong together
 public fun league(c: &Club): ID { c.league }
@@ -326,6 +381,6 @@ public fun set_goals_for_testing(c: &mut Club, gf: u16, ga: u16) { c.goals_for =
 public fun destroy_for_testing(c: Club) {
     let Club { id, num: _, name: _, level: _, series: _, squad: _, balance: _, owner: _, coach: _,
         fans: _, capacity: _, ticket_cents: _, last_pos: _, played: _, won: _, drawn: _, lost: _, goals_for: _, goals_against: _, points: _,
-        training: _, entry_paid: _, league: _, seal: _, seal_week: _, current: _, current_week: _, last_played: _, last_week: _ } = c;
+        training: _, entry_paid: _, job: _, offer: _, league: _, seal: _, seal_week: _, current: _, current_week: _, last_played: _, last_week: _ } = c;
     id.delete();
 }
