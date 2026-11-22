@@ -613,6 +613,12 @@
       `Há clubes aqui sem ninguém a treiná-los. Pegar num é como se faz um currículo quando ainda ninguém te ofereceu nada.`,
       `Einige Vereine hier haben niemanden. Einen zu übernehmen ist der Weg zu einer Bilanz, wenn dir noch niemand etwas angeboten hat.`],
     on_take_vacant: [`Run {club}`, `Diriger {club}`, `Treinar o {club}`, `{club} übernehmen`],
+    on_next_season: [`Start the new season`, `Lancer la nouvelle saison`, `Começar a época nova`, `Neue Saison beginnen`],
+    on_next_season_d: [
+      `Who went up, who came down, who got a year older and which boys came through are all worked out from here. Anybody may turn it while the league is played by hand.`,
+      `Qui monte, qui descend, qui a pris un an et quels jeunes sont arrivés : tout se déduit d'ici. N'importe qui peut la lancer tant que le championnat se joue à la main.`,
+      `Quem subiu, quem desceu, quem ficou um ano mais velho e que jovens chegaram sai tudo daqui. Enquanto a liga se joga à mão, qualquer pessoa pode virá-la.`,
+      `Wer aufstieg, wer abstieg, wer ein Jahr älter wurde und welche Jungen kamen, ergibt sich alles hieraus. Solange die Liga von Hand gespielt wird, darf jeder sie umdrehen.`],
     on_why_not_on_chain_yet: [
       `That one is not on the chain yet. It would change what you see here and nothing else, so it is refused rather than pretended.`,
       `Celui-ci n'est pas encore sur la chaîne. Il ne changerait que ce que vous voyez ici, donc il est refusé plutôt que simulé.`,

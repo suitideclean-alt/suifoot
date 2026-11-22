@@ -28,7 +28,10 @@
 
       const G = {
         v: SF.VERSION, fmt: 2, mig: SF.Game.MIG, rules: CFG.rules,
-        seed, rs: seed, season: lg.season, week: 1, phase: 'play',
+        /* A league's history starts at its first season, and the seasons that followed are the
+         * boundaries in the log. Starting from the number the chain is on now would count the
+         * seasons already played a second time. */
+        seed, rs: seed, season: 1, week: 1, phase: 'play',
         news: [], coaches: [], offers: [], hall: [], tq: [], nextOffer: 1,
         lang: (SF.cur && SF.cur.lang) || 'en', wk: null,
         clubs: {}, players: {}, free: [], euIds: [], nextPid: 1,

@@ -257,11 +257,15 @@
       <p class="muted small">${esc(t('on_kickoff'))}: ${when(k)} · ${esc(t('on_lock'))}: ${when(k - lg.lockBefore * 60000)}</p></div>`;
 
     const fx = SF.Chain.fixtures(O.world, 0);
+    /* A season is over when its calendar is spent, which is longer than its league matchdays:
+     * the cup rounds and the European nights are weeks too. */
+    const over = lg.weeks > 0 && lg.week > lg.weeks;
     const weeks = SF.Chain.weeksFor((lg.rosters[0] || []).length);
-    const over = weeks > 0 && lg.week > weeks;
     let round = `<div class="card"><h4>${esc(t('on_round'))} ${lg.week}${weeks ? '/' + weeks : ''}</h4>`;
     if (over) {
       round += `<p class="muted">${esc(t('on_season_over'))}</p>`;
+      if (addr && !stop) round += `<button data-act="on:newseason"${O.busy ? ' disabled' : ''}>${esc(t('on_next_season'))}</button>
+        <p class="muted small">${esc(t('on_next_season_d'))}</p>`;
     } else if (!fx.length) {
       round += `<p class="muted">${esc(t('on_no_fixtures'))}</p>`;
     } else {
@@ -513,6 +517,7 @@
     }
     if (action === 'on:grow') { O.run('grow', () => SF.Tx.openSeries(), redraw); return true; }
     if (action === 'on:round') { O.run('round', () => SF.Tx.drawWeek(), redraw); return true; }
+    if (action === 'on:newseason') { O.run('newseason', () => SF.Tx.nextSeason(), redraw); return true; }
     return false;
   };
 })();

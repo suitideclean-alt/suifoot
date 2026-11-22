@@ -271,6 +271,16 @@
     dismissCoach: (clubId) => Tx.job(clubId, 'dismiss'),
     withdrawOffer: (clubId) => Tx.job(clubId, 'withdraw'),
 
+    /* Turn the season over. Anybody may, while the league is played by hand. */
+    async nextSeason() {
+      const { Transaction } = globalThis.SuiSDK;
+      const net = SF.Chain.net;
+      const [league] = await SF.Chain.sharedRefs([net.league]);
+      const tx = new Transaction();
+      tx.moveCall({ target: `${net.pkg}::league::next_season`, arguments: [tx.sharedObjectRef(league)] });
+      return Tx.send(tx);
+    },
+
     async drawWeek() {
       const { Transaction } = globalThis.SuiSDK;
       const net = SF.Chain.net;

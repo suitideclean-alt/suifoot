@@ -247,19 +247,28 @@
   function setupEuro(G, silent) {
     let q = (G.euroQ || []).filter((id) => G.clubs[id]);
     if (q.length < CFG.EU_SLOTS) {
-      /* The places go to the best of the highest division that actually has clubs in it. Offline
-       * that is always the first, because the pyramid is built whole. On the chain a league begins
-       * as a single division at the foot and grows upward, so for a while the first division is
-       * nobody, and Europe cannot be left waiting for clubs that do not exist yet. */
-      const top = G.divs.find((ids) => ids && ids.length) || [];
-      q = top.slice().sort((a, b) => E.strength(G, G.clubs[b]) - E.strength(G, G.clubs[a])).slice(0, CFG.EU_SLOTS);
+      /* The places go to the best clubs there are, taken from the top down.
+       *
+       * Offline that means the first division, because the pyramid is built whole and always has
+       * enough. On the chain it begins as one division at the foot and grows upward as people
+       * arrive, so for a while the levels above hold a handful of clubs or none - and a group
+       * stage is four fours whatever the domestic game looks like. Taking from the top and
+       * carrying on down fills the places without ever asking for clubs that do not exist. */
+      q = [];
+      for (const ids of G.divs) {
+        if (!ids || !ids.length) continue;
+        const best = ids.slice().sort((a, b) => E.strength(G, G.clubs[b]) - E.strength(G, G.clubs[a]));
+        for (const id of best) { if (q.length < CFG.EU_SLOTS) q.push(id); }
+        if (q.length >= CFG.EU_SLOTS) break;
+      }
     }
     const teams = R.shuffle(q.concat(G.euIds));
     const groups = [];
     for (let g = 0; g < 4; g++) groups.push(teams.slice(g * 4, g * 4 + 4));
     const rr = groups.map((ids) => roundRobin(ids));
     const fix = [];
-    for (let md = 0; md < 6; md++) fix.push([].concat(...rr.map((r) => r[md])));
+    // a group with too few clubs in it has fewer rounds than six, and contributes none to the rest
+    for (let md = 0; md < 6; md++) fix.push([].concat(...rr.map((r) => r[md] || [])));
     const tab = {};
     for (const id of teams) tab[id] = { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 };
     G.eu = { q, groups, fix, tab, ko: { ms: [], alive: [] }, hist: [], winner: null, finalist: null, paid: {}, reach: {} };

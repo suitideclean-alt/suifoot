@@ -125,7 +125,21 @@
       };
 
       G.spare = 0;
+      /* Where each season's numbers begin, so that the right whistle blows at the right place. A
+       * boundary is not something a reader can work out from the numbers themselves - it is the
+       * one thing the chain has to say about seasons, and it says it. */
+      const starts = (world.league.seasonFrom && world.league.seasonFrom.length)
+        ? world.league.seasonFrom.slice() : [0];
+      let nextBoundary = 1;
+
       for (let w = 1; w <= seeds.length; w++) {
+        /* A season that has run out turns over here, and what that means - who went up, who came
+         * down, who got a year older, who retired, which boys came through - is the game's own
+         * doing, as everything else is. */
+        while (nextBoundary < starts.length && w - 1 === starts[nextBoundary]) {
+          SF.Game.newSeason(G);
+          nextBoundary += 1;
+        }
         upTo(w);
         /* A season has as many weeks as its calendar has, and not one more.
          *

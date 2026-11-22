@@ -167,5 +167,35 @@ t('a season drawn past its end is still a season anybody can read', () => {
   truthy(spilled.clubIds.every((id) => spilled.table[id].p === full.table[id].p), 'nobody played a match that was not scheduled;');
 });
 
+t('a season ends, and the next one begins where the chain says it does', () => {
+  const twoSeasons = (n) => {
+    const seeds = [];
+    for (let w = 0; w < n; w++) seeds.push((Math.imul(w + 1, 0x9e3779b9) >>> 0));
+    return { ...W, league: { ...W.league, seeds, seasonFrom: [0, 50], season: 2, week: n - 49 } };
+  };
+  const G = SF.Replay.run(twoSeasons(100), []);
+  eq(G.season, 2, 'the season the chain is on, counted once;');
+  truthy(G.res.length > 0, 'with matches played in it;');
+
+  /* The boundary is the one thing a reader cannot work out for itself, so it has to be the chain's
+   * and it has to be obeyed: a season turning a week early or late is two people holding two
+   * different leagues. */
+  const early = SF.Replay.run({ ...W, league: { ...twoSeasons(100).league, seasonFrom: [0, 40] } }, []);
+  truthy(JSON.stringify(early.table) !== JSON.stringify(G.table), 'a boundary elsewhere is a different season;');
+});
+
+t('a club can go up, and the pyramid keeps its shape', () => {
+  const seeds = [];
+  for (let w = 0; w < 100; w++) seeds.push((Math.imul(w + 1, 0x9e3779b9) >>> 0));
+  const G = SF.Replay.run({ ...W, league: { ...W.league, seeds, seasonFrom: [0, 50], season: 2 } }, []);
+  const levels = {};
+  for (const id of G.clubIds) levels[G.clubs[id].div] = (levels[G.clubs[id].div] || 0) + 1;
+  truthy(Object.keys(levels).length > 1, `somebody climbed: ${JSON.stringify(levels)};`);
+  eq(G.clubIds.length, 18, 'and nobody was lost on the way;');
+  // the men who played two seasons are two seasons older
+  const ages = G.clubIds.flatMap((id) => G.clubs[id].squad.map((p) => G.players[p].age));
+  truthy(ages.some((a) => a > 26), 'and they aged;');
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

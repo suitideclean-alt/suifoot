@@ -293,6 +293,9 @@
         size: Number(f.series_size),
         manual: !!f.manual,
         seeds: (f.seeds || []).map(Number),
+        /* Where each season's numbers begin. The draws are one list and the seasons are slices of
+         * it, and a reader cannot tell where one stopped without being told. */
+        seasonFrom: (f.season_from || [0]).map(Number),
         rosters: (f.rosters || []).map((r) => (r || []).map(Number)),
       };
     },
