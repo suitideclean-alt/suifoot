@@ -424,6 +424,10 @@
     o_buyback: (arg) => [K().BUYBACK, +arg, 0],
     o_repay: (arg) => [K().BONDREPAY, +arg, 0],
     o_partner: (arg) => [K().PARTNER, arg === 'none' ? 0 : Number(String(arg).replace(/^c/, '')) || 0, 0],
+    /* An owner answering the person he hired. A request that can be made and never answered is a
+     * job in name only, so these belong on the chain with everything else. */
+    apy: (arg) => [K().APPROVE, +arg, 0],
+    apn: (arg) => [K().DECLINE, +arg, 0],
   };
 
   /* And the ones that need a number typed before they mean anything, which the screen asks for

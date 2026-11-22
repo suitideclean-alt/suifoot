@@ -72,6 +72,11 @@
       if (owed) add(K.REPAY, owed.id, 0, 'pay a loan back');
       if (coach && SF.Game.freePoints && SF.Game.freePoints(coach) > 0) add(K.SKILL, Math.floor(r() * 4), 0, 'spend what the coach has learned');
 
+      /* Anything the person running this club has asked the owner for. An owner who never answers
+       * is the same to a coach as an owner who always says no. */
+      const asked = (SF.Owner.openFor && club.id ? SF.Owner.openFor(G, club.id) : []) || [];
+      for (const a of asked) add(K.APPROVE, a.id, 0, 'answer what the coach asked for');
+
       // --- the board ---
       add(K.LINE, Math.floor(r() * 3), 1 + Math.floor(r() * 3), 'fund a line of the business');
       add(K.MERCH, Math.floor(r() * 3), 0, 'set the merchandising');

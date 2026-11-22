@@ -30,6 +30,9 @@
     // what a board does: the money side of a club, as against the football side
     LINE: 22, MERCH: 23, MEMBER: 24, KIT: 25, SPONSOR: 26, SPONBREAK: 27, PROJECT: 28,
     PARTNER: 29, EVENT: 30, STAKE: 31, BUYBACK: 32, BOND: 33, BONDREPAY: 34,
+    /* An owner answering a request from the person he hired to run the team. Without these a
+     * hired coach can ask and never be answered, which is a job in name only. */
+    APPROVE: 35, DECLINE: 36,
   };
 
   /* The board's choices, as numbers.
@@ -89,6 +92,8 @@
     [K.BUYBACK]: (G, c, d) => SF.Boss.buyBack(G, c, d.a),
     [K.BOND]: (G, c, d) => SF.Boss.issueBond(G, c, d.a, d.b),
     [K.BONDREPAY]: (G, c, d) => SF.Boss.repayBond(G, c, d.a),
+    [K.APPROVE]: (G, c, d) => SF.Owner.decide(G, c, d.a, true),
+    [K.DECLINE]: (G, c, d) => SF.Owner.decide(G, c, d.a, false),
   };
 
   const Replay = (SF.Replay = {
