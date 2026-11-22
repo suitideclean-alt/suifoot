@@ -45,6 +45,8 @@ const EAlreadyPlayed: vector<u8> = b"one of these clubs has already played this 
 #[error]
 const EAlreadyDrawn: vector<u8> = b"this matchday has already been drawn";
 #[error]
+const ESeasonOver: vector<u8> = b"this season has no more matchdays in it";
+#[error]
 const EOddSize: vector<u8> = b"a series holds an even number of clubs, or one is idle every matchday";
 #[error]
 const ESameClub: vector<u8> = b"a club cannot play itself";
@@ -475,6 +477,13 @@ entry fun draw_week(l: &mut League, r: &Random, clock: &Clock, ctx: &mut TxConte
     assert!(l.manual || ctx.sender() == l.admin, ENotAdmin);
     let week = l.week;
     assert!(l.seeds.length() < (week as u64), EAlreadyDrawn);
+    /* A season has as many weeks as its calendar has, and not one more.
+     *
+     * A number drawn past the end belongs to no matchday. It is not merely useless: everybody
+     * works the same season out from the same numbers, so one extra draw is one extra draw for
+     * every reader at once. It is refused here because here is the only place it can be refused
+     * for everybody. */
+    assert!(week <= l.weeks_in_season, ESeasonOver);
     if (!l.manual) assert!(phase_at(l, week, clock::timestamp_ms(clock)) == PLAYED, ETooEarly);
     let mut gen = random::new_generator(r, ctx);
     l.seeds.push_back(random::generate_u32(&mut gen));

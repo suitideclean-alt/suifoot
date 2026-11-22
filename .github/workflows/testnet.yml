@@ -92,8 +92,13 @@ jobs:
           # a league whose first matchday kicked off yesterday, so a fixture can be played at once
           T0=$(( NOW - 172800000 ))
           SIZE=${{ github.event.inputs.clubs || 18 }}
+          # How many numbers a season needs drawn: one per week of the calendar, which is the
+          # league's matchdays plus the cup rounds and European nights that fall between them.
+          # Asked of the game itself rather than guessed, so the two cannot drift apart.
+          WEEKS=$(SIZE="$SIZE" node tools/weeks.js)
+          echo "a season of $WEEKS weeks for $SIZE clubs"
           sui client call --package "$PKG" --module league --function create \
-            --args "$T0" "[720,1200]" $(( (SIZE - 1) * 2 )) 3 "$SIZE" --gas-budget 200000000 --json > league.json
+            --args "$T0" "[720,1200]" "$WEEKS" 3 "$SIZE" --gas-budget 200000000 --json > league.json
           LEAGUE=$(jq -r '.objectChanges[] | select(.objectType != null and (.objectType | test("::league::League$"))) | .objectId' league.json)
           echo "league: $LEAGUE"
           echo "LEAGUE=$LEAGUE" >> "$GITHUB_ENV"

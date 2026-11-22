@@ -124,10 +124,18 @@
         while (at < log.length && log[at].week <= w) Replay.carry(G, log[at++]);
       };
 
+      G.spare = 0;
       for (let w = 1; w <= seeds.length; w++) {
         upTo(w);
-        /* The chain's number for this week is the week's dice, and the whole week turns on it:
-         * the league matches, a cup round if one falls here, a European night if one does. */
+        /* A season has as many weeks as its calendar has, and not one more.
+         *
+         * A number drawn past the end belongs to no matchday, and trying to play it used to take
+         * the whole league down - not for whoever drew it, for everybody, because everybody works
+         * the season out from the same numbers. One extra press and nobody could read the league
+         * at all. So the extras are counted and left alone, which is the only reading of them that
+         * cannot be anybody's loss. The contract refuses to draw them in the first place; this is
+         * what keeps a league drawn by an older one readable. */
+        if (G.phase !== 'play' || !G.sched[G.week - 1]) { G.spare = seeds.length - (w - 1); break; }
         G.rs = seeds[w - 1];
         const wk = SF.Game.beginWeek(G);
         for (const m of wk.matches) SF.Game.simMatch(G, m);
