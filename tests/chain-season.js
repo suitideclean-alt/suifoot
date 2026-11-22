@@ -149,5 +149,23 @@ t('a foreign club is still not a shop', () => {
   eq(r.err, 'human_club', 'a club abroad does not sell into this league;');
 });
 
+t('a season drawn past its end is still a season anybody can read', () => {
+  /* The worst kind of fault this design can have: everybody works the same season out from the
+   * same numbers, so one number too many is one too many for every reader at once. The contract
+   * refuses to draw them; this is what keeps a league drawn by an older one readable. */
+  const over = (n) => {
+    const seeds = [];
+    for (let w = 0; w < n; w++) seeds.push((Math.imul(w + 1, 0x9e3779b9) >>> 0));
+    return { ...W, league: { ...W.league, seeds, week: n + 1 } };
+  };
+  const full = SF.Replay.run(over(50), []);
+  eq(full.spare, 0, 'a full calendar uses every number;');
+
+  const spilled = SF.Replay.run(over(80), []);
+  eq(spilled.spare, 30, 'thirty numbers belonged to no matchday;');
+  eq(JSON.stringify(spilled.table), JSON.stringify(full.table), 'and the season is the one that was played;');
+  truthy(spilled.clubIds.every((id) => spilled.table[id].p === full.table[id].p), 'nobody played a match that was not scheduled;');
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
