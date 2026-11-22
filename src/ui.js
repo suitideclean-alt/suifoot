@@ -326,6 +326,8 @@
     return `<div class="card"><div class="row">${own ? `<span class="mut sm">${t('owner_squad_note')}</span>` : ''}<label ${own ? 'style="display:none"' : ''}>${t('formation')} <select data-chg="form">${Object.keys(Game.FORMS).map((f) => `<option ${L.form === f ? 'selected' : ''}>${f}</option>`).join('')}</select></label>
       <label ${own ? 'style="display:none"' : ''}>${t('tactic')} <select data-chg="tactic">${['def', 'bal', 'att'].map((k) => `<option value="${k}" ${L.tactic === k ? 'selected' : ''}>${t('tac_' + k)}</option>`).join('')}</select></label>
       <label ${own ? 'style="display:none"' : ''}><input type="checkbox" data-chg="auto" ${L.auto || c.vac > 0 ? 'checked' : ''} ${c.vac > 0 ? 'disabled' : ''}> ${t('auto_pick')}</label>
+      ${SF.Bridge && SF.Bridge.isOnline(G) ? `<button class="btn pri" data-act="sendteam">${t('send_team')}</button>
+        <span class="mut sm">${t('send_team_d')}</span>` : ''}
       <span class="${nxi === 11 ? 'good' : 'warn'}">${t('xi_count', { n: nxi })}</span>
       <span class="${sxi > CFG.starFree ? 'bad' : sxi ? 'star' : 'mut'}">★ ${t('stars_xi', { n: sxi, max: CFG.starFree })}</span></div>
       ${sxi > CFG.starFree ? `<p class="bad sm">${t('stars_over')}</p>` : ''}<p class="mut sm" style="margin:6px 0 0">${t('stars_info', { r: CFG.starOvr, max: CFG.starFree })}</p></div>
@@ -1224,7 +1226,10 @@
     if (k === 'theme') { localStorage.setItem(THEMEK, el.value); return render(); }
     if (k === 'live-tac') { const L = UI.live; L.mt.setTactic(L.side, el.value); return; }
     const c = co();
-    if (k === 'train') return res(SF.Body.setMode(G, c, el.value));
+    if (k === 'train') {
+      if (SF.Bridge && SF.Bridge.isOnline(G)) return SF.Online.ask('train', render, SF.Replay.MODES.indexOf(el.value));
+      return res(SF.Body.setMode(G, c, el.value));
+    }
     if (k === 'form') { A.setLineup(G, c, { form: el.value }); save(); return render(); }
     if (k === 'tactic') { if (SF.Owner.role(c) === 'owner') { SF.Owner.setTactic(G, c, el.value); save(); return render(); } A.setLineup(G, c, { tactic: el.value }); save(); return render(); }
     if (k === 'auto') {
@@ -1324,6 +1329,11 @@
       }
       case 'ct': UI.ct = arg; return render();
       case 'cs': UI.cs = arg; return render();
+      case 'sendteam': {
+        const club = myClub();
+        const L = c.lineup, cur = L.auto ? lineupNow(c, club) : L;
+        return SF.Online.ask('team', render, cur.xi, cur.bench, L.tactic);
+      }
       case 'auto': return autoAdvance();
       case 'cvc': return cvModal(G.clubs[arg].ac, arg);
       case 'cvf': return cvModal(SF.Owner.market(G).find((x) => x.id === arg));

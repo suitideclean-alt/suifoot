@@ -459,6 +459,13 @@
   O.sync = function (G, co) {
     const club = G.clubs[co.club], ac = club && club.ac;
     if (ac && !ac.hist) { ac.hist = []; ac.titles = 0; }
+    /* Somebody who owns the club and also picks its team is its coach.
+     *
+     * This mirrors an assistant's skills, tactics and team sheet onto an owner, because an owner
+     * does not pick the team - his assistant does. Run on a man doing both jobs it overwrote the
+     * one doing the work with the one who is not: his sheet went back to picking itself every
+     * week, so choosing a team online changed nothing and said nothing about it. */
+    if (ROLE(co) === 'both') return;
     co.sk = ac ? Object.assign({}, ac.sk) : { train: 0, tact: 0, neg: 0, youth: 0 };
     co.rep = ac ? ac.rep : 8;
     co.lineup.auto = true; co.lineup.tactic = ac ? ac.tactic : 'bal';

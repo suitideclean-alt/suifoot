@@ -197,5 +197,45 @@ t('a club can go up, and the pyramid keeps its shape', () => {
   truthy(ages.some((a) => a > 26), 'and they aged;');
 });
 
+t('the team you pick is the team that plays', () => {
+  const G0 = SF.Replay.run({ ...W, league: { ...W.league, seeds: [] } }, []);
+  const squad = G0.clubs.c1.squad.slice();
+  // a team of this club's worst eleven: if the sheet is obeyed, it should show in the results
+  const worst = squad.slice().sort((a, b) => G0.players[a].ovr - G0.players[b].ovr);
+  const gk = squad.find((p) => G0.players[p].pos === 'GK');
+  const xi = [gk].concat(worst.filter((p) => p !== gk).slice(0, 10));
+  const bench = worst.filter((p) => !xi.includes(p)).slice(0, 7);
+
+  const sheetBytes = SF.Replay.sheet.write(xi, bench);
+  const d = { num: 1, kind: K.TEAM, a: 0, b: 0, week: 1, at: 1, data: sheetBytes };
+  const G = SF.Replay.run(W, [d]);
+  eq(G.refused.length, 0, 'the sheet was accepted;');
+  const coach = G.coaches.find((c) => c.club === 'c1');
+  eq(coach.lineup.auto, false, 'the club no longer picks itself;');
+  eq(JSON.stringify(coach.lineup.xi), JSON.stringify(xi), 'and it plays who it was told to;');
+});
+
+t('a sheet naming men who play elsewhere is refused', () => {
+  const notHis = SF.Replay.sheet.write([999901, 999902, 999903, 999904, 999905, 999906, 999907, 999908, 999909, 999910, 999911], []);
+  const G = SF.Replay.run(W, [{ num: 1, kind: K.TEAM, a: 0, b: 0, week: 1, at: 1, data: notHis }]);
+  eq(G.refused.length, 1, 'refused;');
+  eq(G.refused[0].why, 'bad_xi', 'for naming nobody who plays here;');
+});
+
+t('a team sheet survives the journey there and back', () => {
+  const xi = [101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111];
+  const bench = [112, 113, 114];
+  const back = SF.Replay.sheet.read(SF.Replay.sheet.write(xi, bench));
+  eq(JSON.stringify(back.xi), JSON.stringify(xi), 'the eleven;');
+  eq(JSON.stringify(back.bench), JSON.stringify(bench), 'and the substitutes;');
+  truthy(SF.Replay.sheet.write(xi, bench).length <= 256, 'and it fits in a note;');
+});
+
+t('what the week is spent training is the chain\'s too', () => {
+  const G = SF.Replay.run(W, [{ num: 1, kind: K.TRAIN, a: 2, b: 0, week: 1, at: 1, data: [] }]);
+  eq(G.refused.length, 0, 'accepted;');
+  eq(G.clubs.c1.train, 'int', 'they trained hard;');
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

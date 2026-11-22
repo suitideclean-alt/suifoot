@@ -614,6 +614,12 @@
       `Einige Vereine hier haben niemanden. Einen zu übernehmen ist der Weg zu einer Bilanz, wenn dir noch niemand etwas angeboten hat.`],
     on_take_vacant: [`Run {club}`, `Diriger {club}`, `Treinar o {club}`, `{club} übernehmen`],
     on_next_season: [`Start the new season`, `Lancer la nouvelle saison`, `Começar a época nova`, `Neue Saison beginnen`],
+    send_team: [`Hand the team in`, `Remettre la feuille`, `Entregar a equipa`, `Aufstellung abgeben`],
+    send_team_d: [
+      `Moving players around changes nothing until the sheet is handed in. One signature for the whole team.`,
+      `Déplacer des joueurs ne change rien tant que la feuille n'est pas remise. Une signature pour toute l'équipe.`,
+      `Mexer nos jogadores não muda nada enquanto não entregares a folha. Uma assinatura para a equipa toda.`,
+      `Spieler zu verschieben ändert nichts, bis die Aufstellung abgegeben ist. Eine Signatur für die ganze Mannschaft.`],
     on_next_season_d: [
       `Who went up, who came down, who got a year older and which boys came through are all worked out from here. Anybody may turn it while the league is played by hand.`,
       `Qui monte, qui descend, qui a pris un an et quels jeunes sont arrivés : tout se déduit d'ici. N'importe qui peut la lancer tant que le championnat se joue à la main.`,

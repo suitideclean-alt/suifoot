@@ -441,6 +441,10 @@
     buy: (pid, fee) => [K().BID, pid, Math.round(fee)],
     renew: (pid, years) => [K().RENEW, pid, Math.round(years * 34)],
     train: (what) => [K().TRAIN, what, 0],
+    /* The team sheet goes over whole, in one signature, rather than one for every man moved.
+     * With a wallet that asks before each signature there is no other honest way to do it. */
+    team: (xi, bench, tactic) => [K().TEAM, Math.max(0, SF.Replay.TACTICS.indexOf(tactic)), 0,
+      SF.Replay.sheet.write(xi, bench)],
     sellnow: (pid) => [K().SELLNOW, pid, 0],
     release: (pid) => [K().RELEASE, pid, 0],
     loan: (amount) => [K().LOAN, Math.round(amount), 0],
@@ -474,6 +478,15 @@
    * undid it. A button that lies is worse than a button that is missing, so an unknown one is
    * refused out loud until it has been wired up.
    */
+  /* Something asked for by name, with its arguments gathered by the screen. */
+  O.ask = function (name, redraw, ...args) {
+    const make = O.asked[name];
+    if (!make) return false;
+    const [kind, a, b, data] = make(...args);
+    O.decide(kind, a, b, data || [], redraw);
+    return true;
+  };
+
   O.route = function (act, arg, redraw) {
     if (!O.playing) return false;
     if (LOCAL.has(act)) return false;

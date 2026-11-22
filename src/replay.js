@@ -55,7 +55,53 @@
    * own words - so a thing refused online is refused for exactly the reason it would have been
    * refused offline. Nothing here decides anything; it only says which rule a decision is.
    */
+  /* A team sheet travels as bytes: eleven players and seven substitutes, four bytes each, least
+   * significant first. Numbers rather than names, because a name can be spelled two ways and a
+   * number cannot, and eighteen of them fit in a note with room to spare.
+   *
+   * It is not sealed. In a league played by hand it does not need to be: the matchday's number is
+   * drawn after the sheets are in, so nobody can pick a team having seen the dice, and a sheet
+   * handed in afterwards belongs to the next matchday. Sealing answers a different question -
+   * hiding the team from the opponent - and that one only arises when there are kick-off times to
+   * hide it until. The contract already carries the machinery for when it does.
+   */
+  const sheet = {
+    write(xi, bench, G) {
+      const out = [];
+      const put = (n) => { out.push(n & 255, (n >> 8) & 255, (n >> 16) & 255, (n >>> 24) & 255); };
+      for (let i = 0; i < 11; i++) put(xi[i] || 0);
+      for (let i = 0; i < 7; i++) put(bench[i] || 0);
+      return out;
+    },
+    read(data) {
+      const d = Array.from(data || []);
+      if (d.length < 72) return null;
+      const num = (i) => d[i] + (d[i + 1] << 8) + (d[i + 2] << 16) + (d[i + 3] * 16777216);
+      const xi = [], bench = [];
+      for (let i = 0; i < 11; i++) { const n = num(i * 4); if (n) xi.push(n); }
+      for (let i = 0; i < 7; i++) { const n = num(44 + i * 4); if (n) bench.push(n); }
+      return { xi, bench };
+    },
+  };
+
+  const TACTICS = ['bal', 'att', 'def'];
+  const MODES = ['light', 'bal', 'int'];
+
   const CALLS = {
+    /* Who plays, and how. The sheet is checked against the squad rather than trusted: a number
+     * that names nobody at this club names nobody, whatever it was written by. */
+    [K.TEAM]: (G, c, d) => {
+      const team = sheet.read(d.data);
+      if (!team) return { ok: false, err: 'bad' };
+      const club = G.clubs[c.club];
+      if (!club) return { ok: false, err: 'no_club' };
+      const his = new Set(club.squad);
+      const xi = team.xi.filter((p) => his.has(p));
+      const bench = team.bench.filter((p) => his.has(p) && !xi.includes(p));
+      if (xi.length !== 11) return { ok: false, err: 'bad_xi' };
+      return SF.Actions.setLineup(G, c, { auto: false, xi, bench, tactic: TACTICS[d.a] || 'bal' });
+    },
+    [K.TRAIN]: (G, c, d) => SF.Body.setMode(G, c, MODES[d.a] || 'bal'),
     [K.TICKET]: (G, c, d) => SF.Actions.setPrice(G, c, d.a / 100),
     [K.INVEST]: (G, c, d) => (d.a === GROUND
       ? SF.Actions.expandStadium(G, c, d.b)
@@ -98,6 +144,7 @@
 
   const Replay = (SF.Replay = {
     kinds: K,
+    sheet, TACTICS, MODES,
     GROUND, ACADEMY, TRAINING,
     LINES, TIERS, MEMBERS, PROJECTS, EVENTS,
     calls: CALLS,
