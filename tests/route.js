@@ -8,6 +8,7 @@ require('../src/chain.js');
 require('../src/genesis.js');
 require('../src/replay.js');
 require('../src/bridge.js');
+require('../src/careers.js');
 require('../src/online.js');
 
 let pass = 0, fail = 0;

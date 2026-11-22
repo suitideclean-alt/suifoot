@@ -59,7 +59,8 @@
   O.build = function () {
     const all = (O.decisions || []).concat(O.pending || []);
     O.game = SF.Bridge.toGame(O.genesis, SF.Wallet && SF.Wallet.addr, all);
-    O.careers = SF.Careers.build(O.careerLog || [], O.game);
+    // the careers are worth having and not worth failing over: a league still reads without them
+    O.careers = SF.Careers ? SF.Careers.build(O.careerLog || [], O.game) : [];
     O.world = O.genesis;
     O.refused = O.game.refused;
     if (O.playing) { SF.UI.G = O.game; SF.UI.ci = O.game.viewer || 0; SF.setG(O.game); }

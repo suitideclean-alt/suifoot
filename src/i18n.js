@@ -784,6 +784,21 @@
     cs_career: [`Career and trophies`, `Carrière et trophées`, `Carreira e troféus`, `Karriere und Pokale`],
     sf_debt: [`Exit clause still owed: {amt} SFOOT (taken from your next prizes).`, `Clause de sortie encore due : {amt} SFOOT (prélevée sur tes prochains prix).`, `Cláusula de saída em dívida: {amt} SFOOT (descontada dos próximos prémios).`, `Ausstiegsklausel noch offen: {amt} SFOOT (wird von deinen nächsten Prämien abgezogen).`],
     err_no_funds: [`Not enough funds`, `Fonds insuffisants`, `Saldo insuficiente`, `Nicht genug Geld`],
+    err_their_squad_min: [
+      `They cannot sell him: it would leave them without a squad.`,
+      `Ils ne peuvent pas le vendre : il ne leur resterait plus d'effectif.`,
+      `Não o podem vender: ficavam sem plantel.`,
+      `Sie können ihn nicht verkaufen: dann blieben sie ohne Kader.`],
+    err_below_asking: [
+      `That is less than they are asking for him.`,
+      `C'est moins que ce qu'ils en demandent.`,
+      `Isso é menos do que estão a pedir por ele.`,
+      `Das ist weniger, als sie für ihn verlangen.`],
+    err_already_offered: [
+      `You have already made an offer for him.`,
+      `Vous avez déjà fait une offre pour lui.`,
+      `Já fizeste uma proposta por ele.`,
+      `Du hast bereits ein Angebot für ihn gemacht.`],
     err_bad_amount: [`That value is not a valid number.`, `Cette valeur n'est pas un nombre valide.`, `Esse valor não é um número válido.`, `Dieser Wert ist keine gültige Zahl.`],
     err_rejected: [`Offer rejected: too low`, `Offre refusée : trop basse`, `Oferta recusada: muito baixa`, `Angebot abgelehnt: zu niedrig`],
     err_counter: [`Almost! They want {ask}.`, `Presque ! Ils veulent {ask}.`, `Quase! Eles querem {ask}.`, `Fast! Sie wollen {ask}.`],
