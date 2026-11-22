@@ -47,6 +47,8 @@ const EAlreadyDrawn: vector<u8> = b"this matchday has already been drawn";
 #[error]
 const ESeasonOver: vector<u8> = b"this season has no more matchdays in it";
 #[error]
+const ESeasonNotOver: vector<u8> = b"this season still has matchdays left in it";
+#[error]
 const EOddSize: vector<u8> = b"a series holds an even number of clubs, or one is idle every matchday";
 #[error]
 const ESameClub: vector<u8> = b"a club cannot play itself";
@@ -99,6 +101,12 @@ public struct League has key {
     /// The draw happens after the lineups are sealed and cannot happen twice for one matchday, so
     /// there is nothing to be gained by waiting to see it.
     seeds: vector<u32>,
+    /// Where each season's numbers begin in the list above.
+    ///
+    /// The draws are one list and the seasons are slices of it, so a reader needs to be told where
+    /// one season's weeks stop and the next season's start. Written when a season turns and never
+    /// changed, so that the boundary everybody reads is the boundary that happened.
+    season_from: vector<u64>,
 }
 
 /// what the browser listens for: everything it needs to replay the ninety minutes it did not watch
@@ -132,6 +140,7 @@ public fun new(t0_ms: u64, kickoffs: vector<u64>, weeks_in_season: u16, ctx: &mu
         rosters: vector::empty(),
         manual: true,
         seeds: vector[],
+        season_from: vector[0],
     }
 }
 
@@ -476,7 +485,8 @@ public fun train(l: &League, c: &mut Club, ctx: &TxContext) {
 entry fun draw_week(l: &mut League, r: &Random, clock: &Clock, ctx: &mut TxContext) {
     assert!(l.manual || ctx.sender() == l.admin, ENotAdmin);
     let week = l.week;
-    assert!(l.seeds.length() < (week as u64), EAlreadyDrawn);
+    let began = *l.season_from.borrow(l.season_from.length() - 1);
+    assert!(l.seeds.length() - began < (week as u64), EAlreadyDrawn);
     /* A season has as many weeks as its calendar has, and not one more.
      *
      * A number drawn past the end belongs to no matchday. It is not merely useless: everybody
@@ -492,6 +502,27 @@ entry fun draw_week(l: &mut League, r: &Random, clock: &Clock, ctx: &mut TxConte
 
 /// the draws so far, oldest first: matchday one is the first
 public fun seeds(l: &League): &vector<u32> { &l.seeds }
+public fun season_from(l: &League): &vector<u64> { &l.season_from }
+
+/// Turn the season over.
+///
+/// A season ends when its calendar runs out, and until this is called the league simply stops -
+/// there is nothing left to draw and nothing else happens. Anybody may call it while the league is
+/// played by hand, which is what playing by hand means; once it runs to the clock it is the
+/// league's own to call.
+///
+/// What a new season *is* - who went up, who came down, who got older, who retired, which boys
+/// came through - is worked out from this boundary and the seasons either side of it, by
+/// everybody, in the same way. Nothing of it is decided here. All that is settled here is where
+/// one season's numbers stopped and the next one's begin, which is the one thing a reader cannot
+/// work out for itself.
+entry fun next_season(l: &mut League, ctx: &TxContext) {
+    assert!(l.manual || ctx.sender() == l.admin, ENotAdmin);
+    assert!(l.week > l.weeks_in_season, ESeasonNotOver);
+    l.season = l.season + 1;
+    l.week = 1;
+    l.season_from.push_back(l.seeds.length());
+}
 
 public fun advance(l: &mut League, ctx: &TxContext) {
     assert!(l.manual || ctx.sender() == l.admin, ENotAdmin);
@@ -539,6 +570,6 @@ public fun play_for_testing(
 public fun destroy_for_testing(l: League) {
     let League { id, season: _, week: _, t0: _, kickoffs: _, days_per_week: _, lock_before: _,
         draw_before: _, weeks_in_season: _, admin: _, bottom_level: _, series_size: _,
-        foot_series: _, free_at_foot: _, free_in: _, rosters: _, manual: _, seeds: _ } = l;
+        foot_series: _, free_at_foot: _, free_in: _, rosters: _, manual: _, seeds: _, season_from: _ } = l;
     id.delete();
 }
