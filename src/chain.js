@@ -236,6 +236,41 @@
       return out;
     },
 
+    /* Every turn of everybody's employment, oldest first.
+     *
+     * A career is read from these and from nothing else: the jobs somebody took, what each paid,
+     * and how each ended. It is deliberately the whole league's and not one person's - a record
+     * only its owner can see is not a reputation, and the point of keeping it is that somebody
+     * with nothing to show but their work can show it.
+     */
+    async careers() {
+      const type = `${Chain.net.pkg}::jobs::JobEvent`;
+      const out = [];
+      let after = null;
+      for (let page = 0; page < 40; page++) {
+        const cursor = after ? `, after: "${after}"` : '';
+        const d = await Chain.query(`{ events(filter: { type: "${type}" }, first: 50${cursor}) {
+          pageInfo { hasNextPage endCursor }
+          nodes { timestamp contents { json } } } }`);
+        const ev = d && d.events;
+        if (!ev) break;
+        for (const n of ev.nodes || []) {
+          const f = n && n.contents ? n.contents.json : null;
+          if (!f) continue;
+          if (f.league && f.league !== Chain.net.league) continue;
+          out.push({
+            club: f.club, num: Number(f.club_num), who: f.who, by: f.by,
+            season: Number(f.season), week: Number(f.week), kind: Number(f.kind),
+            wage: Number(f.wage), weeks: Number(f.weeks), win: Number(f.win),
+            at: Number(n.timestamp || 0),
+          });
+        }
+        if (!ev.pageInfo || !ev.pageInfo.hasNextPage) break;
+        after = ev.pageInfo.endCursor;
+      }
+      return out;
+    },
+
     /** several at once, under names of our own, so it is one question and not eighteen */
     async objects(ids) {
       const parts = ids.map((id, i) => `o${i}: object(address: "${id}") { asMoveObject { contents { json } } }`);

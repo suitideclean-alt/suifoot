@@ -20,7 +20,10 @@
   O.load = async function (redraw) {
     O.state = 'loading'; O.error = null; redraw();
     try {
-      const [genesis, decisions] = await Promise.all([SF.Chain.world(), SF.Chain.decisions()]);
+      const [genesis, decisions, careers] = await Promise.all([
+        SF.Chain.world(), SF.Chain.decisions(), SF.Chain.careers(),
+      ]);
+      O.careerLog = careers;
       /* What the chain gave us is the first day of the season and the list of everything anybody
        * has decided since. The season itself is worked out from the two, here, for nothing. */
       O.genesis = genesis;
@@ -56,6 +59,7 @@
   O.build = function () {
     const all = (O.decisions || []).concat(O.pending || []);
     O.game = SF.Bridge.toGame(O.genesis, SF.Wallet && SF.Wallet.addr, all);
+    O.careers = SF.Careers.build(O.careerLog || [], O.game);
     O.world = O.genesis;
     O.refused = O.game.refused;
     if (O.playing) { SF.UI.G = O.game; SF.UI.ci = O.game.viewer || 0; SF.setG(O.game); }
@@ -252,6 +256,38 @@
     }
     round += '</div>';
 
+    /* Who is doing the work, and who would.
+     *
+     * Two lists, because they answer the two questions a league of people actually asks: how am I
+     * doing against everybody else, and who could I hire. The second is the one that matters to
+     * somebody who owns nothing - it is where a record earned at a club nobody owns is worth
+     * something, which is the whole reason the record is kept at all.
+     */
+    const money0 = (n) => '$' + Number(n || 0).toLocaleString('en-US');
+    const people = O.careers || [];
+    const working = SF.Careers.employed(people);
+    const free = SF.Careers.looking(people);
+    const line = (p, j) => `<tr${SF.Wallet && p.addr === SF.Wallet.addr ? ' class="on"' : ''}>
+      <td><b>${p.rep}</b></td>
+      <td class="muted">${esc(SF.Wallet ? SF.Wallet.short(p.addr) : short(p.addr))}</td>
+      <td>${j ? esc(j.clubName) : `<span class="muted">${esc(t('on_no_club'))}</span>`}</td>
+      <td class="muted">${j && j.record ? `${j.record.w}-${j.record.d}-${j.record.l}` : '—'}</td>
+      <td>${j ? money0(j.wage) : '—'}</td>
+      <td class="muted">${p.seasons}</td></tr>`;
+
+    const head2 = `<thead><tr><th>${esc(t('on_standing'))}</th><th>${esc(t('on_person'))}</th>
+      <th>${esc(t('on_club'))}</th><th>${esc(t('on_record'))}</th><th>${esc(t('on_wage'))}</th>
+      <th>${esc(t('on_jobs'))}</th></tr></thead>`;
+
+    const people_cards = `<div class="card"><h4>${esc(t('on_in_work'))}</h4>
+      <p class="muted small">${esc(t('on_in_work_d'))}</p>
+      ${working.length ? `<table class="tbl">${head2}<tbody>${working.map((p) => line(p, p.now)).join('')}</tbody></table>`
+        : `<p class="muted">${esc(t('on_nobody_yet'))}</p>`}</div>
+      <div class="card"><h4>${esc(t('on_looking'))}</h4>
+      <p class="muted small">${esc(t('on_looking_d'))}</p>
+      ${free.length ? `<table class="tbl">${head2}<tbody>${free.map((p) => line(p, p.jobs[p.jobs.length - 1])).join('')}</tbody></table>`
+        : `<p class="muted">${esc(t('on_nobody_looking'))}</p>`}</div>`;
+
     const table = SF.Chain.table(clubs);
     const rows = table.map((c, i) => `<tr${O.club === c.id ? ' class="on"' : ''}>
       <td>${i + 1}</td>
@@ -281,7 +317,7 @@
       squad = `<div class="card"><p class="muted">${esc(t('on_pick'))}</p></div>`;
     }
 
-    return head + act + state + round + standings + squad;
+    return head + act + state + round + standings + people_cards + squad;
   };
 
   /* Hand the whole app over to the chain's league, and take it back again.
