@@ -149,6 +149,64 @@ async function readLeague() {
     if (!a.club) find('an agent took a club the league does not show', `agent ${a.n} ${a.clubId}`);
   }
 
+  // ---- one hires another ----
+  //
+  // The point of employment being on the chain rather than worked out is that the contract has to
+  // answer "may this person act for this club?" before it takes a signature. So the test that
+  // matters is not whether the job is recorded - it is whether the hired man can then do the job.
+  require(path.join(__dirname, '..', 'src', 'careers.js'));
+  if (report.agents.length >= 2 && report.agents[0].clubId && report.agents[1].clubId) {
+    const boss = report.agents[0], hand = report.agents[1];
+    const jobs = (who, fn, args) => {
+      sui(['client', 'switch', '--address', who.addr]);
+      return json(['client', 'call', '--package', PKG, '--module', 'jobs', '--function', fn,
+        '--args', LEAGUE, boss.clubId].concat(args || []).concat(['--gas-budget', '200000000', '--json']));
+    };
+
+    const put = jobs(boss, 'offer', [hand.addr, '4000', '68', '200']);
+    if (put.bad) find('a job could not be offered', String(put.out).slice(0, 220));
+    else { report.gas.calls++; report.gas.mist += gasOf(put); }
+
+    // somebody it was not put to must not be able to take it
+    const thief = jobs(report.agents[2] || hand, 'accept', []);
+    if (report.agents[2] && !thief.bad) find('a job was taken by somebody it was not offered to', `agent 3 walked into agent 1's club`);
+
+    const took = jobs(hand, 'accept', []);
+    if (took.bad) find('the job could not be taken', String(took.out).slice(0, 220));
+    else { report.gas.calls++; report.gas.mist += gasOf(took); report.hired = { club: boss.club, by: boss.n, who: hand.n }; }
+
+    await settle(5000);
+
+    /* And now the question the whole design turns on: can he act for it? */
+    sui(['client', 'switch', '--address', hand.addr]);
+    const asHired = json(['client', 'call', '--package', PKG, '--module', 'decide', '--function', 'decide',
+      '--args', LEAGUE, boss.clubId, '4', '900', '0', '[]', '0x6', '--gas-budget', '200000000', '--json']);
+    if (asHired.bad) find('a hired coach cannot decide for the club that hired him', String(asHired.out).slice(0, 220));
+    else { report.gas.calls++; report.gas.mist += gasOf(asHired); console.log(`agent ${hand.n} was hired by agent ${boss.n} and can act for the club`); }
+
+    // and somebody with no job there still cannot
+    const stranger = report.agents[2];
+    if (stranger) {
+      sui(['client', 'switch', '--address', stranger.addr]);
+      const no = json(['client', 'call', '--package', PKG, '--module', 'decide', '--function', 'decide',
+        '--args', LEAGUE, boss.clubId, '4', '100', '0', '[]', '0x6', '--gas-budget', '200000000', '--json']);
+      if (!no.bad) find('a stranger decided for a club that is not his', `agent ${stranger.n} on agent ${boss.n}'s club`);
+      else console.log('a stranger still cannot act for it, which is the other half of the rule');
+    }
+
+    // a club nobody owns is a job going
+    const vacantId = CLUBS.find((c) => !report.agents.some((a) => a.clubId === c));
+    if (vacantId && stranger) {
+      sui(['client', 'switch', '--address', stranger.addr]);
+      const grab = json(['client', 'call', '--package', PKG, '--module', 'jobs', '--function', 'take_vacant',
+        '--args', LEAGUE, vacantId, '--gas-budget', '200000000', '--json']);
+      if (grab.bad) find('a club nobody owns could not be taken on', String(grab.out).slice(0, 220));
+      else { report.gas.calls++; report.gas.mist += gasOf(grab); console.log(`agent ${stranger.n} took on a club nobody owns`); }
+    }
+    await settle(6000);
+    ({ world, decisions } = await readLeague());
+  }
+
   // ---- the season ----
   const tried = new Set();
   for (let week = 1; week <= WEEKS; week++) {
@@ -205,6 +263,19 @@ async function readLeague() {
 
   // ---- what came of it ----
   const G = SF.Replay.run(world, decisions);
+
+  /* The careers, read back from the chain exactly as the page reads them. A job that happened and
+   * leaves no record is as bad as one that did not happen: the record is the whole point. */
+  try {
+    const careers = SF.Careers.build(await C.careers(), G);
+    report.careers = careers.map((p) => ({ who: p.addr.slice(0, 10), rank: p.rep, jobs: p.seasons, wage: p.wage, at: p.now ? p.now.clubName : null }));
+    if (report.hired && !careers.some((p) => p.jobs > 0)) find('somebody was hired and has no record of it', 'the career log came back empty');
+    for (const p of careers) {
+      if (p.now && !p.now.wage) find('a job with nothing attached to it', `${p.addr.slice(0, 10)} at ${p.now.clubName} shows no wage`);
+    }
+    console.log(`\ncareers on the chain: ${careers.length}`);
+    for (const p of careers) console.log(`  ${p.addr.slice(0, 10)}  rank ${p.rep}  ${p.seasons} job(s)  ${p.now ? 'at ' + p.now.clubName + ' on ' + p.now.wage : 'looking'}`);
+  } catch (e) { find('the careers could not be read', e.message); }
   report.refused = G.refused.map((r) => ({ club: r.num, kind: r.kind, why: r.why }));
 
   // a decision that lands and changes nothing is a hole, so every kind tried is accounted for
