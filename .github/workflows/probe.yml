@@ -5,13 +5,8 @@ jobs:
   look:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      - run: node tools/who.js
       - name: What the live site serves
         run: |
           echo -n "version: "; curl -sS -m 25 https://suifoot.fun/index.html | grep -o 'v=0\.9\.[0-9]*' | head -1
-          echo -n "careers loaded: "; curl -sS -m 25 https://suifoot.fun/index.html | grep -c "careers.js"
-          echo -n "two lists on the way in: "; curl -sS -m 25 "https://suifoot.fun/src/online.js?v=0.9.58" | grep -c "on_looking"
+          echo -n "offer a job: "; curl -sS -m 25 "https://suifoot.fun/src/tx.js?v=0.9.59" | grep -c "jobs::"
+          echo -n "buttons on the screen: "; curl -sS -m 25 "https://suifoot.fun/src/online.js?v=0.9.59" | grep -c "on:vacant\|on:accept\|on:dismiss\|on:resign\|on:offer"
