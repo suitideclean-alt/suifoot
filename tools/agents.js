@@ -269,7 +269,9 @@ async function readLeague() {
   try {
     const careers = SF.Careers.build(await C.careers(), G);
     report.careers = careers.map((p) => ({ who: p.addr.slice(0, 10), rank: p.rep, jobs: p.seasons, wage: p.wage, at: p.now ? p.now.clubName : null }));
-    if (report.hired && !careers.some((p) => p.jobs > 0)) find('somebody was hired and has no record of it', 'the career log came back empty');
+    // `p.jobs` is a list, and a list compared with a number is never greater than it: a check that
+    // can only ever fire is a check that tells you nothing
+    if (report.hired && !careers.some((p) => p.jobs.length > 0)) find('somebody was hired and has no record of it', 'the career log came back empty');
     for (const p of careers) {
       if (p.now && !p.now.wage) find('a job with nothing attached to it', `${p.addr.slice(0, 10)} at ${p.now.clubName} shows no wage`);
     }

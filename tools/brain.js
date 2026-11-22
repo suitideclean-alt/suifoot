@@ -37,12 +37,15 @@
         if (mine.ct <= 2) add(K.RENEW, mine.id, 2, 'keep him another two years');
       }
       // somebody else's man, which is the only decision that needs a second party
+      /* Somebody else's man, which is the only decision that needs a second party.
+       *
+       * Another person's club first, because that is the path with two signatures on it: a bid
+       * there becomes an offer they must answer, and a run that only ever buys from the computer
+       * has not tested a negotiation at all. */
       const theirs = [];
-      for (const other of G.clubIds) {
-        if (other === id) continue;
-        const sq = G.clubs[other].squad;
-        if (sq && sq.length > 17) theirs.push(G.players[sq[0]]);
-      }
+      const others = G.clubIds.filter((o) => o !== id && G.clubs[o].squad && G.clubs[o].squad.length > 17);
+      const human = others.filter((o) => G.clubs[o].human);
+      for (const other of human.concat(others)) theirs.push(G.players[G.clubs[other].squad[0]]);
       const target = pick(r, theirs.filter(Boolean));
       if (target) add(K.BID, target.id, Math.round(SF.Actions.askPrice(G, coach, target) || 150000), 'bid for somebody else\'s man');
       /* An offer somebody has made us. This is the half of a transfer that cannot be reached by
