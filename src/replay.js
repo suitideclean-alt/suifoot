@@ -106,7 +106,12 @@
       const his = new Set(club.squad);
       const xi = team.xi.filter((p) => his.has(p));
       const bench = team.bench.filter((p) => his.has(p) && !xi.includes(p));
-      if (xi.length !== 11) return { ok: false, err: 'bad_xi' };
+      /* A sheet short of a man is still a sheet. Somebody named here may have been sold an hour
+       * ago, or be injured by Saturday, and the game already handles that better than a rule here
+       * could: it keeps whoever can play and fills the rest from the automatic pick, exactly as
+       * it does for a manager whose striker pulls up in the warm-up. Refused only when the sheet
+       * names nobody who plays at this club at all, which is not a team sheet but a mistake. */
+      if (!xi.length) return { ok: false, err: 'bad_xi' };
       return SF.Actions.setLineup(G, c, { auto: false, xi, bench, tactic: TACTICS[d.a] || 'bal' });
     },
     [K.TRAIN]: (G, c, d) => SF.Body.setMode(G, c, MODES[d.a] || 'bal'),

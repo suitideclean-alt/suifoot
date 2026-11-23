@@ -215,6 +215,18 @@ t('the team you pick is the team that plays', () => {
   eq(JSON.stringify(coach.lineup.xi), JSON.stringify(xi), 'and it plays who it was told to;');
 });
 
+t('a sheet short of a man is still a sheet', () => {
+  // somebody named may have been sold an hour ago; the game fills the gap as it does for an injury
+  const G0 = SF.Replay.run({ ...W, league: { ...W.league, seeds: [] } }, []);
+  const squad = G0.clubs.c1.squad.slice();
+  const short = squad.slice(0, 9).concat([999999, 999998]);
+  const G = SF.Replay.run(W, [{ num: 1, kind: K.TEAM, a: 0, b: 0, week: 1, at: 1, data: SF.Replay.sheet.write(short, []) }]);
+  eq(G.refused.length, 0, 'accepted;');
+  const coach = G.coaches.find((c) => c.club === 'c1');
+  eq(coach.lineup.xi.length, 9, 'nine of his own were kept;');
+  truthy(coach.lineup.xi.every((p) => squad.includes(p)), 'and nobody who does not play here;');
+});
+
 t('a sheet naming men who play elsewhere is refused', () => {
   const notHis = SF.Replay.sheet.write([999901, 999902, 999903, 999904, 999905, 999906, 999907, 999908, 999909, 999910, 999911], []);
   const G = SF.Replay.run(W, [{ num: 1, kind: K.TEAM, a: 0, b: 0, week: 1, at: 1, data: notHis }]);
