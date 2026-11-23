@@ -107,6 +107,10 @@ public struct League has key {
     /// one season's weeks stop and the next season's start. Written when a season turns and never
     /// changed, so that the boundary everybody reads is the boundary that happened.
     season_from: vector<u64>,
+    /// What a club owes to be in the league for a season, in SFOOT, and the matchday after which
+    /// an owner who has not paid loses the club. Nothing is owed while the fee is nothing.
+    entry_fee: u64,
+    entry_due: u16,
 }
 
 /// what the browser listens for: everything it needs to replay the ninety minutes it did not watch
@@ -141,7 +145,20 @@ public fun new(t0_ms: u64, kickoffs: vector<u64>, weeks_in_season: u16, ctx: &mu
         manual: true,
         seeds: vector[],
         season_from: vector[0],
+        entry_fee: 0,
+        entry_due: 3,
     }
+}
+
+public fun entry_fee(l: &League): u64 { l.entry_fee }
+public fun entry_due(l: &League): u16 { l.entry_due }
+
+/// Settle what the league charges. The league's own address only, and only here: the price of a
+/// season is not something an owner can argue with from inside the game.
+entry fun set_entry(l: &mut League, fee: u64, due: u16, ctx: &TxContext) {
+    assert!(ctx.sender() == l.admin, ENotAdmin);
+    l.entry_fee = fee;
+    l.entry_due = due;
 }
 
 /// How many clubs make a series is settled when the league is made, not written into the code.
@@ -570,6 +587,7 @@ public fun play_for_testing(
 public fun destroy_for_testing(l: League) {
     let League { id, season: _, week: _, t0: _, kickoffs: _, days_per_week: _, lock_before: _,
         draw_before: _, weeks_in_season: _, admin: _, bottom_level: _, series_size: _,
-        foot_series: _, free_at_foot: _, free_in: _, rosters: _, manual: _, seeds: _, season_from: _ } = l;
+        foot_series: _, free_at_foot: _, free_in: _, rosters: _, manual: _, seeds: _, season_from: _,
+        entry_fee: _, entry_due: _ } = l;
     id.delete();
 }

@@ -55,6 +55,19 @@ public struct Club has key, store {
     points: u16,
     /// whether the entry fee for this season was paid, which decides a claim on the prize pool
     entry_paid: bool,
+    /// The season the entry fee was last paid for. A season's fee is owed until this says that
+    /// season, so nothing has to be reset when a season turns - which matters, because a season
+    /// turning is something the league records and the clubs are never told.
+    paid_for: u16,
+    /// The season and matchday this club was last taken, so that somebody who walks in after the
+    /// deadline is given a moment to pay rather than being evicted on arrival.
+    taken_in: u16,
+    taken_wk: u16,
+    /// How many times this club has changed hands. A deed names the tenure it was cut for, and a
+    /// deed from an earlier tenure is worth nothing: otherwise whoever lost the club for not
+    /// paying could simply walk back in with the old deed, and a club nobody runs would belong to
+    /// anybody who ever had it.
+    tenure: u32,
     /// What the club pays whoever runs the team, and for how long.
     ///
     /// Only the terms two people had to agree on are kept: the wage, the length, and what a win
@@ -108,6 +121,7 @@ public fun new_with_ground(
         last_pos: 0,
         played: 0, won: 0, drawn: 0, lost: 0, goals_for: 0, goals_against: 0, points: 0,
         entry_paid: false,
+        paid_for: 0, taken_in: 0, taken_wk: 0, tenure: 0,
         job: option::none(),
         offer: option::none(),
         league,
@@ -151,6 +165,10 @@ public fun goals_for(c: &Club): u16 { c.goals_for }
 public fun goals_against(c: &Club): u16 { c.goals_against }
 public fun last_pos(c: &Club): u8 { c.last_pos }
 public fun entry_paid(c: &Club): bool { c.entry_paid }
+public fun paid_for(c: &Club): u16 { c.paid_for }
+public fun taken_in(c: &Club): u16 { c.taken_in }
+public fun taken_wk(c: &Club): u16 { c.taken_wk }
+public fun tenure(c: &Club): u32 { c.tenure }
 
 /// what a club pays the person who picks its team
 public struct Job has store, drop, copy {
@@ -241,6 +259,21 @@ public(package) fun debit(c: &mut Club, amount: u64) {
 public(package) fun set_owner(c: &mut Club, who: Option<address>) { c.owner = who }
 public(package) fun set_coach(c: &mut Club, who: Option<address>) { c.coach = who }
 public(package) fun set_entry_paid(c: &mut Club, paid: bool) { c.entry_paid = paid }
+public(package) fun set_paid_for(c: &mut Club, season: u16) { c.paid_for = season }
+/// A club has a new keeper: note when, and make every earlier deed worthless.
+public(package) fun new_tenure(c: &mut Club, season: u16, week: u16) {
+    c.tenure = c.tenure + 1;
+    c.taken_in = season;
+    c.taken_wk = week;
+}
+/// A club that has lost its keeper: nobody runs it and nothing is owed on it.
+public(package) fun vacate(c: &mut Club) {
+    c.owner = option::none();
+    c.coach = option::none();
+    c.job = option::none();
+    c.offer = option::none();
+    c.tenure = c.tenure + 1;
+}
 public(package) fun set_level(c: &mut Club, level: u8, series: u16) { c.level = level; c.series = series }
 
 /// what a matchday does to the row
@@ -381,6 +414,6 @@ public fun set_goals_for_testing(c: &mut Club, gf: u16, ga: u16) { c.goals_for =
 public fun destroy_for_testing(c: Club) {
     let Club { id, num: _, name: _, level: _, series: _, squad: _, balance: _, owner: _, coach: _,
         fans: _, capacity: _, ticket_cents: _, last_pos: _, played: _, won: _, drawn: _, lost: _, goals_for: _, goals_against: _, points: _,
-        training: _, entry_paid: _, job: _, offer: _, league: _, seal: _, seal_week: _, current: _, current_week: _, last_played: _, last_week: _ } = c;
+        training: _, entry_paid: _, paid_for: _, taken_in: _, taken_wk: _, tenure: _, job: _, offer: _, league: _, seal: _, seal_week: _, current: _, current_week: _, last_played: _, last_week: _ } = c;
     id.delete();
 }

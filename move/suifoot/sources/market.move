@@ -106,6 +106,7 @@ public fun in_bottom_half(l: &League, c: &Club): bool {
 fun take(l: &League, c: &mut Club, who: address) {
     club::set_owner(c, option::some(who));
     club::set_coach(c, option::some(who));
+    club::new_tenure(c, league::season(l), league::week(l));
     // a club taken after the season has started owes no entry fee for it, and so draws nothing from
     // the prize pool either: you did not pay in, you do not take out
     if (league::week(l) > 1) club::set_entry_paid(c, false);

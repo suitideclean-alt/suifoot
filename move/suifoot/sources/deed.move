@@ -22,6 +22,8 @@ use suifoot::club::{Self, Club};
 const EWrongClub: vector<u8> = b"this deed is not for that club";
 #[error]
 const ETaken: vector<u8> = b"somebody else already runs that club";
+#[error]
+const EStale: vector<u8> = b"this deed is for an earlier keeping of the club, which has ended";
 
 /// the one-time witness, which is what proves this module may speak for the package
 public struct DEED has drop {}
@@ -35,8 +37,11 @@ public struct ClubDeed has key, store {
     level: u8,
     /// the season it was taken, which is a thing a holder will want to know
     since: u16,
+    /// which keeping of the club this deed is for; see `Club.tenure`
+    tenure: u32,
 }
 
+public fun tenure(d: &ClubDeed): u32 { d.tenure }
 public fun club(d: &ClubDeed): ID { d.club }
 public fun club_num(d: &ClubDeed): u32 { d.club_num }
 public fun name(d: &ClubDeed): &String { &d.name }
@@ -81,6 +86,7 @@ public(package) fun issue(c: &Club, season: u16, to: address, ctx: &mut TxContex
         name: *club::name(c),
         level: club::level(c),
         since: season,
+        tenure: club::tenure(c),
     };
     transfer::public_transfer(d, to);
 }
@@ -92,6 +98,7 @@ public(package) fun issue(c: &Club, season: u16, to: address, ctx: &mut TxContex
 /// taken from them here - a deed cannot be used to walk in on a going concern.
 public fun present(d: &ClubDeed, c: &mut Club, ctx: &TxContext) {
     assert!(d.club == object::id(c), EWrongClub);
+    assert!(d.tenure == club::tenure(c), EStale);
     let who = ctx.sender();
     let held = club::owner(c);
     assert!(held.is_none() || *held.borrow() == who || club::is_free(c), ETaken);
@@ -105,7 +112,7 @@ public fun give_up(d: ClubDeed, c: &mut Club, ctx: &TxContext) {
     assert!(club::runs_it(c, ctx.sender()), ETaken);
     club::set_owner(c, option::none());
     club::set_coach(c, option::none());
-    let ClubDeed { id, club: _, club_num: _, name: _, level: _, since: _ } = d;
+    let ClubDeed { id, club: _, club_num: _, name: _, level: _, since: _, tenure: _ } = d;
     id.delete();
 }
 
@@ -114,12 +121,12 @@ public fun issue_for_testing(c: &Club, season: u16, ctx: &mut TxContext): ClubDe
     ClubDeed {
         id: object::new(ctx),
         club: object::id(c), club_num: club::num(c), name: *club::name(c),
-        level: club::level(c), since: season,
+        level: club::level(c), since: season, tenure: club::tenure(c),
     }
 }
 #[test_only]
 public fun destroy_for_testing(d: ClubDeed) {
-    let ClubDeed { id, club: _, club_num: _, name: _, level: _, since: _ } = d;
+    let ClubDeed { id, club: _, club_num: _, name: _, level: _, since: _, tenure: _ } = d;
     id.delete();
 }
 #[test_only]

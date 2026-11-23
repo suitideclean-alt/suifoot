@@ -80,6 +80,12 @@ fun belongs(l: &League, c: &Club) {
     assert!(club::league(c) == object::id(l), ENotThisLeague);
 }
 
+/// A club lost its keeper and the people it employed went with it. Written down as a dismissal, so
+/// the career of whoever coached it ends the way every other one does.
+public(package) fun ended_with_the_club(l: &League, c: &Club, who: address, by: address) {
+    tell(l, c, who, by, 4, 0, 0, 0);
+}
+
 fun tell(l: &League, c: &Club, who: address, by: address, kind: u8, wage: u64, weeks: u16, win: u64) {
     event::emit(JobEvent {
         league: object::id(l), club: object::id(c), club_num: club::num(c),
