@@ -22,6 +22,19 @@ say() { printf '%s\n' "$*"; }
 ok()   { say "  ok    $1"; }
 fail() { say "  FAIL  $1"; bad=$((bad+1)); }
 
+# What an object holds, as the browser reads it: through GraphQL, retrying while the indexer catches up.
+gql() { # object-id  jq-path
+  local i out
+  for i in 1 2 3 4 5 6; do
+    out=$(curl -s -H 'content-type: application/json' https://graphql.testnet.sui.io/graphql \
+      -d "{\"query\":\"{ object(address: \\\"$1\\\") { asMoveObject { contents { json } } } }\"}" \
+      | jq -r ".data.object.asMoveObject.contents.json | $2 // empty" 2>/dev/null)
+    if [ -n "$out" ] && [ "$out" != null ]; then printf '%s' "$out"; return 0; fi
+    sleep 4
+  done
+  return 1
+}
+
 as() { sui client switch --address "$1" >/dev/null 2>&1; }
 call() { # module function args...  -> json on stdout, nonzero on refusal
   local m=$1 f=$2; shift 2
@@ -47,8 +60,9 @@ for P in anna bob; do
   as "$P"
   call market request_join "$LEAGUE" 0x8 >/tmp/j.json || { fail "$P could not ask for a club"; continue; }
   T=$(made 'JoinTicket' </tmp/j.json)
-  CLUB[$P]=$(sui client object "$T" --json | jq -r '.content.fields.club // .data.content.fields.club // empty')
-  call market claim "$T" "$LEAGUE" "${CLUB[$P]}" >/tmp/c.json || { fail "$P could not claim"; continue; }
+  CLUB[$P]=$(gql "$T" '.club')
+  say "  ticket ${T:0:12}... names club ${CLUB[$P]:-NOTHING}"
+  call market claim "$T" "$LEAGUE" "${CLUB[$P]}" >/tmp/c.json || { fail "$P could not claim: $(tail -c 400 /tmp/err | tr '\n' ' ')"; continue; }
   DEED[$P]=$(made 'ClubDeed' </tmp/c.json)
   say "  $P holds club ${CLUB[$P]:0:12}... with deed ${DEED[$P]:0:12}..."
 done
@@ -74,30 +88,29 @@ if [ -n "${COIN[anna]:-}" ]; then
 else fail "anna has no SFOOT coin to pay with"; fi
 
 say "== the treasury"
-sui client object "$TREASURY" --json >/tmp/t.json 2>/dev/null
-KEPT=$(jq -r '.content.fields.kept // .data.content.fields.kept // empty' /tmp/t.json)
-POOL=$(jq -r '.content.fields.pool // .data.content.fields.pool // empty' /tmp/t.json)
+KEPT=$(gql "$TREASURY" '.kept.value')
+POOL=$(gql "$TREASURY" '.pool.value')
 say "  kept=$KEPT pool=$POOL"
 [ "$KEPT" = 1000000 ] && [ "$POOL" = 4000000 ] && ok "a fifth kept, four fifths to be won back" || fail "treasury holds kept=$KEPT pool=$POOL, expected 1000000 and 4000000"
 
 say "== before the deadline"
-as cara; expect_fail "nobody can take Bob's club while he still has time" call entry reclaim "$LEAGUE" "${CLUB[bob]}"
+as cara; expect_fail "nobody can take Bob's club while he still has time" call entry reclaim "$LEAGUE" "${CLUB[bob]:-0x0}"
 
 say "== the season goes on past the deadline (matchday 3)"
 for i in 1 2 3 4 5; do as anna; call league draw_week "$LEAGUE" 0x8 0x6 >/dev/null 2>&1 || say "  (draw $i not taken)"; done
-WEEK=$(sui client object "$LEAGUE" --json | jq -r '.content.fields.week // .data.content.fields.week')
+WEEK=$(gql "$LEAGUE" '.week')
 say "  now matchday $WEEK"
 
 say "== after it"
 as cara
 expect_fail "Anna paid, so her club cannot be taken" call entry reclaim "$LEAGUE" "${CLUB[anna]}"
 expect_ok   "Cara, who owns nothing, takes Bob's club back" call entry reclaim "$LEAGUE" "${CLUB[bob]}"
-OWNER=$(sui client object "${CLUB[bob]}" --json | jq -r '.content.fields.owner // .data.content.fields.owner // empty')
-{ [ -z "$OWNER" ] || [ "$OWNER" = null ] || echo "$OWNER" | grep -q '"vec":\[\]' ; } && ok "the club is nobody's again" || fail "the club still has an owner: $OWNER"
+OWNER=$(gql "${CLUB[bob]}" '.owner')
+[ -z "$OWNER" ] && ok "the club is nobody's again" || fail "the club still has an owner: $OWNER"
 
 say "== Bob tries to come back with his old deed"
 as bob
-expect_fail "the deed from before the club was taken back no longer works" call deed present "${DEED[bob]}" "${CLUB[bob]}"
+expect_fail "the deed from before the club was taken back no longer works" call deed present "${DEED[bob]:-0x0}" "${CLUB[bob]:-0x0}"
 
 say
 if [ "$bad" -eq 0 ]; then say "all of it held"; else say "$bad thing(s) did not"; exit 1; fi
