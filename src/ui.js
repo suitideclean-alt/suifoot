@@ -1312,23 +1312,46 @@
       case 'jobdec': closeModal(); return res(A.declineJob(G, c, +arg));
       case 'jobview': { const o = c.offers.find((x) => x.id === +arg); if (o) jobDialog(o, true); return; }
       case 'resign': {
+        /* Walking away changes who may act for the club, so online it is the contract's own doing
+         * rather than a decision written down - as being hired was. */
+        if (SF.Bridge && SF.Bridge.isOnline(G)) {
+          const mine = myClub();
+          if (!mine || !mine.chainId) return;
+          return SF.Online.run('resign', () => SF.Tx.resignJob(mine.chainId), render);
+        }
         const O = SF.Owner, ct = c.contract;
         const extra = !ct ? '' : O.justCauseCoach(c) ? `<p>${t('ct_quit_just', { w: CFG.owner.late, amt: money(O.remaining(c)) })}</p>` : `<p>${t('ct_quit_q', { fee: money(Math.min(O.exitFee(c), Math.max(0, O.walletBal(G, c.id)))), w: CFG.owner.ban })}</p>`;
         return modal(`<p>${t('resign_confirm')}</p>${extra}`, () => { res(A.resign(G, c)); });
       }
-      case 'mutual': return modal(`<p>${t('ct_mutual_q', { amt: money(SF.Owner.mutualOffer(G, c)) })}</p>`, () => { const r = SF.Owner.mutual(G, c); if (r.ok) { A.sack(G, c, 'expired'); Game.news(G, 'n_payoff', { club: myClub() ? myClub().name : '', amt: r.offer }, c.id); } res(r.ok ? r : { ok: false, err: r.err }, t('ok_done')); });
       case 'ot': UI.ot = arg; return render();
-      case 'obj-save': return res(SF.Owner.setObjectives(G, c, { pos: $('#obj-pos').value, profit: $('#obj-profit').value, cup: $('#obj-cup').value === '1' }), t('ok_done'));
+      case 'obj-save': {
+        const pos = +$('#obj-pos').value, profit = +$('#obj-profit').value, cup = $('#obj-cup').value === '1';
+        if (SF.Bridge && SF.Bridge.isOnline(G)) return SF.Online.ask('objectives', render, pos, profit, cup);
+        return res(SF.Owner.setObjectives(G, c, { pos, profit, cup }), t('ok_done'));
+      }
       case 'chat': return res(SF.Owner.chat(G, c, arg));
       case 'apy': return res(SF.Owner.decide(G, c, +arg, true), t('ok_done'));
       case 'apn': return res(SF.Owner.decide(G, c, +arg, false), t('ok_done'));
       case 'untouch': return res(SF.Owner.toggleUntouchable(G, c, +arg));
       case 'pol-save': {
         const g = (k) => $('#pol-' + k).value;
+        /* On the chain a standing instruction is the two numbers it really turns on: the most that
+         * may be paid for a man and the most that may be put on his wages. The rest of the form
+         * stays a local preference until there is a reason for everybody to agree on it. */
+        if (SF.Bridge && SF.Bridge.isOnline(G)) return SF.Online.ask('policy', render, +g('maxFee'), +g('maxWage'));
         return res(SF.Owner.setPolicy(G, c, { budget: g('budget'), maxFee: g('maxFee'), maxWage: g('maxWage'), wageCap: g('wageCap'), minSalePct: g('minSalePct') / 100, maxLoans: g('maxLoans'), reserve: g('reserve') }), t('ok_done'));
       }
       case 'ct': UI.ct = arg; return render();
       case 'cs': UI.cs = arg; return render();
+      case 'mutual': {
+        // a mutual parting still leaves the job, which the contract has to be told about
+        if (SF.Bridge && SF.Bridge.isOnline(G)) {
+          const club = myClub();
+          if (!club || !club.chainId) return;
+          return SF.Online.run('resign', () => SF.Tx.resignJob(club.chainId), render);
+        }
+        return modal(`<p>${t('ct_mutual_q', { amt: money(SF.Owner.mutualOffer(G, c)) })}</p>`, () => { const r = SF.Owner.mutual(G, c); if (r.ok) { A.sack(G, c, 'expired'); Game.news(G, 'n_payoff', { club: myClub() ? myClub().name : '', amt: r.offer }, c.id); } res(r.ok ? r : { ok: false, err: r.err }, t('ok_done')); });
+      }
       case 'sendteam': {
         const club = myClub();
         const L = c.lineup, cur = L.auto ? lineupNow(c, club) : L;

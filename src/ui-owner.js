@@ -231,7 +231,11 @@
     o_event: (a, h, G, c) => h.res(Bo().runEvent ? Bo().runEvent(G, c, a) : Bo().event(G, c, a), t('ok_done')),
     o_stake: (a, h, G, c) => h.modal(`<p>${t('ow_stake_q', { p: Math.round(+a * 100), amt: h.money(Bo().stakeOffer(G, h.myClub(), +a)) })}</p>`, () => h.res(Bo().sellStake(G, c, +a), t('ok_done'))),
     o_buyback: (a, h, G, c) => h.res(Bo().buyBack(G, c, +a), t('ok_done')),
-    o_bond: (a, h, G, c) => h.res(Bo().issueBond(G, c, document.querySelector('#bond-amt').value, document.querySelector('#bond-yrs').value), t('ok_done')),
+    o_bond: (a, h, G, c) => {
+      const amt = +document.querySelector('#bond-amt').value, yrs = +document.querySelector('#bond-yrs').value;
+      if (SF.Bridge && SF.Bridge.isOnline(G)) return SF.Online.decide(SF.Replay.kinds.BOND, amt, yrs, [], h.render);
+      return h.res(Bo().issueBond(G, c, amt, yrs), t('ok_done'));
+    },
     o_repay: (a, h, G, c) => h.res(Bo().repayBond(G, c, +a), t('ok_done')),
     o_hl: (a, h) => { UI.hl = a; h.render(); },
     o_go: (a, h) => { if (a === 'finance') UI.tab = 'finance'; else { UI.ot = a; UI.tab = 'owner'; } h.render(); },

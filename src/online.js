@@ -125,6 +125,7 @@
   const WHY = [
     [/^no_gas_here$/, 'on_gas_none'],
     [/^not_on_chain_yet$/, 'on_why_not_on_chain_yet'],
+    [/^offers_come_from_people$/, 'on_why_offers_from_people'],
     [/trpc|fetch failed|network error|timed? ?out/i, 'on_why_trpc'],
     [/insufficient|no valid gas|gas coins|balance/i, 'on_why_gas'],
     [/reject|denied|cancel|user refused/i, 'on_why_no'],
@@ -432,6 +433,11 @@
      * job in name only, so these belong on the chain with everything else. */
     apy: (arg) => [K().APPROVE, +arg, 0],
     apn: (arg) => [K().DECLINE, +arg, 0],
+    acfire: () => [K().AC_FIRE, 0, 0],
+    acmutual: () => [K().AC_MUTUAL, 0, 0],
+    mgfire: () => [K().MG_FIRE, 0, 0],
+    promote: (arg) => [K().PROMOTE, +arg, 0],
+    scout: (arg) => [K().SCOUT, +arg, 0],
   };
 
   /* And the ones that need a number typed before they mean anything, which the screen asks for
@@ -450,6 +456,13 @@
     loan: (amount) => [K().LOAN, Math.round(amount), 0],
     loanin: (pid, seasons) => [K().LOANIN, pid, seasons],
     loanout: (pid, seasons) => [K().LOANOUT, pid, seasons],
+    /* An assistant and a manager travel as their place in the market the game keeps, rather than
+     * as a name: a name can be spelled two ways and a position cannot. */
+    hire: (which, years) => [K().AC_HIRE, which, years || 2],
+    acrenew: (years) => [K().AC_RENEW, years, 0],
+    mghire: (which) => [K().MG_HIRE, which, 0],
+    objectives: (pos, profit, cup) => [K().OBJECTIVES, pos, profit, [cup ? 1 : 0]],
+    policy: (maxFee, maxWage) => [K().POLICY, Math.round(maxFee), Math.round(maxWage)],
   };
 
   const K = () => SF.Replay.kinds;
@@ -498,7 +511,12 @@
       if (args) { O.decide(args[0], args[1], args[2], [], redraw); return true; }
     }
 
-    O.said = { ok: false, what: act, why: 'not_on_chain_yet' };
+    /* Some buttons are not missing from the chain - they are asking for something that does not
+     * exist here. A job offer from a computer club is one: online, offers come from people, and
+     * they appear on the way in rather than in a career page. Saying so is more use than saying
+     * "not yet", which would be a promise nobody intends to keep. */
+    const ELSEWHERE = { job: 1, jobdec: 1, approach: 1 };
+    O.said = { ok: false, what: act, why: ELSEWHERE[act] ? 'offers_come_from_people' : 'not_on_chain_yet' };
     redraw();
     return true;
   };

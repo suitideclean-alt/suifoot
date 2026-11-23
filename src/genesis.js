@@ -98,8 +98,26 @@
          * to run is run by them: the owner keeps the money side and the hired man keeps the team
          * sheet, which is the whole distinction a job makes. */
         if (!club.chainOwner && !club.chainCoach) continue;
+
+        /* Two seats where two people are involved.
+         *
+         * A club whose owner also picks the team holds one person, and the game calls that doing
+         * both jobs. A club whose owner hired somebody holds two, and they are not
+         * interchangeable: the owner keeps the money and the approvals, the hired man keeps the
+         * team sheet. One seat between them meant an owner's decisions arrived as his employee's,
+         * which made approving a request something the asker did to himself. */
+        const hired = !!(club.chainOwner && club.chainCoach && club.chainCoach !== club.chainOwner);
+        if (hired) {
+          n += 1;
+          const boss = SF.Game.makeCoach(club.chainOwner.slice(0, 6), n);
+          boss.club = id; boss.role = 'owner'; boss.rep = 50; boss.addr = club.chainOwner;
+          G.coaches.push(boss);
+          SF.Owner.openWallet(G, n);
+          club.owner = n;
+        }
         n += 1;
-        club.human = n; club.owner = n;
+        club.human = n;
+        if (!hired) club.owner = n;
         /* Run as a manager rather than as an investor, for now.
          *
          * The game knows two pockets: what a club has in the bank, and what its owner has of his
@@ -108,9 +126,8 @@
          * the token is real, a club pays for its own ground out of its own takings - which is
          * also the honest answer to "whose money is this?" while there is no token to hold. */
         const runs = club.chainCoach || club.chainOwner;
-        const isOwner = !!club.chainOwner && club.chainOwner === runs;
         const coach = SF.Game.makeCoach(runs.slice(0, 6), n);
-        coach.club = id; coach.role = isOwner ? 'both' : 'coach'; coach.rep = 50; coach.addr = runs;
+        coach.club = id; coach.role = hired ? 'coach' : 'both'; coach.rep = 50; coach.addr = runs;
         if (club.chainJob) coach.contract = {
           club: id, years: Math.round(club.chainJob.weeks / 34), left: club.chainJob.weeks,
           wage: club.chainJob.wage, win: club.chainJob.win, draw: 0,
@@ -135,10 +152,18 @@
       return G;
     },
 
-    /** whoever runs this club, as the game needs him to apply a rule */
-    coachOf(G, clubNum) {
+    /* Whose decision this is.
+     *
+     * A club can hold two people, and which of them decided matters: an owner approving his
+     * coach's request and the coach approving it himself are not the same act. So the person is
+     * found by the address that signed, and only falls back to whoever runs the club when the
+     * signer is not seated there - which is how a decision made before somebody was hired still
+     * lands on the right seat. */
+    coachOf(G, clubNum, who) {
       const id = 'c' + clubNum;
-      return G.coaches.find((c) => c.club === id) || null;
+      const here = G.coaches.filter((c) => c.club === id);
+      if (who) { const his = here.find((c) => c.addr === who); if (his) return his; }
+      return here[0] || null;
     },
   });
 })();

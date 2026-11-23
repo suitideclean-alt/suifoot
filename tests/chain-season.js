@@ -237,5 +237,52 @@ t('what the week is spent training is the chain\'s too', () => {
   eq(G.clubs.c1.train, 'int', 'they trained hard;');
 });
 
+t('an owner who hired somebody still has a seat of his own', () => {
+  /* The two are not interchangeable: the owner keeps the money and the approvals, the hired man
+   * keeps the team sheet. One seat between them made approving a request something the asker did
+   * to himself. */
+  const BOSS = '0x' + 'ee'.repeat(32);
+  const HAND = '0x' + 'ff'.repeat(32);
+  const hiredWorld = {
+    ...W,
+    league: { ...W.league, seeds: [] },
+    clubs: W.clubs.map((c) => (c.num === 1 ? { ...c, owner: BOSS, coach: HAND, job: { wage: 4000, weeks: 68, win: 0, since: 1, agreed: true } } : c)),
+  };
+  const G = SF.Replay.run(hiredWorld, []);
+  const seats = G.coaches.filter((c) => c.club === 'c1');
+  eq(seats.length, 2, 'two people at this club;');
+  const boss = seats.find((c) => c.addr === BOSS);
+  const hand = seats.find((c) => c.addr === HAND);
+  truthy(boss && hand, 'the owner and the man he hired;');
+  eq(boss.role, 'owner', 'the owner owns;');
+  eq(hand.role, 'coach', 'and the other one coaches;');
+  eq(G.clubs.c1.owner, boss.id, 'the club knows whose it is;');
+  eq(G.clubs.c1.human, hand.id, 'and who picks its team;');
+  eq(hand.contract.wage, 4000, 'on the wage the chain recorded;');
+});
+
+t('a decision is the signer\'s, not the club\'s', () => {
+  const BOSS = '0x' + 'ee'.repeat(32);
+  const HAND = '0x' + 'ff'.repeat(32);
+  const hiredWorld = {
+    ...W,
+    league: { ...W.league, seeds: [] },
+    clubs: W.clubs.map((c) => (c.num === 1 ? { ...c, owner: BOSS, coach: HAND } : c)),
+  };
+  const G0 = SF.Replay.run(hiredWorld, []);
+  const bossSeat = G0.coaches.find((c) => c.addr === BOSS);
+  const handSeat = G0.coaches.find((c) => c.addr === HAND);
+
+  // the owner sets the standing instruction; only an owner may
+  const byBoss = SF.Replay.run(hiredWorld, [{ num: 1, by: BOSS, kind: K.POLICY, a: 500000, b: 9000, week: 1, at: 1, data: [] }]);
+  eq(byBoss.refused.length, 0, 'the owner may set the policy;');
+
+  // the hired man may not, and the refusal is the game's own word for it
+  const byHand = SF.Replay.run(hiredWorld, [{ num: 1, by: HAND, kind: K.POLICY, a: 500000, b: 9000, week: 1, at: 1, data: [] }]);
+  eq(byHand.refused.length, 1, 'the hired man may not;');
+  eq(byHand.refused[0].why, 'owner_only', 'and is told why;');
+  truthy(bossSeat.id !== handSeat.id, 'because they are two people;');
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

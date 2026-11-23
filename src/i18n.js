@@ -630,6 +630,11 @@
       `Celui-ci n'est pas encore sur la chaîne. Il ne changerait que ce que vous voyez ici, donc il est refusé plutôt que simulé.`,
       `Esse ainda não está na cadeia. Mudava o que vês aqui e mais nada, por isso é recusado em vez de fingido.`,
       `Das ist noch nicht auf der Kette. Es würde nur ändern, was du hier siehst, also wird es abgelehnt statt vorgetäuscht.`],
+    on_why_offers_from_people: [
+      `Here a job comes from a person, not from a computer club. Offers made to you appear on the way in, beside the people looking for a club.`,
+      `Ici un poste vient d'une personne, pas d'un club informatique. Les offres qui vous sont faites apparaissent à l'entrée, à côté des gens qui cherchent un club.`,
+      `Aqui um lugar vem de uma pessoa, não de um clube do computador. As propostas que te fazem aparecem à entrada, ao lado de quem procura clube.`,
+      `Hier kommt eine Stelle von einer Person, nicht von einem Computerverein. Angebote an dich erscheinen am Eingang, neben den Leuten auf Vereinssuche.`],
     on_gas_none: [
       `This address holds no testnet SUI, so the wallet has nothing to pay the fee with. Ask the faucet for some, then read the chain again.`,
       `Cette adresse ne détient aucun SUI de testnet : le portefeuille n'a rien pour payer les frais. Demandez-en au robinet, puis relisez la chaîne.`,

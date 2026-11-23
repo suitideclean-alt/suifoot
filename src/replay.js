@@ -33,6 +33,14 @@
     /* An owner answering a request from the person he hired to run the team. Without these a
      * hired coach can ask and never be answered, which is a job in name only. */
     APPROVE: 35, DECLINE: 36,
+    /* The assistant: an owner's own hire, who takes the training and the team sheet off his hands.
+     * A separate person from whoever holds the job on the chain - that one is somebody with an
+     * address, this one is of the club's own making. */
+    AC_HIRE: 37, AC_FIRE: 38, AC_MUTUAL: 39, AC_RENEW: 40,
+    /* A manager of the owner's affairs, and the two standing instructions a club runs on. */
+    MG_HIRE: 41, MG_FIRE: 42, OBJECTIVES: 43, POLICY: 44,
+    /* And the squad: a boy brought through, and a player looked at properly. */
+    PROMOTE: 45, SCOUT: 46,
   };
 
   /* The board's choices, as numbers.
@@ -140,6 +148,35 @@
     [K.BONDREPAY]: (G, c, d) => SF.Boss.repayBond(G, c, d.a),
     [K.APPROVE]: (G, c, d) => SF.Owner.decide(G, c, d.a, true),
     [K.DECLINE]: (G, c, d) => SF.Owner.decide(G, c, d.a, false),
+
+    /* An assistant is hired out of the market the game keeps, so he travels as his position in
+     * that market rather than as a name - the same reason the board's choices do. */
+    [K.AC_HIRE]: (G, c, d) => {
+      const market = SF.Owner.market(G) || [];
+      const who = market[d.a];
+      if (!who) return { ok: false, err: 'gone' };
+      return SF.Owner.hire(G, c, who.id, { years: Math.max(1, d.b) });
+    },
+    [K.AC_FIRE]: (G, c) => SF.Owner.fire(G, c),
+    [K.AC_MUTUAL]: (G, c) => SF.Owner.mutualAc(G, c),
+    [K.AC_RENEW]: (G, c, d) => SF.Owner.renewCoach(G, c, Math.max(1, d.a), {}),
+
+    [K.MG_HIRE]: (G, c, d) => {
+      const market = SF.Owner.mgrPool ? (SF.Owner.mgrPool(G) || []) : [];
+      const who = market[d.a];
+      return who ? SF.Owner.hireManager(G, c, who.id) : { ok: false, err: 'gone' };
+    },
+    [K.MG_FIRE]: (G, c) => SF.Owner.fireManager(G, c),
+
+    /* The two standing instructions: what the club is being asked to achieve, and how freely
+     * whoever runs it may spend. Both travel as numbers, because both are choices from lists. */
+    [K.OBJECTIVES]: (G, c, d) => SF.Owner.setObjectives(G, c, { pos: d.a, profit: d.b, cup: !!(d.data && d.data[0]) }),
+    /* What whoever runs the club may spend without asking: the most he may pay for a man, and
+     * the most he may put on his wages. The two numbers a standing instruction really is. */
+    [K.POLICY]: (G, c, d) => SF.Owner.setPolicy(G, c, { maxFee: d.a, maxWage: d.b }),
+
+    [K.PROMOTE]: (G, c, d) => SF.Actions.promote(G, c, d.a),
+    [K.SCOUT]: (G, c, d) => SF.Actions.scoutPlayer(G, c, d.a),
   };
 
   const Replay = (SF.Replay = {
@@ -214,7 +251,7 @@
      * at a screen that did not change.
      */
     carry(G, d) {
-      const coach = SF.Genesis.coachOf(G, d.num);
+      const coach = SF.Genesis.coachOf(G, d.num, d.by);
       if (!coach) return Replay.refuse(G, d, 'no_club');
       const call = CALLS[d.kind];
       if (!call) return Replay.refuse(G, d, 'unknown_decision');
