@@ -77,6 +77,35 @@
       const asked = (SF.Owner.openFor && club.id ? SF.Owner.openFor(G, club.id) : []) || [];
       for (const a of asked) add(K.APPROVE, a.id, 0, 'answer what the coach asked for');
 
+      /* The team sheet and the week's work: the two things a manager does that are not about
+       * money, and the two that went longest without reaching the chain. */
+      const fit = squad.filter((p) => p.inj <= 0 && p.sus <= 0);
+      const gk = fit.find((p) => p.pos === 'GK');
+      if (gk && fit.length >= 18) {
+        const rest = fit.filter((p) => p.id !== gk.id).sort((x, y) => y.ovr - x.ovr);
+        const xi = [gk.id].concat(rest.slice(0, 10).map((p) => p.id));
+        const bench = rest.slice(10, 17).map((p) => p.id);
+        out.push({ kind: K.TEAM, a: Math.floor(r() * 3), b: 0, data: SF.Replay.sheet.write(xi, bench), note: 'hand the team in' });
+      }
+      add(K.TRAIN, Math.floor(r() * 3), 0, 'how hard they work this week');
+
+      /* The assistant, and the man who runs the owner's affairs. */
+      const cands = (SF.Owner.market ? SF.Owner.market(G) : []) || [];
+      if (!club.ac && cands.length) add(K.AC_HIRE, 0, 2, 'take on an assistant');
+      if (club.ac) {
+        add(K.AC_RENEW, 2, 0, 'keep the assistant another two years');
+        if (r() < 0.3) add(K.AC_MUTUAL, 0, 0, 'part with the assistant');
+      }
+      const mgrs = (SF.Owner.mgrPool ? SF.Owner.mgrPool(G) : []) || [];
+      if (!club.mgr && mgrs.length) add(K.MG_HIRE, 0, 0, 'take on a manager');
+
+      /* The standing instructions, and the squad's own business. */
+      add(K.OBJECTIVES, 1 + Math.floor(r() * 10), 0, 'say what the club is for this season');
+      add(K.POLICY, 200000 + Math.floor(r() * 300000), 4000 + Math.floor(r() * 4000), 'what may be spent without asking');
+      const boy = (club.acad || [])[0];
+      if (boy) add(K.PROMOTE, boy, 0, 'bring a boy through');
+      if (target) add(K.SCOUT, target.id, 0, 'have somebody looked at properly');
+
       // --- the board ---
       add(K.LINE, Math.floor(r() * 3), 1 + Math.floor(r() * 3), 'fund a line of the business');
       add(K.MERCH, Math.floor(r() * 3), 0, 'set the merchandising');

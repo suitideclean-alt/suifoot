@@ -224,8 +224,10 @@ async function readLeague() {
       const plan = all.concat(all).slice(from, from + PER_WEEK);
       for (const p of plan) {
         tried.add(p.kind);
+        // a team sheet travels as bytes; everything else carries nothing but its two numbers
+        const note = p.data && p.data.length ? '[' + p.data.join(',') + ']' : '[]';
         const r = json(['client', 'call', '--package', PKG, '--module', 'decide', '--function', 'decide',
-          '--args', LEAGUE, a.clubId, String(p.kind), String(p.a), String(p.b), '[]', '0x6',
+          '--args', LEAGUE, a.clubId, String(p.kind), String(p.a), String(p.b), note, '0x6',
           '--gas-budget', '200000000', '--json']);
         if (r.bad) {
           a.failed++;
