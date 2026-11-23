@@ -88,8 +88,8 @@ if [ -n "${COIN[anna]:-}" ]; then
 else fail "anna has no SFOOT coin to pay with"; fi
 
 say "== the treasury"
-KEPT=$(gql "$TREASURY" '.kept.value')
-POOL=$(gql "$TREASURY" '.pool.value')
+KEPT=$(gql "$TREASURY" '(.kept | if type=="object" then .value else . end)')
+POOL=$(gql "$TREASURY" '(.pool | if type=="object" then .value else . end)')
 say "  kept=$KEPT pool=$POOL"
 [ "$KEPT" = 1000000 ] && [ "$POOL" = 4000000 ] && ok "a fifth kept, four fifths to be won back" || fail "treasury holds kept=$KEPT pool=$POOL, expected 1000000 and 4000000"
 
@@ -105,8 +105,15 @@ say "== after it"
 as cara
 expect_fail "Anna paid, so her club cannot be taken" call entry reclaim "$LEAGUE" "${CLUB[anna]}"
 expect_ok   "Cara, who owns nothing, takes Bob's club back" call entry reclaim "$LEAGUE" "${CLUB[bob]}"
-OWNER=$(gql "${CLUB[bob]}" '.owner')
-[ -z "$OWNER" ] && ok "the club is nobody's again" || fail "the club still has an owner: $OWNER"
+# The indexer is a few seconds behind the chain, and "nobody's" reads as nothing - so wait until
+# the old owner has stopped being reported rather than believing the first answer.
+OWNER="$BOB"
+for i in 1 2 3 4 5 6 7 8; do
+  OWNER=$(gql "${CLUB[bob]}" '.owner' 2>/dev/null || true)
+  [ "$OWNER" != "$BOB" ] && break
+  sleep 5
+done
+[ -z "$OWNER" ] && ok "the club is nobody's again" || fail "the club still has an owner after 40 seconds: $OWNER"
 
 say "== Bob tries to come back with his old deed"
 as bob
