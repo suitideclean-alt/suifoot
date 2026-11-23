@@ -362,8 +362,9 @@
         lastPos: Number(f.last_pos),
         /* the season the fee was last paid for, and when the club was last taken: what it takes to
          * say whether it is owed, and how long a newcomer has to pay */
-        paidFor: Number(f.paid_for || 0), takenIn: Number(f.taken_in || 0), takenWk: Number(f.taken_wk || 0),
-        tenure: Number(f.tenure || 0),
+        ...(() => { const k = f.keeping ? (f.keeping.fields || f.keeping) : {}; return {
+          paidFor: Number(k.paid_for || 0), takenIn: Number(k.taken_in || 0), takenWk: Number(k.taken_wk || 0),
+          tenure: Number(k.tenure || 0) }; })(),
         squad,
       };
     },

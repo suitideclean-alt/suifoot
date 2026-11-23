@@ -34,5 +34,13 @@ ok('and is late once the grace is spent', owes(lg({ week: 13 }), club({ takenIn:
 const old = SF.Chain.league({ season: 1, week: 1, t0: 0, kickoffs: [], lock_before: 30, draw_before: 15, weeks_in_season: 34, bottom_level: 3, series_size: 18, rosters: [] });
 ok('an older league has no fee', old.entryFee === 0 && owes(old, club()) === null);
 
+/* the contract keeps these in a struct of their own, which arrives as an object; and a club made before
+ * there were any reads as never paid, never taken, no tenure */
+const base = { num: 1, name: 'x', level: 3, series: 0, balance: 1, fans: 1, capacity: 1, ticket_cents: 1, squad: [] };
+const k = SF.Chain.club(Object.assign({ keeping: { fields: { paid: false, paid_for: '1', taken_in: '1', taken_wk: '4', tenure: '2' } } }, base), '0x1');
+ok('the keeping record is read', k.paidFor === 1 && k.takenIn === 1 && k.takenWk === 4 && k.tenure === 2);
+const o = SF.Chain.club(base, '0x1');
+ok('a club without one reads as untouched', o.paidFor === 0 && o.tenure === 0);
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

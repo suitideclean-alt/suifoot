@@ -5,7 +5,7 @@
   "private": true,
   "license": "MIT",
   "scripts": {
-    "test": "node tests/test.js && node tests/owner.js && node tests/boss.js && node tests/players.js && node tests/pyramid.js && node tests/calendar.js && node tests/identity.js && node tests/seal.js && node tests/market.js && node tests/hostile.js && node tests/state.js && node tests/economy.js && node tests/q.js && node tests/fixed.js && node tests/vectors.js && node tests/chain-season.js && node tests/careers.js && node tests/route.js && node tests/hostile-chain.js && node tests/series.js && node tests/entry.js && node tests/keeper.js && node tests/sponsor.js && node tests/i18n.js",
+    "test": "node tests/test.js && node tests/owner.js && node tests/boss.js && node tests/players.js && node tests/pyramid.js && node tests/calendar.js && node tests/identity.js && node tests/seal.js && node tests/market.js && node tests/hostile.js && node tests/state.js && node tests/economy.js && node tests/q.js && node tests/fixed.js && node tests/vectors.js && node tests/chain-season.js && node tests/careers.js && node tests/route.js && node tests/hostile-chain.js && node tests/limits.js && node tests/series.js && node tests/entry.js && node tests/keeper.js && node tests/sponsor.js && node tests/i18n.js",
     "balance": "node tests/balance.js 100",
     "sim": "node tests/sim.js 30 5",
     "serve": "python3 -m http.server 8765",
