@@ -353,8 +353,8 @@
     async claimFaucet() {
       const { Transaction } = globalThis.SuiSDK;
       const net = SF.Chain.net;
-      if (!net.faucet || !net.treasury) throw new Error('there is no faucet here');
-      const [faucet, treasury] = await SF.Chain.sharedRefs([net.faucet, net.treasury]);
+      if (!net.sfootFaucet || !net.treasury) throw new Error('there is no faucet here');
+      const [faucet, treasury] = await SF.Chain.sharedRefs([net.sfootFaucet, net.treasury]);
       const tx = new Transaction();
       tx.moveCall({
         target: `${net.pkg}::faucet::claim`,

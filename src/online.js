@@ -370,7 +370,7 @@
       dues = `<div class="card"><h4>${esc(t('on_entry'))}</h4>
         <p class="muted small">${esc(t('on_entry_d')).replace('{fee}', fee).replace('{due}', lg.entryDue)}</p>
         ${addr ? `<p class="muted small">${esc(t('on_sfoot_held'))}: ${have.toFixed(2)} SFOOT</p>` : ''}
-        ${addr && !stop && net.faucet && have === 0 ? `<button class="btn sm" data-act="on:faucet"${O.busy ? ' disabled' : ''}>${esc(t('on_faucet_sfoot'))}</button>
+        ${addr && !stop && net.sfootFaucet && have === 0 ? `<button class="btn sm" data-act="on:faucet"${O.busy ? ' disabled' : ''}>${esc(t('on_faucet_sfoot'))}</button>
           <p class="muted small">${esc(t('on_faucet_sfoot_d'))}</p>` : ''}`;
       for (const c of mine) {
         const o = SF.Chain.owes(lg, c);

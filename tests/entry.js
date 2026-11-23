@@ -42,5 +42,16 @@ ok('the keeping record is read', k.paidFor === 1 && k.takenIn === 1 && k.takenWk
 const o = SF.Chain.club(base, '0x1');
 ok('a club without one reads as untouched', o.paidFor === 0 && o.tenure === 0);
 
+/* the page links to the faucet that gives SUI, and has its own for SFOOT: two things with one
+ * name in one object would silently replace the link with an object id */
+const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'chain.js'), 'utf8');
+const keys = (src.match(/^\s{4}(\w+):/gm) || []).map((k) => k.trim());
+const net = src.slice(src.indexOf('const TESTNET = {'), src.indexOf('const Chain = (SF.Chain'));
+const names = (net.match(/^\s{4}(\w+):/gm) || []).map((k) => k.trim());
+ok('no setting is named twice in the network config', new Set(names).size === names.length,
+  names.filter((n, i) => names.indexOf(n) !== i).join(','));
+ok('the SUI faucet is still a link', /^https:/.test(SF.Chain.net.faucet), String(SF.Chain.net.faucet));
+ok('the league and treasury are set', /^0x[0-9a-f]{64}$/.test(SF.Chain.net.league) && /^0x[0-9a-f]{64}$/.test(SF.Chain.net.treasury));
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);
