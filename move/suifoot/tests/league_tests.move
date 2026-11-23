@@ -229,3 +229,49 @@ fun two_clubs_from_different_series_cannot_be_made_to_play_each_other() {
     league::play_for_testing(&l, &mut top, &mut bottom, 1);
     abort 0
 }
+
+/// Played by the clock, a new season starts after the old one ended. The calendar is anchored at one
+/// date; if turning the season left the anchor where it was, the new season's first matchday would
+/// already be in the past and every matchday of it would be playable at once.
+#[test]
+fun a_season_turned_by_the_clock_starts_after_the_last_one_ended() {
+    let mut ctx = tx_context::dummy();
+    let mut l = league::new(T0, vector[12 * 60, 20 * 60], 34, &mut ctx);
+    league::start_the_clock(&mut l, T0, &ctx);
+    let last_of_old = league::kickoff_at(&l, 34);
+    let mut i = 0;
+    while (i < 34) { league::advance(&mut l, &ctx); i = i + 1 };
+    league::next_season(&mut l, &ctx);
+    assert!(league::season(&l) == 2, 0);
+    assert!(league::kickoff_at(&l, 1) > last_of_old, 1);
+    // and the first matchday is not further away than the next day: seasons follow each other
+    assert!(league::kickoff_at(&l, 1) - last_of_old <= 2 * 86400000, 2);
+    league::destroy_for_testing(l);
+}
+
+/// An odd number of matchdays leaves half a day over, and the half belongs to the season it ended.
+#[test]
+fun a_half_used_last_day_still_belongs_to_the_season_it_ended() {
+    let mut ctx = tx_context::dummy();
+    let mut l = league::new(T0, vector[12 * 60, 20 * 60], 35, &mut ctx);
+    league::start_the_clock(&mut l, T0, &ctx);
+    let last_of_old = league::kickoff_at(&l, 35);
+    let mut i = 0;
+    while (i < 35) { league::advance(&mut l, &ctx); i = i + 1 };
+    league::next_season(&mut l, &ctx);
+    assert!(league::kickoff_at(&l, 1) > last_of_old, 0);
+    league::destroy_for_testing(l);
+}
+
+/// By hand there is no calendar to move, and nothing may change that does not have to.
+#[test]
+fun a_season_turned_by_hand_leaves_the_calendar_alone() {
+    let mut ctx = tx_context::dummy();
+    let mut l = league::new(T0, vector[12 * 60, 20 * 60], 34, &mut ctx);
+    let first = league::kickoff_at(&l, 1);
+    let mut i = 0;
+    while (i < 34) { league::advance(&mut l, &ctx); i = i + 1 };
+    league::next_season(&mut l, &ctx);
+    assert!(league::kickoff_at(&l, 1) == first, 0);
+    league::destroy_for_testing(l);
+}

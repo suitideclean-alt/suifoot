@@ -1,0 +1,74 @@
+# The keeper: does what is due when the league runs by the clock.
+#
+# Every few minutes it reads the league and, if a matchday has kicked off, draws its dice; if the
+# season has run out, turns it; and takes back any club whose owner has not paid. When nothing is due
+# it does nothing and costs nothing. Every action is one the contract would refuse unless it were
+# due, so a keeper that is late, early or wrong only wastes a transaction.
+#
+# It needs the league's own key, because in clock mode only the league's address may draw. Put it in
+# the repository's secrets as LEAGUE_KEY and the league's three addresses in its variables
+# (PKG, LEAGUE, CLUBS; TREASURY is optional). Nothing runs until they are there.
+#
+# GitHub runs scheduled jobs when it can, not when it is told: a matchday may be drawn a few minutes
+# after its whistle. That is fine - the dice are drawn when somebody asks, and everyone works the
+# same season out from them whenever it happens.
+name: keeper
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+    inputs:
+      dry:
+        description: only say what would be done
+        default: "false"
+env:
+  SUI_VERSION: testnet-v1.84.1
+concurrency: keeper
+jobs:
+  keep:
+    if: ${{ vars.LEAGUE != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Cache the Sui CLI
+        id: cache-sui
+        uses: actions/cache@v4
+        with:
+          path: ~/.sui/bin
+          key: sui-${{ env.SUI_VERSION }}-ubuntu-x86_64
+
+      - name: Install the Sui CLI
+        if: steps.cache-sui.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.sui/bin" "$HOME/.sui/unpack"
+          curl -sSLf -o sui.tgz "https://github.com/MystenLabs/sui/releases/download/${SUI_VERSION}/sui-${SUI_VERSION}-ubuntu-x86_64.tgz"
+          tar -xzf sui.tgz -C "$HOME/.sui/unpack"
+          find "$HOME/.sui/unpack" -name 'sui' -type f -exec mv {} "$HOME/.sui/bin/sui" \;
+          chmod +x "$HOME/.sui/bin/sui"
+
+      - name: Sign in as the league
+        env:
+          LEAGUE_KEY: ${{ secrets.LEAGUE_KEY }}
+        run: |
+          set -euo pipefail
+          echo "$HOME/.sui/bin" >> "$GITHUB_PATH"
+          export PATH="$HOME/.sui/bin:$PATH"
+          sui client --yes new-env --alias tn --rpc https://fullnode.testnet.sui.io:443 || true
+          sui client switch --env tn
+          sui keytool import "$LEAGUE_KEY" ed25519 --alias league >/dev/null
+          sui client switch --address league
+
+      - name: Do what is due
+        env:
+          PKG: ${{ vars.PKG }}
+          LEAGUE: ${{ vars.LEAGUE }}
+          CLUBS: ${{ vars.CLUBS }}
+          TREASURY: ${{ vars.TREASURY }}
+          DRY: ${{ github.event.inputs.dry == 'true' && '1' || '' }}
+        run: node tools/keeper.js

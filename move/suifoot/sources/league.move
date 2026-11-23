@@ -539,6 +539,16 @@ entry fun next_season(l: &mut League, ctx: &TxContext) {
     l.season = l.season + 1;
     l.week = 1;
     l.season_from.push_back(l.seeds.length());
+    /* Played by the clock, the next season's first matchday must be after the last of this one.
+     * The calendar is anchored at one date and every matchday is counted from it, so turning the
+     * season without moving the anchor would put the new season's whole calendar in the past - and
+     * with it every matchday already playable, all at once. A season takes however many days its
+     * matchdays take, rounded up: a last, half-used day still belongs to the season it ended. */
+    if (!l.manual) {
+        let slots = l.kickoffs.length();
+        let days = ((l.weeks_in_season as u64) + slots - 1) / slots;
+        l.t0 = l.t0 + days * l.days_per_week * DAY;
+    };
 }
 
 public fun advance(l: &mut League, ctx: &TxContext) {

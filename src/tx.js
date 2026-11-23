@@ -61,11 +61,60 @@
       return null;
     },
 
+    /* Have somebody else pay the network fee.
+     *
+     * The page sends what is about to be done - never a key - to a sponsor, which checks it is the
+     * game and nothing else, adds a coin of its own to pay with, and signs for that coin. The person
+     * then signs the same bytes and the chain takes both signatures.
+     *
+     * Everything up to the person's signature can fail without harm, and does so by returning
+     * null, so the caller pays its own way as it always did. Past it nothing is retried: a
+     * transaction the person has signed is theirs to see through, not ours to send again. */
+    async sendSponsored(tx) {
+      const net = SF.Chain.net;
+      const { Transaction, toBase64 } = globalThis.SuiSDK;
+      const feature = (SF.Wallet.current.features || {})['sui:signTransaction'];
+      if (!net.sponsor || !feature) return null;
+
+      let offered;
+      try {
+        tx.setSender(SF.Wallet.addr);
+        /* A transaction that names something owned by the person - a coin, a ticket - cannot be
+         * built without asking a node for its version, and the page has none to ask. Those pay
+         * their own way, which is what they always did. */
+        const kind = await tx.build({ onlyTransactionKind: true });
+        const r = await fetch(net.sponsor, {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ kind: toBase64(kind), sender: SF.Wallet.addr }),
+        });
+        if (!r.ok) return null;                 // refused, resting or rationed: pay as usual
+        offered = await r.json();
+      } catch (_) { return null; }
+
+      const signed = await feature.signTransaction({
+        transaction: Transaction.from(offered.bytes), account: SF.Wallet.account, chain: Tx.chain(),
+      });
+      /* The sponsor signed these bytes. If the wallet signed different ones, the two signatures do
+       * not belong together and the chain would refuse them; say so rather than send them. */
+      if (signed.bytes !== offered.bytes) throw new Error('the wallet changed the transaction, so the sponsor cannot pay for it');
+      const rpc = await fetch(net.rpc || 'https://fullnode.testnet.sui.io:443', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'sui_executeTransactionBlock',
+          params: [offered.bytes, [signed.signature, offered.signature], { showEffects: true }, 'WaitForLocalExecution'] }),
+      });
+      const out = await rpc.json();
+      if (out.error) throw new Error(out.error.message);
+      return out.result;
+    },
+
     /** hand a built transaction to the wallet, and wait for the chain to take it */
     async send(tx) {
       const stop = Tx.why();
       if (stop) throw new Error(stop);
       tx.setSender(SF.Wallet.addr);
+
+      const sponsored = await Tx.sendSponsored(tx);
+      if (sponsored) return sponsored;
 
       const feature = Tx.signer();
       const out = await feature.signAndExecuteTransaction({
@@ -270,6 +319,48 @@
     resignJob: (clubId) => Tx.job(clubId, 'resign'),
     dismissCoach: (clubId) => Tx.job(clubId, 'dismiss'),
     withdrawOffer: (clubId) => Tx.job(clubId, 'withdraw'),
+
+    /* Pay what the season costs, in SFOOT.
+     *
+     * The contract wants one coin of exactly the fee. Nobody holds one ready-made, so the coins
+     * they have are put together and the fee is cut off the top, in the same transaction - the rest
+     * stays in their wallet as it was. */
+    async payEntry(clubId, fee) {
+      const { Transaction } = globalThis.SuiSDK;
+      const net = SF.Chain.net;
+      if (!net.treasury) throw new Error('this league has no treasury, so there is nothing to pay');
+      const [[league, club, treasury], mine] = await Promise.all([
+        SF.Chain.sharedRefs([net.league, clubId, net.treasury]),
+        SF.Chain.sfoot(SF.Wallet.addr),
+      ]);
+      if (mine.total < fee) throw new Error('you hold ' + (mine.total / 1e6) + ' SFOOT and the season costs ' + (fee / 1e6));
+
+      const tx = new Transaction();
+      const [first, ...rest] = mine.coins.map((c) => tx.object(c.id));
+      if (rest.length) tx.mergeCoins(first, rest);
+      const [exact] = tx.splitCoins(first, [tx.pure.u64(String(fee))]);
+      tx.moveCall({
+        target: `${net.pkg}::entry::pay`,
+        arguments: [
+          tx.sharedObjectRef(treasury), tx.sharedObjectRef({ ...league, mutable: false }),
+          tx.sharedObjectRef(club), exact,
+        ],
+      });
+      return Tx.send(tx);
+    },
+
+    /* Take back a club whose owner has not paid. Anybody may; that is the point of it. */
+    async reclaim(clubId) {
+      const { Transaction } = globalThis.SuiSDK;
+      const net = SF.Chain.net;
+      const [league, club] = await SF.Chain.sharedRefs([net.league, clubId]);
+      const tx = new Transaction();
+      tx.moveCall({
+        target: `${net.pkg}::entry::reclaim`,
+        arguments: [tx.sharedObjectRef(league), tx.sharedObjectRef(club)],
+      });
+      return Tx.send(tx);
+    },
 
     /* Turn the season over. Anybody may, while the league is played by hand. */
     async nextSeason() {

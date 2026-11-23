@@ -29,6 +29,12 @@
     faucet: 'https://faucet.sui.io/?network=testnet',
     pkg: '0x6f4341ced5ca91bea5918b5d8acc832d52c6a098c0f63214c4b59a486059e401',
     league: '0xe5ca5b9797a47406b417ec2fbc4b52264831e0eabae3fe21b12c47d7ba490e4d',
+    /* where entry fees go. Absent on a league made before there were fees, and then nothing here
+     * offers to take one. */
+    treasury: null,
+    /* A service that pays the network fee, if one has been set up. With none, a person pays their
+     * own, as before. Turning one on also means letting the page talk to it: see docs/SPONSOR.md. */
+    sponsor: null,
     clubs: [
       '0xf60364816f2ca214658590d49e3284906c8603e0fe22ac715dbb916bef1220d5',
       '0x7734c25387a51710587c50ab7d2eff9d1e63730409236efc55f84e1a567de6f0',
@@ -178,6 +184,30 @@
       return b ? Number(b.totalBalance) : 0;
     },
 
+    /* The SFOOT this address is holding, as the separate coins it comes in. Paying needs one coin
+     * of exactly the fee, which is made from these. */
+    async sfoot(addr) {
+      if (!Chain.net.treasury) return { coins: [], total: 0 };
+      const d = await Chain.query(`{ a: address(address: "${addr}") {
+        objects(filter: { type: "0x2::coin::Coin<${Chain.net.pkg}::sfoot::SFOOT>" }) {
+          nodes { address contents { json } } } } }`);
+      const nodes = (d && d.a && d.a.objects && d.a.objects.nodes) || [];
+      const coins = nodes.map((n) => ({ id: n.address, balance: Number(n.contents && n.contents.json ? n.contents.json.balance : 0) }))
+        .filter((c) => c.balance > 0);
+      return { coins, total: coins.reduce((a, c) => a + c.balance, 0) };
+    },
+
+    /* What a club owes the league this season, worked out the way the contract works it out - so
+     * that the screen never offers a payment the contract would refuse, nor hides one it would take.
+     * Returns null when nothing is owed. */
+    owes(league, club) {
+      if (!league || !league.entryFee || !club || !club.owner) return null;
+      if (club.paidFor === league.season) return null;
+      const due = league.entryDue;
+      const by = club.takenIn === league.season ? Math.max(due, club.takenWk + 2) : due;
+      return { fee: league.entryFee, by, late: league.week > by };
+    },
+
     /* The tickets this address is holding.
      *
      * Taking a club is two steps on purpose: the draw happens on chain and hands back a ticket
@@ -297,6 +327,9 @@
          * it, and a reader cannot tell where one stopped without being told. */
         seasonFrom: (f.season_from || [0]).map(Number),
         rosters: (f.rosters || []).map((r) => (r || []).map(Number)),
+        /* what a season costs to be in, in SFOOT millionths, and the matchday after which an
+         * owner who has not paid loses the club; an older league has neither, which is no fee */
+        entryFee: Number(f.entry_fee || 0), entryDue: Number(f.entry_due || 0),
       };
     },
 
@@ -327,6 +360,10 @@
         played: Number(f.played), won: Number(f.won), drawn: Number(f.drawn), lost: Number(f.lost),
         gf: Number(f.goals_for), ga: Number(f.goals_against), points: Number(f.points),
         lastPos: Number(f.last_pos),
+        /* the season the fee was last paid for, and when the club was last taken: what it takes to
+         * say whether it is owed, and how long a newcomer has to pay */
+        paidFor: Number(f.paid_for || 0), takenIn: Number(f.taken_in || 0), takenWk: Number(f.taken_wk || 0),
+        tenure: Number(f.tenure || 0),
         squad,
       };
     },

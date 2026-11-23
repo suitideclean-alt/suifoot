@@ -37,7 +37,8 @@
       if (addr) {
         try { O.gas = await SF.Chain.gas(addr); } catch (_) { O.gas = null; }
         try { O.tickets = await SF.Chain.tickets(addr); } catch (_) { O.tickets = []; }
-      } else { O.gas = null; O.tickets = []; }
+        try { O.sfoot = await SF.Chain.sfoot(addr); } catch (_) { O.sfoot = { coins: [], total: 0 }; }
+      } else { O.gas = null; O.tickets = []; O.sfoot = { coins: [], total: 0 }; }
       O.state = 'ready';
     } catch (e) {
       O.error = e && e.message ? e.message : String(e);
@@ -358,7 +359,36 @@
       squad = `<div class="card"><p class="muted">${esc(t('on_pick'))}</p></div>`;
     }
 
-    return head + act + state + round + standings + people_cards + squad;
+    /* What it costs to be in the league, and who is behind. Only drawn where the league charges
+     * and there is a treasury to pay into; an older league has neither and shows nothing. */
+    let dues = '';
+    if (net.treasury && lg.entryFee) {
+      const fee = lg.entryFee / 1e6;
+      const have = (O.sfoot ? O.sfoot.total : 0) / 1e6;
+      const mine = addr ? clubs.filter((c) => c.owner === addr) : [];
+      const behind = clubs.filter((c) => { const o = SF.Chain.owes(lg, c); return o && o.late; });
+      dues = `<div class="card"><h4>${esc(t('on_entry'))}</h4>
+        <p class="muted small">${esc(t('on_entry_d')).replace('{fee}', fee).replace('{due}', lg.entryDue)}</p>
+        ${addr ? `<p class="muted small">${esc(t('on_sfoot_held'))}: ${have.toFixed(2)} SFOOT</p>` : ''}`;
+      for (const c of mine) {
+        const o = SF.Chain.owes(lg, c);
+        if (!o) { dues += `<p class="good">${esc(c.name)}: ${esc(t('on_entry_paid'))}</p>`; continue; }
+        const can = !O.busy && !stop && have >= o.fee / 1e6;
+        dues += `<p class="${o.late ? 'bad' : ''}">${esc(c.name)}: ${esc(t(o.late ? 'on_entry_late' : 'on_entry_owed')).replace('{by}', o.by)}</p>
+          <button data-act="on:pay:${esc(c.id)}:${o.fee}"${can ? '' : ' disabled'}>${esc(t('on_entry_pay')).replace('{fee}', o.fee / 1e6)}</button>
+          ${have < o.fee / 1e6 ? `<p class="muted small">${esc(t('on_entry_short'))}</p>` : ''}`;
+      }
+      if (addr && !stop) {
+        for (const c of behind) {
+          if (c.owner === addr) continue; // his own is his to settle; the button above is for that
+          dues += `<p class="muted small">${esc(c.name)} · ${esc(short(c.owner))}: ${esc(t('on_entry_late').replace('{by}', SF.Chain.owes(lg, c).by))}</p>
+            <button class="btn sm" data-act="on:reclaim:${esc(c.id)}"${O.busy ? ' disabled' : ''}>${esc(t('on_entry_reclaim'))}</button>`;
+        }
+      }
+      dues += '</div>';
+    }
+
+    return head + act + state + round + dues + standings + people_cards + squad;
   };
 
   /* Hand the whole app over to the chain's league, and take it back again.
@@ -548,6 +578,12 @@
     }
     if (action === 'on:grow') { O.run('grow', () => SF.Tx.openSeries(), redraw); return true; }
     if (action === 'on:round') { O.run('round', () => SF.Tx.drawWeek(), redraw); return true; }
+    if (action.startsWith('on:pay:')) {
+      const [, , club, fee] = action.split(':');
+      O.run('pay', () => SF.Tx.payEntry(club, +fee), redraw);
+      return true;
+    }
+    if (action.startsWith('on:reclaim:')) { O.run('reclaim', () => SF.Tx.reclaim(action.slice(11)), redraw); return true; }
     if (action === 'on:newseason') { O.run('newseason', () => SF.Tx.nextSeason(), redraw); return true; }
     return false;
   };
