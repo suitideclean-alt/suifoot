@@ -114,6 +114,17 @@ public fun minted(t: &Treasury): u64 { coin::total_supply(&t.cap) }
  * paid cannot.
  */
 
+/// Print coins, for the one module that is allowed to ask: the testnet faucet.
+///
+/// `public(package)`, so nothing outside this package can call it, and within it only `faucet`
+/// does. A coin with a faucet is a coin whose supply somebody controls, which is right for a
+/// rehearsal and wrong for anything worth money - so the way to a coin nobody can print is to
+/// delete `faucet.move` before publishing for real. With it gone, this has no caller, and a
+/// function nothing can reach prints nothing.
+public(package) fun mint(t: &mut Treasury, amount: u64, ctx: &mut TxContext): Coin<SFOOT> {
+    coin::mint(&mut t.cap, amount, ctx)
+}
+
 /// Wind the treasury down. Here so that a testnet deployment is not a one-way door.
 public fun close(t: &mut Treasury, ctx: &mut TxContext): Coin<SFOOT> {
     assert!(ctx.sender() == t.admin, ENotAdmin);

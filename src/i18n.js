@@ -624,6 +624,12 @@
     on_entry_owed: [`owed, pay before matchday {by}`, `dû, à payer avant la journée {by}`, `em dívida, paga antes da jornada {by}`, `fällig, vor Spieltag {by} zahlen`],
     on_entry_late: [`not paid - it can be taken back after matchday {by}`, `non payé - peut être repris après la journée {by}`, `não pago - pode ser retomado depois da jornada {by}`, `nicht bezahlt - nach Spieltag {by} kann er zurückgenommen werden`],
     on_entry_pay: [`Pay {fee} SFOOT`, `Payer {fee} SFOOT`, `Pagar {fee} SFOOT`, `{fee} SFOOT zahlen`],
+    on_faucet_sfoot: [`Get test SFOOT`, `Obtenir des SFOOT de test`, `Pedir SFOOT de teste`, `Test-SFOOT holen`],
+    on_faucet_sfoot_d: [
+      `Testnet only: a tap that gives each address one share, so there is something to pay the season with. It will not exist on the real league.`,
+      `Testnet uniquement : un robinet qui donne une part à chaque adresse, pour avoir de quoi payer la saison. Il n'existera pas dans la vraie ligue.`,
+      `Só na testnet: uma torneira que dá uma parte a cada endereço, para teres com que pagar a época. Não existirá na liga a sério.`,
+      `Nur Testnet: ein Hahn, der jeder Adresse einen Anteil gibt, damit man die Saison bezahlen kann. In der echten Liga wird es ihn nicht geben.`],
     on_entry_short: [`You do not hold enough SFOOT.`, `Vous n'avez pas assez de SFOOT.`, `Não tens SFOOT suficiente.`, `Du hast nicht genug SFOOT.`],
     on_entry_reclaim: [`Take the club back`, `Reprendre le club`, `Retomar o clube`, `Verein zurücknehmen`],
     on_next_season: [`Start the new season`, `Lancer la nouvelle saison`, `Começar a época nova`, `Neue Saison beginnen`],

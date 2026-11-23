@@ -32,6 +32,8 @@
     /* where entry fees go. Absent on a league made before there were fees, and then nothing here
      * offers to take one. */
     treasury: null,
+    /* the testnet tap for SFOOT; there is none on a league that is not a rehearsal */
+    faucet: null,
     /* A service that pays the network fee, if one has been set up. With none, a person pays their
      * own, as before. Turning one on also means letting the page talk to it: see docs/SPONSOR.md. */
     sponsor: null,

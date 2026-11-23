@@ -349,6 +349,20 @@
       return Tx.send(tx);
     },
 
+    /* Ask the testnet tap for SFOOT. Once an address; the contract keeps count. */
+    async claimFaucet() {
+      const { Transaction } = globalThis.SuiSDK;
+      const net = SF.Chain.net;
+      if (!net.faucet || !net.treasury) throw new Error('there is no faucet here');
+      const [faucet, treasury] = await SF.Chain.sharedRefs([net.faucet, net.treasury]);
+      const tx = new Transaction();
+      tx.moveCall({
+        target: `${net.pkg}::faucet::claim`,
+        arguments: [tx.sharedObjectRef(faucet), tx.sharedObjectRef(treasury)],
+      });
+      return Tx.send(tx);
+    },
+
     /* Take back a club whose owner has not paid. Anybody may; that is the point of it. */
     async reclaim(clubId) {
       const { Transaction } = globalThis.SuiSDK;

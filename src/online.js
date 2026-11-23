@@ -369,7 +369,9 @@
       const behind = clubs.filter((c) => { const o = SF.Chain.owes(lg, c); return o && o.late; });
       dues = `<div class="card"><h4>${esc(t('on_entry'))}</h4>
         <p class="muted small">${esc(t('on_entry_d')).replace('{fee}', fee).replace('{due}', lg.entryDue)}</p>
-        ${addr ? `<p class="muted small">${esc(t('on_sfoot_held'))}: ${have.toFixed(2)} SFOOT</p>` : ''}`;
+        ${addr ? `<p class="muted small">${esc(t('on_sfoot_held'))}: ${have.toFixed(2)} SFOOT</p>` : ''}
+        ${addr && !stop && net.faucet && have === 0 ? `<button class="btn sm" data-act="on:faucet"${O.busy ? ' disabled' : ''}>${esc(t('on_faucet_sfoot'))}</button>
+          <p class="muted small">${esc(t('on_faucet_sfoot_d'))}</p>` : ''}`;
       for (const c of mine) {
         const o = SF.Chain.owes(lg, c);
         if (!o) { dues += `<p class="good">${esc(c.name)}: ${esc(t('on_entry_paid'))}</p>`; continue; }
@@ -578,6 +580,7 @@
     }
     if (action === 'on:grow') { O.run('grow', () => SF.Tx.openSeries(), redraw); return true; }
     if (action === 'on:round') { O.run('round', () => SF.Tx.drawWeek(), redraw); return true; }
+    if (action === 'on:faucet') { O.run('faucet', () => SF.Tx.claimFaucet(), redraw); return true; }
     if (action.startsWith('on:pay:')) {
       const [, , club, fee] = action.split(':');
       O.run('pay', () => SF.Tx.payEntry(club, +fee), redraw);

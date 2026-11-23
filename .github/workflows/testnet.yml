@@ -102,6 +102,11 @@ jobs:
           TREASURY=$(jq -r '.objectChanges[] | select(.objectType != null and (.objectType | test("::sfoot::Treasury$"))) | .objectId' publish.json)
           echo "treasury: $TREASURY"
           echo "TREASURY=$TREASURY" >> "$GITHUB_ENV"
+          # the tap for testnet SFOOT: without it nobody can hold any, and an entry fee in a coin
+          # nobody can get would take every club back after matchday three
+          FAUCET=$(jq -r '.objectChanges[] | select(.objectType != null and (.objectType | test("::faucet::Faucet$"))) | .objectId' publish.json)
+          echo "faucet: $FAUCET"
+          echo "FAUCET=$FAUCET" >> "$GITHUB_ENV"
           echo "publish cost (MIST):"
           jq -r '.effects.gasUsed | "computation \(.computationCost)  storage \(.storageCost)  rebate \(.storageRebate)"' publish.json
 
@@ -129,6 +134,10 @@ jobs:
             --args "$LEAGUE" "${{ github.event.inputs.fee || 5000000 }}" "${{ github.event.inputs.due || 3 }}" \
             --gas-budget 50000000 --json > entry.json
           echo "entry fee set: $(jq -r '.effects.status.status' entry.json)"
+          # open the tap: 100 SFOOT to each address once, and 100000 in all
+          sui client call --package "$PKG" --module faucet --function open \
+            --args "$FAUCET" 100000000 100000000000 --gas-budget 50000000 --json > faucet.json
+          echo "faucet opened: $(jq -r '.effects.status.status' faucet.json)"
           echo "league cost (MIST):"
           jq -r '.effects.gasUsed | "computation \(.computationCost)  storage \(.storageCost)"' league.json
 
@@ -148,6 +157,7 @@ jobs:
           echo "PACKAGE $PKG"
           echo "LEAGUE  $LEAGUE"
           echo "TREASURY $TREASURY"
+          echo "FAUCET   $FAUCET"
           for C in $CLUB_IDS; do echo "CLUB    $C"; done
           echo "::endgroup::" 
 
