@@ -26,6 +26,18 @@
       const lg = world.league;
       const seed = (lg.seeds && lg.seeds.length ? lg.seeds[0] : 1) >>> 0;
 
+      /* The foot of the pyramid is as wide as the chain says it is. A league opens with one
+       * series there and opens another when the first is full, so the width is counted from the
+       * plantéis the chain holds rather than assumed to be one. Reading it as one would merge two
+       * series of eighteen into a single division of thirty-six: one table, the wrong fixtures,
+       * and a season of the wrong length. */
+      const foot = Math.max(0, lg.bottom || 0);
+      const shape = new Array(foot + 1).fill(1);
+      shape[foot] = Math.max(1, ((world.league && world.league.rosters) || []).length);
+      /* where each level's series begin in the flat list the game keeps them in */
+      const serStart = [];
+      for (let lvl = 0, n = 0; lvl < shape.length; lvl++) { serStart.push(n); n += shape[lvl]; }
+
       const G = {
         v: SF.VERSION, fmt: 2, mig: SF.Game.MIG, rules: CFG.rules,
         /* A league's history starts at its first season, and the seasons that followed are the
@@ -46,7 +58,7 @@
          * The level matters beyond where a club sits in a list: what a ticket may cost, what a
          * crowd is worth, what a prize pays are all read from it. Putting a foot-of-the-pyramid
          * club in the top division would have the game charging it top-division prices. */
-        shape: new Array(Math.max(1, (lg.bottom || 0) + 1)).fill(1),
+        shape,
       };
       SF.setG(G);
       SF.Bank.init(G);
@@ -56,7 +68,9 @@
         const col = SF.Chain.colours(c.num);
         const club = {
           id, num: c.num, chainId: c.id, name: c.name,
-          div: c.level, ser: c.level,
+          div: c.level,
+          /* A club's series is its own, not its level: two series stand at the same level. */
+          ser: (serStart[c.level] == null ? c.level : serStart[c.level]) + (c.series || 0),
           c1: col.c1, c2: col.c2,
           squad: [], fans: c.fans, cap: c.capacity, price: c.ticket,
           facility: { youth: 3, train: 3 }, build: null, lastRevenue: 0,
